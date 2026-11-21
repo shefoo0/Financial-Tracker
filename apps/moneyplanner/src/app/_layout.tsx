@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 
-import { Button, EmptyState, Screen } from '@/components/ui';
+import { Button, EmptyState, KeyboardDoneBar, Screen } from '@/components/ui';
 import { createRepository } from '@/data/create-repository';
 import { DataProvider } from '@/data/DataProvider';
 import type { Repository } from '@/data/repository';
@@ -49,6 +49,7 @@ export default function RootLayout() {
         </Screen>
       ) : repo ? (
         <DataProvider repo={repo}>
+          <KeyboardDoneBar />
           <Stack screenOptions={{ headerBackTitle: 'Back' }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />

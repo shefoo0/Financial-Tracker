@@ -5,6 +5,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, type ReactNode } from 'react';
 import {
+  InputAccessoryView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -177,6 +179,8 @@ export function TextField({
   testID?: string;
 }) {
   const c = useTheme();
+  // iPhone number pads have no Return key, so numeric fields get a "Done" bar.
+  const numericOnIOS = Platform.OS === 'ios' && (keyboardType === 'decimal-pad' || keyboardType === 'number-pad');
   return (
     <FieldShell label={label} error={error} hint={hint}>
       <TextInput
@@ -186,11 +190,40 @@ export function TextField({
         placeholderTextColor={c.textSecondary}
         multiline={multiline}
         keyboardType={keyboardType}
+        returnKeyType={multiline ? 'default' : 'done'}
+        inputAccessoryViewID={numericOnIOS ? KEYBOARD_DONE_ID : undefined}
         accessibilityLabel={label}
         testID={testID}
         style={[styles.input, { color: c.text, borderColor: error ? c.negative : c.border, backgroundColor: c.background }, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
       />
     </FieldShell>
+  );
+}
+
+const KEYBOARD_DONE_ID = 'keyboard-done-bar';
+
+/**
+ * The "Done" bar shown above iPhone number pads (see TextField). Render it once
+ * near the root of the app; it does nothing on Android and the web.
+ */
+export function KeyboardDoneBar() {
+  const c = useTheme();
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={KEYBOARD_DONE_ID}>
+      <View style={[styles.doneBar, { backgroundColor: c.backgroundElement, borderTopColor: c.border }]}>
+        <Pressable
+          onPress={() => Keyboard.dismiss()}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+          testID="keyboard-done"
+          style={styles.doneButton}>
+          <T variant="label" tone="accent">
+            Done
+          </T>
+        </Pressable>
+      </View>
+    </InputAccessoryView>
   );
 }
 
@@ -562,4 +595,6 @@ const styles = StyleSheet.create({
   rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
   stat: { flex: 1, minWidth: 120, gap: 2 },
+  doneBar: { flexDirection: 'row', justifyContent: 'flex-end', borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.two },
+  doneButton: { minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center' },
 });
