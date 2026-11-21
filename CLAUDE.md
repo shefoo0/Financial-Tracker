@@ -9,11 +9,16 @@ that builds Expo apps for the App Store and Google Play. See README.md.
 
 ## Repository layout
 
-- `agents/app-builder/` — Managed Agents resources synced with `ant apply`
-  (`agent.md` = config + system prompt, `environment.yaml`, `vault.yaml`).
+- `agents/app-builder/` — Managed Agents resources synced with `ant apply`:
+  `agent.md` is the App Lead (master/coordinator, roster in `multiagent`),
+  plus `environment.yaml` and `vault.yaml`. Sub-agents live in
+  `agents/{app-developer,code-reviewer,test-engineer,qc-inspector}/agent.md`
+  and are referenced by relative path (needs `ant` 1.40+). Sub-agents must
+  not have their own `multiagent` block (one level of delegation only).
   `claude-lock.json` (written by `ant apply`) holds their IDs; commit it.
 - `src/` — CLI that starts a session per app idea (`new-app.ts`), the
-  outcome/rubric (`outcome.ts`), arg parsing, lock-file lookup.
+  outcome/rubric (`outcome.ts`), event formatting (`events.ts`), arg
+  parsing, lock-file lookup.
 - `test/` — `node:test` unit tests, run through tsx.
 
 ## Commands

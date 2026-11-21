@@ -13,7 +13,7 @@ Options:
   --bundle-id <id>        Bundle ID / Android package, e.g. com.yourname.habits
   --monetization <text>   e.g. "free", "$2.99 paid", "freemium: $1.99/mo pro tier"
   --notes <text>          Anything else the agent should know
-  --budget <usd>          Hard spend cap for the session in USD (default 20)
+  --budget <usd>          Hard spend cap for the session in USD (default 40)
   --max-iterations <n>    Grader revision rounds, 1-20 (default 4)
   --out <dir>             Where to download deliverables (default ./output)
 `;
@@ -28,7 +28,7 @@ export function parseCli(argv: string[]): CliOptions {
       "bundle-id": { type: "string" },
       monetization: { type: "string" },
       notes: { type: "string" },
-      budget: { type: "string", default: "20" },
+      budget: { type: "string", default: "40" },
       "max-iterations": { type: "string", default: "4" },
       out: { type: "string", default: "output" },
       help: { type: "boolean", short: "h" },

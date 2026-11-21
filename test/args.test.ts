@@ -5,7 +5,7 @@ import { parseCli, usdToCents, UsageError } from "../src/args.ts";
 test("parses idea and defaults", () => {
   const o = parseCli(["Offline", "habit", "tracker"]);
   assert.equal(o.idea, "Offline habit tracker");
-  assert.equal(o.budgetUsd, 20);
+  assert.equal(o.budgetUsd, 40);
   assert.equal(o.maxIterations, 4);
   assert.equal(o.outDir, "output");
   assert.equal(o.bundleId, undefined);

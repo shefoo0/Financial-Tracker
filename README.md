@@ -1,14 +1,25 @@
 # App Factory
 
-A [Claude Managed Agent](https://platform.claude.com/docs/en/managed-agents/overview) that takes an app idea and turns it into a store-ready **Expo (React Native)** project for iOS and Android. For each idea it:
+A team of [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) that takes an app idea and turns it into a store-ready **Expo (React Native)** project for iOS and Android. A master agent plans the app and hands the work to sub-agents:
 
-1. checks the App Store and Google Play for competitors and writes a short spec with the gap this app fills;
-2. builds the app (TypeScript, Expo Router, offline-first, light and dark mode, accessible);
-3. runs the type checker, linter, `expo-doctor`, Jest tests and both platform bundle exports;
-4. writes the store listing (within each store's character limits), privacy policy and privacy answers, and makes the icons;
-5. queues EAS production builds (`.ipa` / `.aab`) if you've given it an Expo token.
+| Agent | Model | Job |
+| --- | --- | --- |
+| **App Lead** (master) | Claude Opus 5.5 | Researches competitors, writes the spec and task list, scaffolds the project, hands out tasks, checks the reports, writes the store listing, packages everything |
+| **App Developer** | Claude Sonnet 5.5 | Builds one feature or screen. Several run in parallel on separate files. |
+| **Code Reviewer** | Claude Sonnet 5.5 | Read-only review for bugs, gaps against the spec and store-rejection risks, with `file:line` evidence |
+| **Test Engineer** | Claude Sonnet 5.5 | Writes Jest tests and runs the type checker, linter, `expo-doctor`, tests and bundle exports. It doesn't touch app code. |
+| **QC Inspector** | Claude Sonnet 5.5 | Final pass or fail against the store guidelines, listing limits, privacy answers versus the code, and leftover placeholders |
 
-A separate grader checks every iteration against a rubric (`src/outcome.ts`). The agent keeps revising until the grader passes it or it runs out of iterations. **You submit to the stores yourself.** The agent never does.
+How one run goes:
+
+1. **Plan:** the Lead writes the spec.
+2. **Build:** Developers build the features in parallel.
+3. **Check:** the Reviewer and the Test Engineer check each feature. The Lead sends real findings back to a Developer, for up to three rounds.
+4. **Store material:** the Lead writes the listing and privacy policy.
+5. **QC:** the QC Inspector has to pass the app.
+6. **Package:** the Lead packages everything and queues EAS builds if you've given it an Expo token.
+
+All the agents share one sandbox and project folder. For apps with more than four features, the Lead starts a **workflow run** that builds and reviews every feature in parallel in the background. A separate grader then checks the finished result against a rubric (`src/outcome.ts`). **You submit to the stores yourself.** No agent does.
 
 ## About the stores
 
@@ -17,7 +28,7 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 ## Prerequisites
 
 - Node.js 20+
-- An Anthropic API account with Managed Agents access, plus the [`ant` CLI](https://github.com/anthropics/anthropic-cli/releases) 1.34+
+- An Anthropic API account with Managed Agents access, plus the [`ant` CLI](https://github.com/anthropics/anthropic-cli/releases) 1.40+ (needed because the master agent refers to its sub-agents by file path)
 - To publish: an Apple Developer Program membership ($99/year) and a Google Play developer account ($25 one-time)
 - For cloud builds: a free [Expo](https://expo.dev) account
 
@@ -27,12 +38,15 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 npm install
 ant auth login                                   # or export ANTHROPIC_API_KEY=...
 
-# Create the agent, its sandbox environment and a vault. Review the plan first:
+# Create the five agents, the sandbox environment and a vault. `agents/app-builder`
+# holds the App Lead; ant apply also creates the sub-agents it lists. Review the plan first:
 ant apply --dry-run -v agents/app-builder
 ant apply agents/app-builder                     # writes claude-lock.json: commit it
 ```
 
-To change the agent's instructions or tools, edit `agents/app-builder/agent.md` and run `ant apply agents/app-builder` again. Each change creates a new agent version.
+To change an agent's instructions or tools, edit its `agents/<name>/agent.md` and run `ant apply agents/app-builder` again. Each change creates a new agent version, and the App Lead is updated to point at it.
+
+Workflow runs are on. To turn them off, change `workflows:` in `agents/app-builder/agent.md` to `{type: disabled}` and re-apply. The Lead will then delegate only to individual sub-agents.
 
 ### Optional: EAS cloud builds
 
@@ -74,11 +88,11 @@ npm run new-app -- "Offline habit tracker for rotating shift workers" \
 | `--bundle-id` | `com.example.<slug>` (flagged in the report) | iOS bundle ID and Android package |
 | `--monetization` | the agent picks one and justifies it | free / paid / freemium (in-app purchases go through RevenueCat) |
 | `--notes` | | anything else the agent should know |
-| `--budget` | `20` | hard spend cap for the session in USD. The session pauses when it hits the cap. |
+| `--budget` | `40` | hard spend cap for the whole team in USD. The session pauses when it hits the cap. |
 | `--max-iterations` | `4` | grader revision rounds (1-20) |
 | `--out` | `output` | where to download deliverables |
 
-The script streams progress, shows each grader verdict and prints links to watch the session in the Console or attach with `ant beta:sessions connect <id>`. If the agent wants to run a command that the server's safety check flags as uncertain, you're asked to approve it. With no terminal attached, the answer is always no.
+The script streams progress, including each brief the Lead sends, each report it gets back, workflow runs and grader verdicts. It also prints links to watch the session in the Console or attach with `ant beta:sessions connect <id>`. If any agent wants to run a command that the server's safety check flags as uncertain, you're asked to approve it, with the agent's name. With no terminal attached, the answer is always no.
 
 When it finishes, the deliverables are in `output/<session-id>/`:
 
@@ -95,7 +109,7 @@ When it finishes, the deliverables are in `output/<session-id>/`:
 
 ## Costs and data
 
-You pay for model tokens (Claude Opus 5.5 at $4 / $20 per million input / output tokens), web searches ($10 per 1,000) and session runtime ($0.08 per hour). `--budget` caps the total for each session. Managed Agents is in beta, and sessions are kept until you delete them.
+You pay for model tokens (App Lead on Claude Opus 5.5 at $4 / $20 per million input / output tokens, sub-agents on Claude Sonnet 5.5 at $2 / $10), web searches ($10 per 1,000) and session runtime ($0.08 per hour). Every sub-agent and every agent in a workflow run uses tokens, so a team run costs more than a single agent would. `--budget` caps the total for all of them in one session. Managed Agents is in beta, and sessions are kept until you delete them.
 
 ## Development
 
@@ -106,8 +120,10 @@ npm test
 
 | Path | Purpose |
 | --- | --- |
-| `agents/app-builder/agent.md` | agent config (frontmatter) and system prompt (body), synced by `ant apply` |
+| `agents/app-builder/agent.md` | App Lead: config (frontmatter, including the sub-agent roster) and system prompt (body) |
+| `agents/{app-developer,code-reviewer,test-engineer,qc-inspector}/agent.md` | the sub-agents |
 | `agents/app-builder/environment.yaml` | sandbox networking |
 | `agents/app-builder/vault.yaml` | vault for `EXPO_TOKEN` (the credential is added separately) |
-| `src/new-app.ts` | starts a session, streams events, downloads outputs |
+| `src/new-app.ts` | starts a session, streams events, asks you about flagged tool calls, downloads outputs |
+| `src/events.ts` | formats the team's progress for the terminal |
 | `src/outcome.ts` | task description and grader rubric |

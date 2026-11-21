@@ -1,4 +1,4 @@
-// Builds the `user.define_outcome` event that starts an App Builder session.
+// Builds the `user.define_outcome` event that starts an App Lead session.
 // The rubric is what the independent grader checks each iteration against;
 // tune it as you learn what a good build looks like for you.
 
@@ -24,7 +24,7 @@ export function buildDescription(req: AppRequest): string {
 }
 
 // Starter rubric: concrete, independently checkable criteria.
-export const STARTER_RUBRIC = `# App Builder rubric (starter - tune the criteria)
+export const STARTER_RUBRIC = `# App Lead rubric (starter - tune the criteria)
 
 - /mnt/session/outputs/ contains <slug>.tar.gz, spec.md, REPORT.md, store/listing.md, store/privacy-policy.md and the icon PNGs.
 - spec.md names at least 3 real competing apps found in the stores and states the specific gap this app fills.
@@ -36,6 +36,8 @@ export const STARTER_RUBRIC = `# App Builder rubric (starter - tune the criteria
 - store/listing.md respects the character limits (App Store name/subtitle <=30, keywords <=100, Play short description <=80, full <=4000) and uses no competitor or third-party trademarks.
 - The privacy answers in store/listing.md and store/privacy-policy.md match the data the code actually collects and stores.
 - REPORT.md includes EAS build links or the reason there are none, every assumption made, and a "Before you submit" checklist.
+- REPORT.md records the final Code Reviewer verdict and lists any blocker or major findings still open, with the reason.
+- REPORT.md records a QC Inspector verdict of pass, or lists each remaining QC fail and why it couldn't be fixed.
 `;
 
 export function buildOutcomeEvent(req: AppRequest, maxIterations = 4) {

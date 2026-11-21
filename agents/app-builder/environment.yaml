@@ -1,4 +1,4 @@
-# Sandbox the App Builder agent runs in. Deny-by-default networking:
+# Sandbox the App Lead and its sub-agents share. Deny-by-default networking:
 # package registries (npm) plus the hosts listed below.
 name: app-builder-env
 config:

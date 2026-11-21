@@ -1,5 +1,6 @@
-// Starts one App Builder session for one app idea, streams its progress,
-// and downloads the deliverables when the grader is done.
+// Starts one session for one app idea: the App Lead plans and delegates to its
+// team (developers, reviewer, test engineer, QC). Streams progress and downloads
+// the deliverables when the grader is done.
 //
 //   npm run new-app -- "Offline habit tracker for shift workers" --bundle-id com.you.shifthabits
 
@@ -8,13 +9,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseCli, usdToCents, UsageError, USAGE, type CliOptions } from "./args.ts";
+import { formatEvent, ThreadNames, type StreamEvent } from "./events.ts";
 import { loadIds } from "./lock.ts";
 import { buildOutcomeEvent } from "./outcome.ts";
 import { safeRelativePath } from "./paths.ts";
 
-type StreamEvent = Anthropic.Beta.Sessions.BetaManagedAgentsStreamSessionEvents;
-
 const client = new Anthropic();
+const threads = new ThreadNames();
 
 async function main() {
   let opts: CliOptions;
@@ -104,39 +105,25 @@ async function consume(sessionId: string, event: StreamEvent, seen: Set<string>)
 }
 
 async function handle(sessionId: string, event: StreamEvent) {
-  switch (event.type) {
-    case "agent.message":
-      for (const block of event.content) if (block.type === "text") process.stdout.write(block.text);
-      process.stdout.write("\n");
-      break;
-    case "agent.tool_use":
-    case "agent.mcp_tool_use":
-      if (event.evaluated_permission === "ask") {
-        const allow = await confirm(`Allow ${event.name} ${JSON.stringify(event.input).slice(0, 300)}?`);
-        await client.beta.sessions.events.send(sessionId, {
-          events: [
-            {
-              type: "user.tool_confirmation",
-              tool_use_id: event.id,
-              result: allow ? "allow" : "deny",
-              ...(allow ? {} : { deny_message: "The developer declined this action. Find another way or note it in REPORT.md." }),
-            },
-          ],
-        });
-      } else {
-        process.stdout.write(`  · ${event.name}\n`);
-      }
-      break;
-    case "span.outcome_evaluation_start":
-      console.log(`\n=== Grading iteration ${event.iteration + 1} ===`);
-      break;
-    case "span.outcome_evaluation_end":
-      console.log(`=== Grader: ${event.result} ===\n${event.explanation}\n`);
-      break;
-    case "session.error":
-      console.error(`\n[session error] ${JSON.stringify(event.error)}`);
-      break;
+  threads.remember(event);
+  // Calls paused for approval, including ones cross-posted from sub-agent threads.
+  if ((event.type === "agent.tool_use" || event.type === "agent.mcp_tool_use") && event.evaluated_permission === "ask") {
+    const who = threads.nameOf(event.session_thread_id);
+    const allow = await confirm(`${who} wants to run ${event.name} ${JSON.stringify(event.input).slice(0, 300)}. Allow?`);
+    await client.beta.sessions.events.send(sessionId, {
+      events: [
+        {
+          type: "user.tool_confirmation",
+          tool_use_id: event.id,
+          result: allow ? "allow" : "deny",
+          ...(allow ? {} : { deny_message: "The developer declined this action. Find another way or note it in REPORT.md." }),
+        },
+      ],
+    });
+    return;
   }
+  const line = formatEvent(event, threads);
+  if (line) process.stdout.write(line);
 }
 
 // Asks the person at the terminal. With no terminal attached, nobody is
