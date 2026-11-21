@@ -134,8 +134,23 @@ The commands use these, and you can run them yourself too. All are free and run 
 | `node scripts/publish-pages.mjs [slug]` | Privacy and support pages into `docs/` for GitHub Pages |
 | `node scripts/bump-version.mjs apps/<slug> patch\|minor\|major\|build` | Version and build numbers |
 | `node scripts/app-status.mjs [--latest <sdk>]` | Every app's version, Expo SDK, last release and upgrade status |
+| `node scripts/store-lookup.mjs search "<term>" --country ae` / `reviews ios\|android <id> --max-stars 3` | Real ratings, rating counts, installs, prices and low-star reviews from both stores, for research |
 
 The screenshot and graphics scripts need one-time setup: `npm install`, then `npx playwright install chromium`.
+
+## Built-in safety and resilience
+
+- **Spending guard:** `.claude/hooks/guard-bash.mjs` runs before every shell command and blocks paid cloud builds, publishing, force-pushes, destructive deletes and anything that reads your signing keys or passwords. `.claude/settings.json` also denies reading those files. The agents can't spend money or see your secrets, even by mistake.
+- **Resuming:** `/new-app` and `/update-app` keep `apps/<slug>/PROGRESS.md`, and `/release-app` uses `RELEASES.md`. If a run stops at a usage limit, run the same command again (or type "continue") and it picks up where it stopped.
+- **Milestones:** for big apps (more than 6 features, or native code such as OCR), the Lead splits the work into milestones and waits for your OK on the spec first. Each milestone ends with a working, tested app.
+- **Agent memory:** the developer, test engineer and QC inspector write lessons from each app into `.claude/agent-memory/`. Commit it so every app benefits.
+- **Turn limits:** each sub-agent has a `maxTurns` cap, so one stuck agent can't use up your plan.
+- **End-to-end tests:** the test engineer writes [Maestro](https://maestro.dev) flows (free CLI) for each app's main journeys, and runs them when an emulator or phone is connected. Install it once with the instructions on maestro.dev.
+- **Current store rules (late 2026):**
+  - Google Play: target API 36, developer verification, and the closed test for personal accounts.
+  - Apple: Xcode 26, the privacy manifest, the new age ratings (4+, 9+, 13+, 16+, 18+), and accurate accessibility labels.
+
+  These are built into `/new-app`, the QC inspector and `/release-app`, and re-checked by `/maintain-apps`.
 
 ## Development
 

@@ -8,6 +8,16 @@ App Factory: a Claude Code team (the `/new-app` command as master, plus
 sub-agents) that builds Expo apps for the App Store and Google Play. See
 README.md.
 
+## Developer profile
+
+- Country: United Arab Emirates. Store research uses `--country ae`, plus `us`
+  for the global picture.
+- Default currency AED; English first (Arabic and right-to-left later).
+- Develops on a PC: Android builds locally with Android Studio; iOS builds need
+  a Mac (or are done later).
+- Personal Google Play account, so a 12-tester, 14-day closed test comes
+  before the first public release.
+
 ## Money: free only
 
 The developer pays for their Claude subscription and nothing else. Never add
@@ -33,15 +43,22 @@ publish.
   graphics, pages, signed builds, store consoles). Secrets never go in chat or
   the repo; signing keys live in `~/.app-signing/`.
 - `.claude/agents/` — sub-agents: `app-developer`, `code-reviewer`,
-  `test-engineer`, `qc-inspector`, `market-researcher`, `app-scout`. Sub-agents can't spawn other sub-agents;
-  only the main session delegates.
+  `test-engineer`, `qc-inspector`, `market-researcher`, `app-scout`. Their
+  `tools` lists leave out `Agent`, so only the main session delegates. They
+  have `maxTurns` limits; developer, tester and QC keep lessons in
+  `.claude/agent-memory/<name>/MEMORY.md` (commit these).
+- `.claude/settings.json` + `.claude/hooks/guard-bash.mjs` — a PreToolUse hook
+  that blocks paid cloud builds (EAS), force-pushes, destructive deletes and
+  reading signing keys/passwords; `permissions.deny` blocks reading them too.
+  Change the rules in the hook (and its tests), not by weakening the deny list.
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
-  `REPORT.md`).
+  `REPORT.md`, `PROGRESS.md` for resuming a run, `RELEASES.md`).
 - `scripts/` — free local tools: `check-listing.mjs` (listing limits),
   `screenshots.mjs` (store screenshots from the web build, via Playwright),
   `render-graphic.mjs` (HTML → exact-size PNG), `publish-pages.mjs` (privacy
   and support pages into `docs/` for GitHub Pages), `bump-version.mjs`,
-  `app-status.mjs` (SDK and release status of every app).
+  `app-status.mjs` (SDK and release status of every app), `store-lookup.mjs`
+  (real ratings, prices and low-star reviews from both stores, for research).
 - `ideas/` — research shortlists from `/find-ideas`.
 - `docs/` — generated GitHub Pages site; don't edit by hand.
 - `test/` — `node:test` tests for the scripts.
@@ -54,6 +71,7 @@ publish.
 | Build / typecheck | per app: `npx tsc --noEmit` in `apps/<slug>` |
 | Run tests | `npm test` (root scripts); per app: `npx jest --ci` |
 | Lint / format | per app: `npx expo lint` |
+| Store research data | `node scripts/store-lookup.mjs search "<term>" --country ae` |
 | Check a store listing | `node scripts/check-listing.mjs apps/<slug>/store/listing.md` |
 | Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
 | Change an app | `/update-app <slug> "<change>"` |

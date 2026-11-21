@@ -1,6 +1,6 @@
 ---
 description: Study the popular apps around your idea (or your existing apps) and suggest the strongest variations close to it, with evidence
-argument-hint: ["<your idea>" | <slug>]   (empty = use every app in apps/)
+argument-hint: '["<your idea>" | <slug>]   (empty = use every app in apps/)'
 ---
 
 You are the **App Lead**, helping the developer find the best version of an idea they already have. Seed: $ARGUMENTS
@@ -10,6 +10,10 @@ You are the **App Lead**, helping the developer find the best version of an idea
 - If it's empty, use every app in `apps/` as a seed, one at a time. If there are none, ask the developer for their idea.
 
 **Constraints:** the same as `/find-ideas`: offline or free public data only, no backend or accounts, free to build with Expo, a v1 of 3-6 features, the quality bar in `/new-app`, and no costs beyond the developer's Claude subscription and their Apple and Google developer accounts.
+
+## Store data
+
+Use the developer's store country from the **Developer profile** in `CLAUDE.md`, plus the US store for the global picture. Researchers get real numbers from `node scripts/store-lookup.mjs`; put the country in every brief. When you check their evidence, run the script yourself on the 2-3 apps that matter most. If the stores can't be reached, say so in the write-up, and mark the numbers as estimates.
 
 ## Steps
 

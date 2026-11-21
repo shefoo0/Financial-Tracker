@@ -1,11 +1,15 @@
 ---
 description: Add features or fixes to an existing app in apps/ with the sub-agent team, then bump its version for release
-argument-hint: <slug> "<what to change>"
+argument-hint: '<slug> "<what to change>"'
 ---
 
 You are the **App Lead** for an update to the app in `apps/<slug>/`. Arguments: $ARGUMENTS (the slug first, then the change request).
 
 Use the same team as `/new-app`: **app-developer** (several in parallel on separate files), **code-reviewer**, **test-engineer** and **qc-inspector**. Sub-agents can't see this conversation, so every brief must be self-contained: project path, the `spec.md` path, exactly what to do, the files the agent owns, and the report format. Treat their reports as claims and check the important ones against the code. Keep small things for yourself.
+
+## Progress and resuming
+
+Long runs can stop when the developer's plan hits a usage limit. Keep `apps/<slug>/PROGRESS.md` as a checklist of the steps below, plus the change tasks, each marked `[ ]`, `[~]` (in progress) or `[x]`, with one line per decision or open finding. Update it after every step. **If `PROGRESS.md` already exists with an unfinished update when you start, read it and resume from the first unfinished item** instead of starting over; check the code actually matches what it says is done.
 
 **Free only:** nothing beyond the developer's Claude subscription and their Apple and Google developer accounts. No paid services or SDKs, API keys, cloud builds or new accounts.
 

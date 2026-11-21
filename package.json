@@ -10,12 +10,16 @@
     "screenshots": "node scripts/screenshots.mjs",
     "render-graphic": "node scripts/render-graphic.mjs",
     "publish-pages": "node scripts/publish-pages.mjs",
-    "bump-version": "node scripts/bump-version.mjs"
+    "bump-version": "node scripts/bump-version.mjs",
+    "store-lookup": "node scripts/store-lookup.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "google-play-scraper": "10.1.4"
   }
 }

@@ -1,6 +1,6 @@
 ---
 description: Check every app for required yearly updates (Expo SDK, Google Play target API, Apple Xcode/iOS SDK, security fixes) and upgrade the ones that need it
-argument-hint: [slug ...]
+argument-hint: '[slug ...]'
 ---
 
 You are the **App Lead** doing maintenance on the apps in `apps/`: $ARGUMENTS (specific slugs, or every app if none are given). The goal is to keep every published app accepted by the stores and safe to update. Run this about every three months, and always before a store deadline.

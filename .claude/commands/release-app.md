@@ -1,11 +1,15 @@
 ---
 description: Walk through releasing an app from apps/ to Google Play and the App Store, step by step (free tools only)
-argument-hint: <slug> [android|ios|both]
+argument-hint: '<slug> [android|ios|both]'
 ---
 
 Release the app in `apps/<slug>/` to the stores. Arguments: $ARGUMENTS (the slug, then `android`, `ios` or `both`; default `both`).
 
 You do the steps that can be done on this computer, and you guide the developer through the ones they have to do themselves (signing, store websites, uploading). Go one step at a time. When a step needs the developer, say exactly what to do, then wait for them to say it's done before you go on. Keep a running log in `apps/<slug>/RELEASES.md` (create it if needed): version, build numbers, date, and each step's status.
+
+## Resuming
+
+`RELEASES.md` is also the checkpoint. If it shows a release in progress, resume from the first step not marked done, after checking that its outputs (screenshots, pages, build files) still exist.
 
 ## Rules
 
@@ -23,6 +27,11 @@ Read `apps/<slug>/spec.md`, `REPORT.md` and, if it exists, `RELEASES.md`. Then:
 - Have the **test-engineer** run every check again, and run `node scripts/check-listing.mjs apps/<slug>/store/listing.md`. Stop on failures.
 - Check `app.json`: `ios.bundleIdentifier` and `android.package` aren't `com.example.*` (both are permanent once uploaded, so ask the developer for their own if they are), `version` is set, `ios.buildNumber` and `android.versionCode` exist, and `ios.infoPlist.ITSAppUsesNonExemptEncryption` is `false` unless the app uses encryption beyond standard HTTPS.
 - If `RELEASES.md` shows an earlier upload of the same build numbers, run `node scripts/bump-version.mjs apps/<slug> build`.
+- **Store requirements today.** These change every year, so confirm them on developer.android.com and developer.apple.com, and record the current values in `RELEASES.md`. As of late 2026:
+  - Google Play: new apps and updates must target **Android 16 (API level 36)** or higher (from 31 August 2026).
+  - Apple: uploads must be built with **Xcode 26 or later** and an iOS 26 SDK (from 28 April 2026), with the **updated age-rating questionnaire** answered.
+  - Apple: an **`ios.privacyManifests`** entry is needed for required-reason APIs.
+  If the app's Expo SDK can't meet them, stop and suggest `/maintain-apps <slug>`.
 
 ### 2. Screenshots
 
@@ -78,13 +87,17 @@ Needs Android Studio, which includes the Android SDK and a JDK. Check with `java
    cd android && ./gradlew bundleRelease        # Windows: gradlew.bat bundleRelease
    ```
 
+   Check the target API level the build uses (`grep -rn "targetSdk" android/build.gradle android/app/build.gradle android/gradle.properties`) meets the Google Play requirement from step 1.
+
+   **Smoke test the release build** before uploading: if an emulator or phone is connected, run `./gradlew assembleRelease`, install `android/app/build/outputs/apk/release/app-release.apk` with `adb install -r`, open the app, and run the Maestro flows (`maestro test .maestro/`) if they exist. A crash on launch is the most common reason for rejection.
+
    The output is `android/app/build/outputs/bundle/release/app-release.aab`. Confirm it's signed with the upload key (`jarsigner -verify -verbose -certs <aab>` should name the upload certificate; it never needs the password). Copy it to `apps/<slug>/release/<version>-<versionCode>/` and make sure `release/`, `android/` and `ios/` are in the app's `.gitignore`.
 
 ### 6. iOS build (Mac only)
 
 If `uname` isn't `Darwin`, explain that iOS builds need a Mac with Xcode, and suggest these free options: build Android now, borrow or use any Mac later, keep testing on iPhone with Expo Go. Then skip to step 7. Expo's cloud build service has a free plan, but don't use it unless the developer asks for it.
 
-On a Mac, with the developer enrolled in the Apple Developer Program and signed in to Xcode (**Xcode → Settings → Accounts**) with that Apple ID:
+On a Mac, check `xcodebuild -version` meets Apple's minimum from step 1 (update Xcode from the Mac App Store if not; it's free). With the developer enrolled in the Apple Developer Program and signed in to Xcode (**Xcode → Settings → Accounts**) with that Apple ID:
 
 ```sh
 cd apps/<slug>
@@ -114,8 +127,9 @@ Guide the developer through play.google.com/console, giving them the exact text 
    - Data safety (from the listing's Data safety section, which must match the code)
    - the government, financial, health and news declarations, if they apply
 3. **Main store listing:** title, short description, full description, the 512 icon, the feature graphic, phone screenshots (and tablet screenshots, if you made them), category, and contact email.
-4. **Testing.** Personal developer accounts created after 13 November 2023 must run a **closed test** with at least 12 opted-in testers for 14 days in a row before they can apply for production access. Check the Console's dashboard for the current requirement. Create a closed testing track, upload the `.aab`, add testers by email list, and share the opt-in link with them. Record the start date in `RELEASES.md` and remind the developer when the 14 days are up.
-5. **Production:** create a release, upload the `.aab` (or promote the tested one), paste the release notes, choose countries, then send it for review.
+4. **Developer verification.** Google is rolling out Android developer verification in late 2026; check Play Console's verification page and finish anything it asks for.
+5. **Testing.** Personal developer accounts created after 13 November 2023 must run a **closed test** with at least 12 opted-in testers for 14 days in a row before they can apply for production access. Check the Console's dashboard for the current requirement. Create a closed testing track, upload the `.aab`, add testers by email list, and share the opt-in link with them. Testers must stay opted in for the 14 days in a row, and Google may check that they actually used the app, so ask for real testers (friends, family, colleagues) and give them something to try. Record the start date in `RELEASES.md` and remind the developer when the 14 days are up. (Organization accounts are exempt, but need a D-U-N-S number for a registered business.)
+6. **Production:** create a release, upload the `.aab` (or promote the tested one), paste the release notes, choose countries, then send it for review.
 
 ### 8. App Store Connect
 

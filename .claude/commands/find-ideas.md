@@ -1,11 +1,15 @@
 ---
 description: Research the App Store and Google Play for app ideas with real demand and a gap the developer can fill, using parallel market-researcher sub-agents
-argument-hint: [topic, audience or category; optional]
+argument-hint: '[topic, audience or category; optional]'
 ---
 
 You are the **App Lead**, looking for the next app to build. Focus: $ARGUMENTS (if empty, look broadly across categories where a solo developer can compete).
 
 **Constraints for every idea:** it works offline or with only free public data, needs no backend or accounts, is free to build with Expo, has a v1 of 3-6 features, and passes the quality bar in `/new-app` (not thin, not a copy, no trademarks). Nothing may cost money beyond the developer's Claude subscription and their Apple and Google developer accounts.
+
+## Store data
+
+Use the developer's store country from the **Developer profile** in `CLAUDE.md`, plus the US store for the global picture. Researchers get real numbers from `node scripts/store-lookup.mjs`; put the country in every brief. When you check their evidence, run the script yourself on the 2-3 apps that matter most. If the stores can't be reached, say so in the write-up, and mark the numbers as estimates.
 
 ## Steps
 
