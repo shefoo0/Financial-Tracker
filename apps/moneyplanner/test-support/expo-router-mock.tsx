@@ -21,6 +21,8 @@ export const useFocusEffect = (effect: () => void | (() => void)) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(effect, [effect]);
 };
+export const navigation = { addListener: jest.fn(() => () => undefined), dispatch: jest.fn() };
+export const useNavigation = () => navigation;
 export const Link = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 
 export function resetRouterMock() {

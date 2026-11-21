@@ -97,10 +97,11 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       return clone(recurringId === undefined ? overrides : overrides.filter((o) => o.recurringId === recurringId));
     },
     async upsertOverride(o) {
+      // Another row for the same occurrence is dropped; a row with the same id is replaced in place.
       overrides = overrides.filter(
-        (x) => x.id !== o.id && !(x.recurringId === o.recurringId && x.originalDate === o.originalDate),
+        (x) => x.id === o.id || !(x.recurringId === o.recurringId && x.originalDate === o.originalDate),
       );
-      overrides.push(clone(o));
+      upsertById(overrides, clone(o));
     },
     async deleteOverride(id) {
       overrides = overrides.filter((o) => o.id !== id);
