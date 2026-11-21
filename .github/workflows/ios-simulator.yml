@@ -167,9 +167,13 @@ jobs:
             sleep 8
             xcrun simctl io "$UDID" screenshot shots/launch.png
           fi
-          # Maestro saves takeScreenshot files relative to the flow, and its own
-          # failure screenshots under ~/.maestro/tests: collect every new PNG.
-          find "apps/$APP" "$HOME/.maestro/tests" -name '*.png' -newer app.tar.gz -exec cp {} shots/ \; 2>/dev/null || true
+          # Depending on the Maestro version, takeScreenshot files land next to the
+          # flow or in the working folder, and failure screenshots under
+          # ~/.maestro/tests: collect every PNG made during this job.
+          find . "$HOME/.maestro/tests" \( -path ./node_modules -o -path '*/node_modules' -o -path ./shots \) -prune \
+            -o -name '*.png' -newer app.tar.gz -print 2>/dev/null | while IFS= read -r f; do
+            cp "$f" "shots/$(echo "${f#./}" | tr '/' '_')"
+          done || true
           ls -la shots
 
       - uses: actions/upload-artifact@v4

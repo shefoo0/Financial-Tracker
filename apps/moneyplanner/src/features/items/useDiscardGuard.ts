@@ -1,26 +1,41 @@
 // Asks "Discard changes?" before leaving a form with unsaved edits. Built on
 // expo-router's usePreventRemove, which wraps React Navigation's beforeRemove event.
 import { router, usePreventRemove } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRef } from 'react';
 import { Alert } from 'react-native';
 
 /**
  * Returns `leave`: call it to close the form on purpose (after a save or a
- * delete). Turning the guard off is a state update, so going back right away
- * would still be blocked (and show "Discard changes?" after a save). `leave`
- * switches the guard off first and goes back once that has taken effect.
+ * delete). Switching the guard off with state is too late: the navigator only
+ * learns about it after a re-render, so going back right away (or from an
+ * effect) is still blocked — on iPhone the form simply stayed open after Save.
+ * Instead `leave` marks the exit as intended and goes back; the guard sees the
+ * mark and lets that navigation through with `repeat`. expo-router applies
+ * the "no longer prevented" state on its next render, so a navigation can be
+ * stopped once more right after; with the mark set, that just repeats again
+ * instead of asking the user a second time.
  */
 export function useDiscardGuard(dirty: boolean): () => void {
-  const [leaving, setLeaving] = useState(false);
-  usePreventRemove(dirty && !leaving, ({ repeat }) => {
+  const leaving = useRef(false);
+  usePreventRemove(dirty, ({ repeat }) => {
+    if (leaving.current) {
+      repeat();
+      return;
+    }
     Alert.alert('Discard changes?', 'You have changes that are not saved.', [
       { text: 'Keep editing', style: 'cancel' },
-      // `repeat` re-runs the blocked navigation (React Navigation's documented pattern).
-      { text: 'Discard', style: 'destructive', onPress: repeat },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: () => {
+          leaving.current = true;
+          repeat();
+        },
+      },
     ]);
   });
-  useEffect(() => {
-    if (leaving) router.back(); // runs after the guard was switched off (layout effects run first)
-  }, [leaving]);
-  return () => setLeaving(true);
+  return () => {
+    leaving.current = true;
+    router.back();
+  };
 }
