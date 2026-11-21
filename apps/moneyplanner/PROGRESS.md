@@ -12,7 +12,8 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Android test build: run 44936594995 passed (APK `moneyplanner-1.0.0-1-android`, signed with the upload key, target API check passed; first cold build 35 min)
   - [x] First real runs: the app installs and opens on the Android emulator and the iPhone simulator; "delete all data" passed on both; 3 flows failed on test-script issues (off-screen taps, iOS number pad couldn't be closed)
   - [x] Fixes: iOS "Done" bar above number pads (app), flows scroll and use a shared dismiss-keyboard subflow (tests)
-  - [~] Re-runs: android.yml run 44941101336, ios-simulator.yml run 44941103980
+  - [x] Re-runs 44941101336 (Android) and 44942614309 (iPhone): first launch and delete-all pass; flows 02/03 found a real bug (form stayed open after Save: "Discard changes?" guard), fixed in 624a390
+  - [~] Re-runs with the fix: android.yml run 44944552322, ios-simulator.yml run 44944555203
 - [ ] Milestone 2 — Debts, cheques, alerts, lock: T6 · T7 · T8 · T9 · review · tests · Android test build
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
