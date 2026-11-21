@@ -60,7 +60,7 @@ export default function TransactionScreen() {
 function TransactionEditor({ input, item, initialKind, initialDate }: { input: PlanInput; item: Transaction | null; initialKind: Kind; initialDate?: string }) {
   const [form, setForm] = useState<TransactionForm>(() => (item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
   const [initialForm] = useState(() => JSON.stringify(item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
-  const allowLeave = useDiscardGuard(JSON.stringify(form) !== initialForm);
+  const leave = useDiscardGuard(JSON.stringify(form) !== initialForm);
   // Until the user flips the switch, "planned" follows the date (future = planned).
   const [plannedTouched, setPlannedTouched] = useState(!!item);
   const [errors, setErrors] = useState<FormErrors<TransactionField>>({});
@@ -79,8 +79,7 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
     setSaving(true);
     try {
       await save(result.item);
-      allowLeave();
-      router.back();
+      leave();
     } catch {
       setSaving(false);
       Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
@@ -97,8 +96,7 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
         onPress: async () => {
           try {
             await remove(item.id);
-            allowLeave();
-      router.back();
+            leave();
           } catch {
             Alert.alert("Couldn't delete", 'Please try again.');
           }

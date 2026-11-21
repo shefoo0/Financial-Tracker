@@ -64,7 +64,7 @@ export default function RecurringScreen() {
 function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind }) {
   const [form, setForm] = useState<RecurringForm>(() => (item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
   const [initialForm] = useState(() => JSON.stringify(item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
-  const allowLeave = useDiscardGuard(JSON.stringify(form) !== initialForm);
+  const leave = useDiscardGuard(JSON.stringify(form) !== initialForm);
   const [errors, setErrors] = useState<FormErrors<RecurringField>>({});
   const [saving, setSaving] = useState(false);
   const save = useRepoMutation((r, i: RecurringItem) => r.upsertRecurring(i));
@@ -81,8 +81,7 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
       await save(next);
       // The item is saved first; payments changed one by one no longer match its dates, so they go.
       for (const o of resetOverrides) await removeOverride(o.id);
-      allowLeave();
-      router.back();
+      leave();
     } catch {
       setSaving(false);
       Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
@@ -116,8 +115,7 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         onPress: async () => {
           try {
             await remove(item.id);
-            allowLeave();
-            router.back();
+            leave();
           } catch {
             Alert.alert("Couldn't delete", 'Please try again.');
           }
