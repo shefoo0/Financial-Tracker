@@ -4,33 +4,41 @@ Guidance for Claude Code when working in this repository.
 
 ## Project status
 
-App Factory: a Claude Managed Agent (TypeScript runner, `@anthropic-ai/sdk`)
-that builds Expo apps for the App Store and Google Play. See README.md.
+App Factory: a Claude Code team (the `/new-app` command as master, plus
+sub-agents) that builds Expo apps for the App Store and Google Play. See
+README.md.
+
+## Money: free only
+
+The developer pays for their Claude subscription and nothing else. Never add
+the Anthropic API or SDK, an API key, a paid service or SDK, or anything that
+needs a payment method, and don't run cloud builds (`eas build` /
+`eas submit`). The only accepted costs are the Apple Developer Program and
+Google Play developer accounts, which the developer pays for themselves to
+publish.
 
 ## Repository layout
 
-- `agents/app-builder/` — Managed Agents resources synced with `ant apply`:
-  `agent.md` is the App Lead (master/coordinator, roster in `multiagent`),
-  plus `environment.yaml` and `vault.yaml`. Sub-agents live in
-  `agents/{app-developer,code-reviewer,test-engineer,qc-inspector}/agent.md`
-  and are referenced by relative path (needs `ant` 1.40+). Sub-agents must
-  not have their own `multiagent` block (one level of delegation only).
-  `claude-lock.json` (written by `ant apply`) holds their IDs; commit it.
-- `src/` — CLI that starts a session per app idea (`new-app.ts`), the
-  outcome/rubric (`outcome.ts`), event formatting (`events.ts`), arg
-  parsing, lock-file lookup.
-- `test/` — `node:test` unit tests, run through tsx.
+- `.claude/commands/new-app.md` — the App Lead (master): plans, delegates,
+  integrates, writes the store listing and report.
+- `.claude/agents/` — sub-agents: `app-developer`, `code-reviewer`,
+  `test-engineer`, `qc-inspector`. Sub-agents can't spawn other sub-agents;
+  only the main session delegates.
+- `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
+  `REPORT.md`).
+- `scripts/check-listing.mjs` — offline checker for store listing limits.
+- `test/` — `node:test` tests for the scripts.
 
 ## Commands
 
 | Task | Command |
 | --- | --- |
-| Install dependencies | `npm install` |
-| Build / typecheck | `npm run typecheck` |
-| Run tests | `npm test` |
-| Lint / format | _none configured_ |
-| Sync agent config | `ant apply --dry-run -v agents/app-builder`, then `ant apply agents/app-builder` |
-| Build an app | `npm run new-app -- "<idea>" [--bundle-id ...]` |
+| Install dependencies | none at the root (no dependencies); each app: `npm install` in `apps/<slug>` |
+| Build / typecheck | per app: `npx tsc --noEmit` in `apps/<slug>` |
+| Run tests | `npm test` (root scripts); per app: `npx jest --ci` |
+| Lint / format | per app: `npx expo lint` |
+| Check a store listing | `node scripts/check-listing.mjs apps/<slug>/store/listing.md` |
+| Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
 
 ## Conventions
 

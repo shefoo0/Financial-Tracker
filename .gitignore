@@ -1,4 +1,5 @@
 node_modules/
-output/
+.expo/
+dist/
 .env
 *.log

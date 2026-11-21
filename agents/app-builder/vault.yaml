@@ -1,4 +1,0 @@
-# Holds the EXPO_TOKEN credential. `ant apply` creates only the vault;
-# add the token separately (see README "Optional: EAS cloud builds").
-type: vault
-display_name: app-builder-secrets
