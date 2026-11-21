@@ -99,6 +99,13 @@ publish.
 | Ideas close to yours | `/similar-ideas ["<idea>" \| <slug>]` |
 | Maintenance (every ~3 months) | `/maintain-apps` |
 
+## Cloud sessions
+
+- The network blocks Expo's servers, so prefix Expo CLI commands with
+  `EXPO_OFFLINE=1` (e.g. `EXPO_OFFLINE=1 npx expo install <pkg>`); versions
+  then come from the installed SDK. npm works normally.
+- Start cloud sessions on the **Tester** environment (store research hosts).
+
 ## Conventions
 
 - Keep new code consistent with the surrounding style: match existing naming,
