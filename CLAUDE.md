@@ -22,18 +22,24 @@ publish.
 - `.claude/commands/new-app.md` — the App Lead (master): plans, delegates,
   integrates, writes the store listing and report.
 - `.claude/commands/update-app.md` — the App Lead for changes to an existing app.
+- `.claude/commands/find-ideas.md` — researches niches in parallel and writes
+  a ranked shortlist to `ideas/`.
+- `.claude/commands/maintain-apps.md` — yearly store requirements, SDK
+  upgrades and security fixes; logs to `MAINTENANCE.md`.
 - `.claude/commands/release-app.md` — step-by-step release guide (screenshots,
   graphics, pages, signed builds, store consoles). Secrets never go in chat or
   the repo; signing keys live in `~/.app-signing/`.
 - `.claude/agents/` — sub-agents: `app-developer`, `code-reviewer`,
-  `test-engineer`, `qc-inspector`. Sub-agents can't spawn other sub-agents;
+  `test-engineer`, `qc-inspector`, `market-researcher`. Sub-agents can't spawn other sub-agents;
   only the main session delegates.
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`).
 - `scripts/` — free local tools: `check-listing.mjs` (listing limits),
   `screenshots.mjs` (store screenshots from the web build, via Playwright),
   `render-graphic.mjs` (HTML → exact-size PNG), `publish-pages.mjs` (privacy
-  and support pages into `docs/` for GitHub Pages), `bump-version.mjs`.
+  and support pages into `docs/` for GitHub Pages), `bump-version.mjs`,
+  `app-status.mjs` (SDK and release status of every app).
+- `ideas/` — research shortlists from `/find-ideas`.
 - `docs/` — generated GitHub Pages site; don't edit by hand.
 - `test/` — `node:test` tests for the scripts.
 
@@ -49,6 +55,8 @@ publish.
 | Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
 | Change an app | `/update-app <slug> "<change>"` |
 | Release an app | `/release-app <slug> [android\|ios\|both]` |
+| Find app ideas | `/find-ideas [topic]` |
+| Maintenance (every ~3 months) | `/maintain-apps` |
 
 ## Conventions
 
