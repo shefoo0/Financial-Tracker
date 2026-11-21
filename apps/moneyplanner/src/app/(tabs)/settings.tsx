@@ -4,10 +4,13 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Linking, View } from 'react-native';
 
-import { Button, Card, EmptyState, ListRow, MoneyField, Screen, SectionHeader, SelectField, T, TextField, ToggleRow } from '@/components/ui';
+import { Avatar, Button, Card, EmptyState, ListRow, MoneyField, Screen, ScreenHeader, SectionHeader, SelectField, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
+import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { exportBackup, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
+import { ProfileButton } from '@/features/profiles/ProfileButton';
 import {
   PAYDAY_OPTIONS,
   choiceToPayday,
@@ -18,7 +21,6 @@ import {
   validateCurrency,
 } from '@/features/settings/helpers';
 import { PRIVACY_POLICY_URL } from '@/features/settings/links';
-import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { formatDate, today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import type { Fils, ModuleId, Settings } from '@/types';
@@ -28,6 +30,7 @@ const showError = (title: string, e: unknown) => Alert.alert(title, e instanceof
 export default function SettingsScreen() {
   const router = useRouter();
   const { repo, bump } = useData();
+  const { active } = useProfiles();
   const { data: settings, error, reload } = useRepoQuery((r) => r.getSettings());
   const update = useRepoMutation((r, patch: Partial<Settings>) => r.updateSettings(patch));
 
@@ -136,7 +139,7 @@ export default function SettingsScreen() {
     });
 
   const deleteAll = () => {
-    Alert.alert('Delete all data?', 'This removes every item, balance and setting from this phone.', [
+    Alert.alert(`Delete all data in ${active.name}?`, `This removes every item, balance and setting of the profile ${active.name} from this phone. Other profiles are not touched.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Continue',
@@ -169,7 +172,25 @@ export default function SettingsScreen() {
 
   return (
     <Screen testID="settings-screen">
-      <ScreenTitle>Settings</ScreenTitle>
+      <ScreenHeader title="Settings" right={<ProfileButton />} testID="settings-header" />
+
+      <SectionHeader title="Profile & appearance" />
+      <Card testID="settings-profile-card">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.three }}>
+          <Avatar name={active.name} color={active.color} />
+          <View style={{ flex: 1 }}>
+            <T variant="heading" numberOfLines={1}>
+              {active.name}
+            </T>
+            <T variant="caption" tone="secondary">
+              Everything below belongs to this profile.
+            </T>
+          </View>
+        </View>
+        <Button label="Manage profiles" variant="secondary" onPress={() => router.push('/profiles')} testID="settings-manage-profiles" />
+        <T variant="label">Appearance</T>
+        <AppearanceSetting testID="settings-appearance" />
+      </Card>
 
       <SectionHeader title="Money" />
       <Card>
@@ -240,8 +261,11 @@ export default function SettingsScreen() {
         <ListRow title="Categories" subtitle="Add, rename or remove" onPress={() => router.push('/categories')} testID="settings-categories" />
       </Card>
 
-      <SectionHeader title="Your data" />
+      <SectionHeader title={`Your data in ${active.name}`} />
       <Card>
+        <T variant="caption" tone="secondary" testID="settings-data-note">
+          {`Backup, restore, CSV export and delete apply to ${active.name} only, not to the other profiles.`}
+        </T>
         <Button label="Back up to a file" variant="secondary" disabled={busy} onPress={() => run('Backup failed', () => exportBackup(repo))} testID="settings-backup" />
         <Button label="Restore from a backup" variant="secondary" disabled={busy} onPress={restore} testID="settings-restore" />
         <Button
@@ -251,7 +275,7 @@ export default function SettingsScreen() {
           onPress={() => run('Export failed', () => exportTransactionsCsv(repo))}
           testID="settings-export-csv"
         />
-        <Button label="Delete all data" variant="destructive" disabled={busy} onPress={deleteAll} testID="settings-delete-all" />
+        <Button label={`Delete all data in ${active.name}`} variant="destructive" disabled={busy} onPress={deleteAll} testID="settings-delete-all" />
       </Card>
 
       <SectionHeader title="About" />

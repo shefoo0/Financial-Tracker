@@ -7,15 +7,7 @@ import { Button, Card, DateField, EmptyState, MoneyField, Screen, SectionHeader,
 import { Spacing } from '@/constants/theme';
 import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import { expandRecurring } from '@/engine';
-import {
-  categoryOptions,
-  emptyRecurringForm,
-  formFromRecurring,
-  validateRecurring,
-  type FormErrors,
-  type RecurringField,
-  type RecurringForm,
-} from '@/features/items/form';
+import { categoryOptions, emptyRecurringForm, formFromRecurring, validateRecurring, type FormErrors, type RecurringField, type RecurringForm } from '@/features/items/form';
 import { applyOverridePatch, scheduleChanged, type OverridePatch } from '@/features/items/overrides';
 import { useDiscardGuard } from '@/features/items/useDiscardGuard';
 import { describeSchedule, MONTH_NAMES, WEEKDAY_NAMES } from '@/features/items/schedule';
@@ -98,7 +90,11 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
     if (item && mine.length > 0 && scheduleChanged(item, next)) {
       Alert.alert('Reset changes to individual payments?', 'Changing the schedule resets changes you made to individual payments (skipped, moved, paid or changed amounts).', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Save and reset', style: 'destructive', onPress: () => persist(next, mine) },
+        {
+          text: 'Save and reset',
+          style: 'destructive',
+          onPress: () => persist(next, mine),
+        },
       ]);
       return;
     }
@@ -142,120 +138,180 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         }}
       />
       <Screen testID="recurring-screen">
-        <Segmented
-          label="Type"
-          value={form.kind}
-          onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
-          options={[
-            { value: 'income', label: 'Income' },
-            { value: 'cost', label: 'Cost' },
-          ]}
-          testID="recurring-kind"
-        />
-        <TextField label="Name" value={form.name} onChangeText={(t) => set('name', t)} placeholder={form.kind === 'income' ? 'e.g. Salary' : 'e.g. Rent'} error={errors.name} testID="recurring-name" />
-        <SelectField
-          label="Category"
-          value={form.categoryId ?? 'none'}
-          options={[{ value: 'none', label: 'No category' }, ...categories]}
-          onChange={(v) => set('categoryId', v === 'none' ? null : v)}
-          testID="recurring-category"
-        />
-        <MoneyField label="Amount" value={form.amount} onChange={(v) => set('amount', v)} currency={currency} error={errors.amount} hint={`Enter a positive number. The type above says whether it is income or a cost.`} testID="recurring-amount" />
+        <Card style={styles.group}>
+          <Segmented
+            label="Type"
+            value={form.kind}
+            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
+            options={[
+              { value: 'income', label: 'Income' },
+              { value: 'cost', label: 'Cost' },
+            ]}
+            testID="recurring-kind"
+          />
+          <MoneyField
+            label="Amount"
+            value={form.amount}
+            onChange={(v) => set('amount', v)}
+            currency={currency}
+            error={errors.amount}
+            hint={`Enter a positive number. The type above says whether it is income or a cost.`}
+            testID="recurring-amount"
+          />
+        </Card>
+
+        <Card style={styles.group}>
+          <TextField
+            label="Name"
+            value={form.name}
+            onChangeText={(t) => set('name', t)}
+            placeholder={form.kind === 'income' ? 'e.g. Salary' : 'e.g. Rent'}
+            error={errors.name}
+            testID="recurring-name"
+          />
+          <SelectField
+            label="Category"
+            value={form.categoryId ?? 'none'}
+            options={[{ value: 'none', label: 'No category' }, ...categories]}
+            onChange={(v) => set('categoryId', v === 'none' ? null : v)}
+            testID="recurring-category"
+          />
+        </Card>
 
         <SectionHeader title="Schedule" />
-        <Segmented
-          label="Repeats"
-          value={form.scheduleType}
-          onChange={(v) => set('scheduleType', v)}
-          options={[
-            { value: 'monthly', label: 'Monthly' },
-            { value: 'weekly', label: 'Weekly' },
-            { value: 'yearly', label: 'Yearly' },
-          ]}
-          testID="recurring-schedule"
-        />
-        {form.scheduleType === 'monthly' && (
-          <>
-            <Segmented
-              label="Day of the month"
-              value={form.monthlyMode}
-              onChange={(v) => set('monthlyMode', v)}
-              options={[
-                { value: 'day', label: 'On a day' },
-                { value: 'last', label: 'Last day' },
-              ]}
-              testID="recurring-monthly-mode"
-            />
-            {form.monthlyMode === 'day' && (
-              <TextField
-                label="Day of the month (1-31)"
-                value={form.day}
-                onChangeText={(t) => set('day', t)}
-                keyboardType="number-pad"
-                error={errors.day}
-                hint="In shorter months it happens on the last day."
-                testID="recurring-day"
+        <Card style={styles.group}>
+          <Segmented
+            label="Repeats"
+            value={form.scheduleType}
+            onChange={(v) => set('scheduleType', v)}
+            options={[
+              { value: 'monthly', label: 'Monthly' },
+              { value: 'weekly', label: 'Weekly' },
+              { value: 'yearly', label: 'Yearly' },
+            ]}
+            testID="recurring-schedule"
+          />
+          {form.scheduleType === 'monthly' && (
+            <>
+              <Segmented
+                label="Day of the month"
+                value={form.monthlyMode}
+                onChange={(v) => set('monthlyMode', v)}
+                options={[
+                  { value: 'day', label: 'On a day' },
+                  { value: 'last', label: 'Last day' },
+                ]}
+                testID="recurring-monthly-mode"
               />
-            )}
-            <TextField label="Every how many months (1-12)" value={form.everyMonths} onChangeText={(t) => set('everyMonths', t)} keyboardType="number-pad" error={errors.everyMonths} hint="1 = every month, 3 = every three months." testID="recurring-every-months" />
-          </>
-        )}
-        {form.scheduleType === 'weekly' && (
-          <>
-            <Segmented
-              label="Every how many weeks"
-              value={String(form.everyWeeks) as '1' | '2'}
-              onChange={(v) => set('everyWeeks', v === '2' ? 2 : 1)}
-              options={[
-                { value: '1', label: 'Every week' },
-                { value: '2', label: 'Every 2 weeks' },
-              ]}
-              testID="recurring-every-weeks"
-            />
-            <T variant="caption" tone="secondary">
-              Weekly items happen on the same weekday as the start date, which is a {weekdayName}. Change the start date to change the weekday.
-            </T>
-          </>
-        )}
-        {form.scheduleType === 'yearly' && (
-          <>
-            <SelectField
-              label="Month"
-              value={String(form.month)}
-              options={MONTH_NAMES.map((m, i) => ({ value: String(i + 1), label: m }))}
-              onChange={(v) => set('month', Number(v))}
-              testID="recurring-month"
-            />
-            <TextField label="Day of the month" value={form.day} onChangeText={(t) => set('day', t)} keyboardType="number-pad" error={errors.day} testID="recurring-day" />
-          </>
-        )}
+              {form.monthlyMode === 'day' && (
+                <TextField
+                  label="Day of the month (1-31)"
+                  value={form.day}
+                  onChangeText={(t) => set('day', t)}
+                  keyboardType="number-pad"
+                  error={errors.day}
+                  hint="In shorter months it happens on the last day."
+                  testID="recurring-day"
+                />
+              )}
+              <TextField
+                label="Every how many months (1-12)"
+                value={form.everyMonths}
+                onChangeText={(t) => set('everyMonths', t)}
+                keyboardType="number-pad"
+                error={errors.everyMonths}
+                hint="1 = every month, 3 = every three months."
+                testID="recurring-every-months"
+              />
+            </>
+          )}
+          {form.scheduleType === 'weekly' && (
+            <>
+              <Segmented
+                label="Every how many weeks"
+                value={String(form.everyWeeks) as '1' | '2'}
+                onChange={(v) => set('everyWeeks', v === '2' ? 2 : 1)}
+                options={[
+                  { value: '1', label: 'Every week' },
+                  { value: '2', label: 'Every 2 weeks' },
+                ]}
+                testID="recurring-every-weeks"
+              />
+              <T variant="caption" tone="secondary">
+                Weekly items happen on the same weekday as the start date, which is a {weekdayName}. Change the start date to change the weekday.
+              </T>
+            </>
+          )}
+          {form.scheduleType === 'yearly' && (
+            <>
+              <SelectField
+                label="Month"
+                value={String(form.month)}
+                options={MONTH_NAMES.map((m, i) => ({
+                  value: String(i + 1),
+                  label: m,
+                }))}
+                onChange={(v) => set('month', Number(v))}
+                testID="recurring-month"
+              />
+              <TextField label="Day of the month" value={form.day} onChangeText={(t) => set('day', t)} keyboardType="number-pad" error={errors.day} testID="recurring-day" />
+            </>
+          )}
 
-        <DateField label="Start date" value={form.startDate} onChange={(d) => set('startDate', d)} error={errors.startDate} hint="The first date it can happen on." testID="recurring-start-date" />
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <T variant="label">Ends</T>
-        </View>
-        <Segmented
-          label="Ends"
-          value={form.endMode}
-          onChange={(v) =>
-            setForm((f) => ({
-              ...f,
-              endMode: v,
-              // An end date only stays with a count when the saved item had both.
-              endDate: v === 'none' ? null : v === 'count' && item?.count == null ? null : f.endDate,
-            }))
-          }
-          options={[
-            { value: 'none', label: 'No end' },
-            { value: 'date', label: 'End date' },
-            { value: 'count', label: 'Payments' },
-          ]}
-          testID="recurring-end-mode"
-        />
-        {form.endMode === 'date' && <DateField label="End date" value={form.endDate} onChange={(d) => set('endDate', d)} error={errors.endDate} hint="The last date it can happen on." testID="recurring-end-date" />}
-        {form.endMode === 'count' && <TextField label="Number of payments" value={form.count} onChangeText={(t) => set('count', t)} keyboardType="number-pad" error={errors.count} testID="recurring-count" />}
+          <DateField
+            label="Start date"
+            value={form.startDate}
+            onChange={(d) => set('startDate', d)}
+            error={errors.startDate}
+            hint="The first date it can happen on."
+            testID="recurring-start-date"
+          />
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <T variant="label">Ends</T>
+          </View>
+          <Segmented
+            label="Ends"
+            value={form.endMode}
+            onChange={(v) =>
+              setForm((f) => ({
+                ...f,
+                endMode: v,
+                // An end date only stays with a count when the saved item had both.
+                endDate: v === 'none' ? null : v === 'count' && item?.count == null ? null : f.endDate,
+              }))
+            }
+            options={[
+              { value: 'none', label: 'No end' },
+              { value: 'date', label: 'End date' },
+              { value: 'count', label: 'Payments' },
+            ]}
+            testID="recurring-end-mode"
+          />
+          {form.endMode === 'date' && (
+            <DateField
+              label="End date"
+              value={form.endDate}
+              onChange={(d) => set('endDate', d)}
+              error={errors.endDate}
+              hint="The last date it can happen on."
+              testID="recurring-end-date"
+            />
+          )}
+          {form.endMode === 'count' && (
+            <TextField
+              label="Number of payments"
+              value={form.count}
+              onChangeText={(t) => set('count', t)}
+              keyboardType="number-pad"
+              error={errors.count}
+              testID="recurring-count"
+            />
+          )}
+        </Card>
 
-        <TextField label="Note (optional)" value={form.note} onChangeText={(t) => set('note', t)} multiline testID="recurring-note" />
+        <Card style={styles.group}>
+          <TextField label="Note (optional)" value={form.note} onChangeText={(t) => set('note', t)} multiline testID="recurring-note" />
+        </Card>
 
         <Button label={item ? 'Save changes' : `Add ${noun}`} onPress={onSave} disabled={saving} testID="recurring-save-bottom" />
         {item && <Button label="Delete" variant="destructive" onPress={onDelete} testID="recurring-delete" />}
@@ -279,7 +335,10 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
   const c = useTheme();
   const upsert = useRepoMutation((r, o: OccurrenceOverride) => r.upsertOverride(o));
   const del = useRepoMutation((r, id: string) => r.deleteOverride(id));
-  const [editing, setEditing] = useState<{ key: string; mode: 'amount' | 'date' } | null>(null);
+  const [editing, setEditing] = useState<{
+    key: string;
+    mode: 'amount' | 'date';
+  } | null>(null);
   const [draftAmount, setDraftAmount] = useState<Fils | null>(null);
   const [draftDate, setDraftDate] = useState<string | null>(null);
 
@@ -301,13 +360,29 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
         if (live >= 6) break;
         if (!skipped) live++;
       }
-      out.push({ originalDate: o.originalDate, date: o.date, amount: o.amount, paid: o.paid, skipped, override: ov });
+      out.push({
+        originalDate: o.originalDate,
+        date: o.date,
+        amount: o.amount,
+        paid: o.paid,
+        skipped,
+        override: ov,
+      });
     }
     return out;
   }, [item, overrides]);
 
   const apply = async (row: Row, patch: OverridePatch): Promise<boolean> => {
-    const action = applyOverridePatch(row.override, { recurringId: item.id, originalDate: row.originalDate, baseAmount: item.amount }, patch, newId);
+    const action = applyOverridePatch(
+      row.override,
+      {
+        recurringId: item.id,
+        originalDate: row.originalDate,
+        baseAmount: item.amount,
+      },
+      patch,
+      newId,
+    );
     try {
       if (action.type === 'upsert') await upsert(action.override);
       else if (action.type === 'delete') await del(action.id);
@@ -351,7 +426,13 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
                 </T>
               </View>
               {row.skipped ? (
-                <Button label="Undo skip" variant="secondary" onPress={() => apply(row, { skip: false })} testID={`occurrence-unskip-${i}`} accessibilityHint={`Restores the payment on ${formatDate(row.date)}`} />
+                <Button
+                  label="Undo skip"
+                  variant="secondary"
+                  onPress={() => apply(row, { skip: false })}
+                  testID={`occurrence-unskip-${i}`}
+                  accessibilityHint={`Restores the payment on ${formatDate(row.date)}`}
+                />
               ) : (
                 <View style={styles.actions}>
                   <SmallAction label="Skip" onPress={() => apply(row, { skip: true })} testID={`occurrence-skip-${i}`} />
@@ -421,7 +502,14 @@ function SmallAction({ label, onPress, testID }: { label: string; onPress: () =>
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}
-      style={({ pressed }) => [styles.small, { borderColor: c.border, backgroundColor: pressed ? c.backgroundSelected : 'transparent' }]}>
+      style={({ pressed }) => [
+        styles.small,
+        {
+          borderColor: c.border,
+          backgroundColor: pressed ? c.backgroundSelected : 'transparent',
+        },
+      ]}
+    >
       <T variant="label" tone="accent">
         {label}
       </T>
@@ -431,11 +519,33 @@ function SmallAction({ label, onPress, testID }: { label: string; onPress: () =>
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  headerButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  group: { gap: Spacing.three },
+  headerButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   upcoming: { gap: Spacing.two, marginTop: Spacing.three },
   occHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, alignItems: 'center' },
-  small: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
-  editBox: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.two, gap: Spacing.two },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    alignItems: 'center',
+  },
+  small: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBox: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.two,
+    gap: Spacing.two,
+  },
   struck: { textDecorationLine: 'line-through' },
 });

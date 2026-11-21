@@ -1,10 +1,10 @@
 // Categories: add, rename and remove. Removing one that is in use archives it.
 import { Stack } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Modal, Pressable, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, EmptyState, ListRow, Screen, SectionHeader, Segmented, T, TextField } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Button, Card, EmptyState, IconBadge, Screen, SectionHeader, Segmented, T, TextField } from '@/components/ui';
+import { Palette, Radius, Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { activeCategories, buildCategory, validateCategoryName } from '@/features/settings/helpers';
@@ -60,25 +60,21 @@ export default function Categories() {
   };
 
   const confirmRemove = (cat: Category) => {
-    Alert.alert(
-      `Remove "${cat.name}"?`,
-      'If items already use this category, it is hidden from new choices but old items keep their label. Otherwise it is deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await remove(cat.id);
-              setEditing(null);
-            } catch (e) {
-              Alert.alert('Could not remove', e instanceof Error ? e.message : String(e));
-            }
-          },
+    Alert.alert(`Remove "${cat.name}"?`, 'If items already use this category, it is hidden from new choices but old items keep their label. Otherwise it is deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await remove(cat.id);
+            setEditing(null);
+          } catch (e) {
+            Alert.alert('Could not remove', e instanceof Error ? e.message : String(e));
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const group = (title: string, k: Kind) => {
@@ -86,19 +82,51 @@ export default function Categories() {
     return (
       <View>
         <SectionHeader title={title} />
-        <Card>
+        <Card style={{ paddingVertical: Spacing.one }}>
           {list.length === 0 ? (
             <T tone="secondary">{`No ${title.toLowerCase()} categories yet.`}</T>
           ) : (
-            list.map((cat) => (
-              <ListRow
+            list.map((cat, n) => (
+              <Pressable
                 key={cat.id}
-                title={cat.name}
-                subtitle="Tap to rename or remove"
                 onPress={() => open({ mode: 'edit', category: cat })}
+                accessibilityRole="button"
                 accessibilityLabel={`${cat.name}, ${title} category. Tap to rename or remove`}
                 testID={`category-${cat.id}`}
-              />
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: Spacing.three,
+                    minHeight: 60,
+                    paddingVertical: Spacing.two,
+                  },
+                  n < list.length - 1 && {
+                    borderBottomColor: c.border,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                  },
+                  pressed && { backgroundColor: c.backgroundSelected },
+                ]}
+              >
+                <IconBadge
+                  glyph={k === 'income' ? '↓' : '↑'}
+                  color={
+                    Palette[
+                      Math.max(
+                        0,
+                        (all ?? []).findIndex((x) => x.id === cat.id),
+                      ) % Palette.length
+                    ]
+                  }
+                />
+                <View style={{ flex: 1 }}>
+                  <T numberOfLines={2}>{cat.name}</T>
+                  <T variant="caption" tone="secondary">
+                    Tap to rename or remove
+                  </T>
+                </View>
+                <T tone="secondary">›</T>
+              </Pressable>
             ))
           )}
         </Card>
@@ -122,9 +150,38 @@ export default function Categories() {
       )}
 
       <Modal visible={editing != null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: Spacing.three }}>
-          <Pressable style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} onPress={() => setEditing(null)} accessibilityLabel="Close" />
-          <View style={{ backgroundColor: c.background, borderRadius: 14, padding: Spacing.three, gap: Spacing.three, maxWidth: 480, width: '100%', alignSelf: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            justifyContent: 'center',
+            padding: Spacing.three,
+          }}
+        >
+          <Pressable
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+            }}
+            onPress={() => setEditing(null)}
+            accessibilityLabel="Close"
+          />
+          <View
+            style={{
+              backgroundColor: c.backgroundElement,
+              borderColor: c.glassBorder,
+              borderWidth: 1,
+              borderRadius: Radius.xl,
+              padding: Spacing.three,
+              gap: Spacing.three,
+              maxWidth: 480,
+              width: '100%',
+              alignSelf: 'center',
+            }}
+          >
             <ScreenTitle variant="heading">{editing?.mode === 'edit' ? 'Rename category' : 'New category'}</ScreenTitle>
             <TextField label="Name" value={name} onChangeText={setName} error={formError} testID="category-name" />
             {editing?.mode === 'add' && (
@@ -140,9 +197,7 @@ export default function Categories() {
               />
             )}
             <Button label="Save" onPress={submit} testID="category-save" />
-            {editing?.mode === 'edit' && (
-              <Button label="Remove category" variant="destructive" onPress={() => confirmRemove(editing.category)} testID="category-remove" />
-            )}
+            {editing?.mode === 'edit' && <Button label="Remove category" variant="destructive" onPress={() => confirmRemove(editing.category)} testID="category-remove" />}
             <Button label="Cancel" variant="plain" onPress={() => setEditing(null)} testID="category-cancel" />
           </View>
         </View>

@@ -1,14 +1,30 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
-import { BalanceChart, BarList, ChartLegend } from '@/components/charts';
-import { Button, Card, EmptyState, Screen, SectionHeader, Segmented, Stat, T } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { BalanceChart, BarList } from '@/components/charts';
+import {
+  Button,
+  Card,
+  EmptyState,
+  HeroCard,
+  IconBadge,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Segmented,
+  Stat,
+  StatTile,
+  T,
+} from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
+import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
-import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, moneyTone, shortDate } from '@/features/dashboard/helpers';
+import { ProfileButton } from '@/features/profiles/ProfileButton';
+import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, shortDate } from '@/features/dashboard/helpers';
 import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
+import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
 import { useToday } from '@/features/dashboard/useToday';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
@@ -22,9 +38,14 @@ export default function Dashboard() {
   return <DashboardBody input={data} />;
 }
 
+function greeting(hour: number): string {
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+}
+
 function DashboardBody({ input }: { input: PlanInput }) {
   const router = useRouter();
   const c = useTheme();
+  const { active } = useProfiles();
   const todayStr = useToday();
   const currentMonth = monthKey(todayStr);
   const [month, setMonth] = useState(currentMonth);
@@ -38,10 +59,16 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 12 }), [input, todayStr]);
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const ys = useMemo(() => yearSummary(year, input), [year, input]);
+  const upcoming = useMemo(() => buildUpcoming(input, todayStr), [input, todayStr]);
+
+  const header = (
+    <ScreenHeader title={active.name} subtitle={greeting(new Date().getHours())} right={<ProfileButton />} testID="dashboard-header" />
+  );
 
   if (empty) {
     return (
       <Screen testID="dashboard-screen">
+        {header}
         <EmptyState
           title="Welcome to Money Planner"
           message="Add your salary and your regular costs, and this screen shows how much is free each month and whether your balance will hold up."
@@ -76,62 +103,122 @@ function DashboardBody({ input }: { input: PlanInput }) {
     { label: 'Spent %', get: (i) => ys.months[i].spentPct, kind: 'pct' },
   ];
   const labelW = 150;
-    const colMin = 104;
+  const colMin = 104;
 
   return (
     <Screen testID="dashboard-screen">
-      <T variant="title" accessibilityLabel="Dashboard">
-        Dashboard
-      </T>
+      {header}
 
-      <Card testID="dashboard-forecast">
-        <SectionHeader title="Forecast: next 60 days" />
-        <T variant="caption" tone="secondary">
-          {balanceLabel(fc.asOf, todayStr)}: {money(fc.balanceAsOf)}
+      <HeroCard testID="dashboard-forecast">
+        <T variant="caption" tone="onHero" style={{ letterSpacing: 1, fontWeight: '700' }}>
+          {balanceLabel(fc.asOf, todayStr).toUpperCase()}
         </T>
+        <T
+          variant="title"
+          tone="onHero"
+          maxFontSizeMultiplier={1.4}
+          style={{ fontSize: 36, lineHeight: 44, fontVariant: ['tabular-nums'] }}
+          accessibilityLabel={`${balanceLabel(fc.asOf, todayStr)}: ${money(fc.balanceAsOf)}`}>
+          {money(fc.balanceAsOf)}
+        </T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
+          <View style={{ backgroundColor: Colors.dark.glass, borderRadius: Radius.pill, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one }}>
+            <T variant="caption" tone="onHero">
+              Lowest {money(fc.lowest.balance)} · {shortDate(fc.lowest.date)}
+            </T>
+          </View>
+          <View style={{ backgroundColor: Colors.dark.glass, borderRadius: Radius.pill, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one }}>
+            <T variant="caption" tone="onHero">
+              next 60 days
+            </T>
+          </View>
+        </View>
         <BalanceChart
+          variant="onHero"
           days={fc.days}
           buffer={buffer}
           lowestDate={fc.lowest.date}
           accessibilityLabel={describeBalanceTrend(fc.days, fc.lowest, currency, buffer)}
           testID="dashboard-balance-chart"
         />
-        <ChartLegend bufferLabel={`buffer ${money(buffer)}`} />
-        <T variant="label" tone={moneyTone(fc.lowest.balance)}>
-          Lowest: {money(fc.lowest.balance)} on {shortDate(fc.lowest.date)}
+        <T variant="caption" tone="onHero">
+          Dashed line: your {money(buffer)} buffer
         </T>
-        {showWarning && (
+      </HeroCard>
+
+      <View style={{ flexDirection: 'row', gap: Spacing.two }} testID="dashboard-month-tiles">
+        <StatTile label="Income" value={money(ms.totalIncome)} tone="positive" icon="↓" testID="dashboard-tile-income" />
+        <StatTile label="Spent" value={money(ms.totalSpend)} tone="negative" icon="↑" testID="dashboard-tile-spent" />
+        <StatTile label="Free" value={money(ms.freeMoney)} tone={ms.freeMoney < 0 ? 'negative' : 'accent'} icon="✦" testID="dashboard-tile-free" />
+      </View>
+
+      {showWarning && (
+        <Card>
           <View
             accessible
             accessibilityRole="alert"
             accessibilityLabel={`Warning. ${warnText}${firstNegative && fc.firstBelowBuffer ? `. Below zero on ${shortDate(firstNegative.date)}` : ''}`}
-            style={{ borderWidth: 1, borderColor: c.warning, borderRadius: 10, padding: Spacing.two, gap: 2 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two }}
             testID="dashboard-forecast-warning">
-            <T variant="label" tone="warning">
-              ⚠ {warnText}
-            </T>
-            {firstNegative && fc.firstBelowBuffer && (
-              <T variant="caption" tone="negative">
-                Below zero on {shortDate(firstNegative.date)}
+            <IconBadge glyph="⚠" color={c.warning} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <T variant="label" tone="warning">
+                ⚠ {warnText}
               </T>
-            )}
+              {firstNegative && fc.firstBelowBuffer && (
+                <T variant="caption" tone="negative">
+                  Below zero on {shortDate(firstNegative.date)}
+                </T>
+              )}
+            </View>
           </View>
+        </Card>
+      )}
+
+      <Card testID="dashboard-upcoming">
+        <SectionHeader
+          title="Coming up"
+          action={
+            <Pressable
+              onPress={() => router.push('/month')}
+              accessibilityRole="link"
+              accessibilityLabel="See all items this month"
+              testID="dashboard-see-all"
+              style={{ minHeight: 44, justifyContent: 'center' }}>
+              <T variant="label" tone="accent">
+                See all
+              </T>
+            </Pressable>
+          }
+        />
+        {upcoming.length === 0 ? (
+          <T tone="secondary">Nothing planned in the next 90 days.</T>
+        ) : (
+          upcoming.map((u, i) => (
+            <Pressable
+              key={u.key}
+              onPress={() => router.push(u.href as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`${u.title}, ${u.when}${u.progress ? `, ${u.progress}` : ''}, ${u.kind === 'income' ? 'income' : 'cost'} ${money(u.amount)}`}
+              testID={`dashboard-upcoming-${i}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 52, paddingVertical: Spacing.one }}>
+              <IconBadge glyph={categoryEmoji(u.categoryId, u.kind)} color={categoryColor(u.categoryId, input.categories)} />
+              <View style={{ flex: 1 }}>
+                <T variant="label" numberOfLines={1}>
+                  {u.title}
+                </T>
+                <T variant="caption" tone="secondary">
+                  {u.when}
+                  {u.progress ? ` · ${u.progress}` : ''}
+                </T>
+              </View>
+              <T variant="number" tone={u.kind === 'income' ? 'positive' : 'negative'}>
+                {u.kind === 'income' ? '+' : '-'}
+                {money(u.amount)}
+              </T>
+            </Pressable>
+          ))
         )}
-        <T variant="label" style={{ marginTop: Spacing.two }}>
-          End-of-month balance, next 12 months
-        </T>
-        {fc.months.map((m) => (
-          <View
-            key={m.month}
-            accessible
-            accessibilityLabel={`${formatMonth(m.month)}: ${money(m.endBalance)}`}
-            style={{ flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two, minHeight: 28 }}>
-            <T variant="caption">{formatMonth(m.month)}</T>
-            <T variant="caption" tone={m.endBalance < 0 ? 'negative' : m.endBalance < buffer ? 'warning' : 'default'} style={{ fontVariant: ['tabular-nums'] }}>
-              {money(m.endBalance)}
-            </T>
-          </View>
-        ))}
       </Card>
 
       <Card testID="dashboard-month-card">
@@ -153,6 +240,41 @@ function DashboardBody({ input }: { input: PlanInput }) {
           <Stat label="Free money" value={money(ms.freeMoney)} tone={ms.freeMoney < 0 ? 'negative' : 'positive'} testID="dashboard-free-money" />
           <Stat label="Spent % of income" value={ms.spentPct == null ? 'No income' : `${ms.spentPct.toFixed(1)}%`} />
         </View>
+      </Card>
+
+      <Card testID="dashboard-categories">
+        <SectionHeader title="Spending by category" />
+        <Segmented
+          label="Category period"
+          value={catScope}
+          onChange={setCatScope}
+          options={[
+            { value: 'month', label: formatMonth(month) },
+            { value: 'year', label: `Year ${year}` },
+          ]}
+          testID="dashboard-category-scope"
+        />
+        {bars.length === 0 ? (
+          <T tone="secondary">No spending recorded for this period.</T>
+        ) : (
+          <BarList items={bars} format={money} testID="dashboard-category-bars" />
+        )}
+      </Card>
+
+      <Card testID="dashboard-end-of-month">
+        <SectionHeader title="End-of-month balance, next 12 months" />
+        {fc.months.map((m) => (
+          <View
+            key={m.month}
+            accessible
+            accessibilityLabel={`${formatMonth(m.month)}: ${money(m.endBalance)}`}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two, minHeight: 28 }}>
+            <T variant="caption">{formatMonth(m.month)}</T>
+            <T variant="caption" tone={m.endBalance < 0 ? 'negative' : m.endBalance < buffer ? 'warning' : 'default'} style={{ fontVariant: ['tabular-nums'] }}>
+              {money(m.endBalance)}
+            </T>
+          </View>
+        ))}
       </Card>
 
       <Card testID="dashboard-year-card">
@@ -215,25 +337,6 @@ function DashboardBody({ input }: { input: PlanInput }) {
         <T variant="caption" tone="secondary">
           Amounts in {currency}. The current month is highlighted.
         </T>
-      </Card>
-
-      <Card testID="dashboard-categories">
-        <SectionHeader title="Spending by category" />
-        <Segmented
-          label="Category period"
-          value={catScope}
-          onChange={setCatScope}
-          options={[
-            { value: 'month', label: formatMonth(month) },
-            { value: 'year', label: `Year ${year}` },
-          ]}
-          testID="dashboard-category-scope"
-        />
-        {bars.length === 0 ? (
-          <T tone="secondary">No spending recorded for this period.</T>
-        ) : (
-          <BarList items={bars} format={money} testID="dashboard-category-bars" />
-        )}
       </Card>
     </Screen>
   );

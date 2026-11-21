@@ -1,4 +1,7 @@
-// Shared UI kit. Owned by the lead: ask for additions instead of editing.
+// Shared UI kit ("Bold cards + Glass fintech", 2026 redesign). Split into
+// text.tsx (T), internal.tsx (gradient and glass helpers) and surfaces.tsx
+// (AuroraBackground, Card, HeroCard, IconBadge, Avatar, StatTile, Pill);
+// everything is re-exported from here.
 // Every interactive element takes a `testID` (for Maestro) and has an
 // accessibility label. Tap targets are at least 44pt tall. Text scales with the
 // system font size.
@@ -16,80 +19,96 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
-  type StyleProp,
-  type TextStyle,
-  type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, isValidISODate, today } from '@/lib/dates';
 import { formatAmount, parseAmount } from '@/lib/money';
 import type { Fils, ISODate } from '@/types';
+import { Glass, GradientFill } from './internal';
+import { AuroraBackground } from './surfaces';
+import { T, textStyles, type Tone } from './text';
 
-type Tone = 'default' | 'secondary' | 'accent' | 'positive' | 'negative' | 'warning';
+export { T, type Tone } from './text';
+export { AuroraBackground, Avatar, Card, HeroCard, IconBadge, Pill, StatTile } from './surfaces';
 
-export function T({
-  children,
-  variant = 'body',
-  tone = 'default',
-  style,
-  ...rest
-}: {
-  children: ReactNode;
-  variant?: 'title' | 'heading' | 'body' | 'label' | 'caption' | 'number';
-  tone?: Tone;
-  style?: StyleProp<TextStyle>;
-  numberOfLines?: number;
-  accessibilityLabel?: string;
-  accessibilityRole?: 'header' | 'text' | 'alert';
-  maxFontSizeMultiplier?: number;
-  testID?: string;
-}) {
-  const c = useTheme();
-  const color = { default: c.text, secondary: c.textSecondary, accent: c.accent, positive: c.positive, negative: c.negative, warning: c.warning }[tone];
-  return (
-    <Text style={[textStyles[variant], { color }, style]} {...rest}>
-      {children}
-    </Text>
-  );
-}
-
-const textStyles = StyleSheet.create({
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  heading: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
-  body: { fontSize: 16, lineHeight: 22 },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  caption: { fontSize: 13, lineHeight: 18 },
-  number: { fontSize: 16, lineHeight: 22, fontVariant: ['tabular-nums'], fontWeight: '600' },
-});
-
-/** A full screen with safe-area padding, optional scrolling and a centred max width. */
+/** A full screen with the aurora behind it, safe-area padding, optional scrolling and a centred max width. */
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
-  const c = useTheme();
   // On the web the tab bar sits over the top of the page, so leave room for it.
   const inner = <View style={[styles.screenInner, Platform.OS === 'web' && styles.webTabsInset]}>{children}</View>;
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: c.background }]} edges={['top', 'left', 'right']} testID={testID}>
-      {scroll ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-          {inner}
-        </ScrollView>
-      ) : (
-        inner
-      )}
-    </SafeAreaView>
+    <View style={styles.screen}>
+      <AuroraBackground />
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']} testID={testID}>
+        {scroll ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+            {inner}
+          </ScrollView>
+        ) : (
+          inner
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
-export function Card({ children, style, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
-  const c = useTheme();
+/** Big title row: small subtitle above the title (e.g. "Good morning" / "Sam") and an optional right element. */
+export function ScreenHeader({ title, subtitle, right, testID }: { title: string; subtitle?: string; right?: ReactNode; testID?: string }) {
   return (
-    <View style={[styles.card, { backgroundColor: c.backgroundElement, borderColor: c.border }, style]} testID={testID}>
-      {children}
+    <View style={styles.screenHeader} testID={testID}>
+      <View style={{ flex: 1 }}>
+        {subtitle ? (
+          <T variant="label" tone="secondary" numberOfLines={1}>
+            {subtitle}
+          </T>
+        ) : null}
+        <T variant="title" accessibilityRole="header" numberOfLines={2}>
+          {title}
+        </T>
+      </View>
+      {right}
     </View>
+  );
+}
+
+/** Bottom sheet: dimmed backdrop (tap to close), grab handle, scrollable content. */
+export function Sheet({
+  visible,
+  onClose,
+  title,
+  children,
+  testID,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+  testID?: string;
+}) {
+  const c = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalContainer} accessibilityViewIsModal>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View
+          testID={testID}
+          style={[styles.sheet, { backgroundColor: c.backgroundElement, borderColor: c.glassBorder, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
+          <View style={[styles.handle, { backgroundColor: c.textSecondary }]} />
+          {title ? (
+            <T variant="heading" accessibilityRole="header" style={{ marginBottom: Spacing.two }}>
+              {title}
+            </T>
+          ) : null}
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -118,8 +137,8 @@ export function Button({
   accessibilityHint?: string;
 }) {
   const c = useTheme();
-  const bg = { primary: c.accent, secondary: c.backgroundElement, destructive: c.negative, plain: 'transparent' }[variant];
-  const fg = { primary: c.onAccent, secondary: c.text, destructive: c.onNegative, plain: c.accent }[variant];
+  const bg = { primary: 'transparent', secondary: c.glass, destructive: c.negative, plain: 'transparent' }[variant];
+  const fg = { primary: '#FFFFFF', secondary: c.text, destructive: c.onNegative, plain: c.accent }[variant];
   return (
     <Pressable
       onPress={onPress}
@@ -132,9 +151,10 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.8 : 1 },
-        variant === 'secondary' && { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
+        variant === 'secondary' && { borderWidth: 1, borderColor: c.border },
       ]}>
-      <Text style={[textStyles.label, { color: fg }]}>{label}</Text>
+      {variant === 'primary' && <GradientFill colors={c.hero} />}
+      <Text style={[textStyles.label, variant === 'primary' && { fontWeight: '800' }, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -179,6 +199,7 @@ export function TextField({
   testID?: string;
 }) {
   const c = useTheme();
+  const [focused, setFocused] = useState(false);
   // iPhone number pads have no Return key, so numeric fields get a "Done" bar.
   const numericOnIOS = Platform.OS === 'ios' && (keyboardType === 'decimal-pad' || keyboardType === 'number-pad');
   return (
@@ -194,7 +215,9 @@ export function TextField({
         inputAccessoryViewID={numericOnIOS ? KEYBOARD_DONE_ID : undefined}
         accessibilityLabel={label}
         testID={testID}
-        style={[styles.input, { color: c.text, borderColor: error ? c.negative : c.border, backgroundColor: c.background }, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[styles.input, { color: c.text, borderColor: error ? c.negative : focused ? c.accent : c.border, backgroundColor: c.backgroundElement }, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
       />
     </FieldShell>
   );
@@ -316,7 +339,7 @@ export function DateField({
         accessibilityLabel={`${label}: ${value ? formatDate(value) : 'not set'}`}
         accessibilityHint="Opens a date picker"
         testID={testID}
-        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.background }]}>
+        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.backgroundElement }]}>
         <T>{value ? formatDate(value) : 'Choose a date'}</T>
       </Pressable>
       {open && Platform.OS === 'android' && (
@@ -330,26 +353,18 @@ export function DateField({
         />
       )}
       {Platform.OS === 'ios' && (
-        <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-          <View style={styles.modalContainer} accessibilityViewIsModal>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" />
-            <SafeAreaView edges={['bottom']} style={[styles.modalSheet, { backgroundColor: c.background, borderColor: c.border }]}>
-              <View style={styles.sectionHeader}>
-                <T variant="heading">{label}</T>
-                <Button label="Done" variant="plain" onPress={() => setOpen(false)} testID={testID ? `${testID}-done` : undefined} />
-              </View>
-              <DateTimePicker
-                value={pickerValue}
-                mode="date"
-                display="inline"
-                themeVariant={scheme === 'dark' ? 'dark' : 'light'}
-                onChange={(_event, date) => {
-                  if (date) onChange(today(date));
-                }}
-              />
-            </SafeAreaView>
-          </View>
-        </Modal>
+        <Sheet visible={open} onClose={() => setOpen(false)} title={label} testID={testID ? `${testID}-sheet` : undefined}>
+          <DateTimePicker
+            value={pickerValue}
+            mode="date"
+            display="inline"
+            themeVariant={scheme}
+            onChange={(_event, date) => {
+              if (date) onChange(today(date));
+            }}
+          />
+          <Button label="Done" onPress={() => setOpen(false)} testID={testID ? `${testID}-done` : undefined} />
+        </Sheet>
       )}
     </FieldShell>
   );
@@ -388,35 +403,27 @@ export function SelectField<V extends string>({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selected?.label ?? 'not chosen'}`}
         testID={testID}
-        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.background }]}>
+        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.backgroundElement }]}>
         <T tone={selected ? 'default' : 'secondary'}>{selected?.label ?? placeholder}</T>
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.modalContainer} accessibilityViewIsModal>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" />
-          <SafeAreaView edges={['bottom']} style={[styles.modalSheet, { backgroundColor: c.background, borderColor: c.border }]}>
-            <T variant="heading" style={{ marginBottom: Spacing.two }}>
-              {label}
-            </T>
-            <ScrollView>
-              {options.map((o) => (
-                <Pressable
-                  key={o.value}
-                  onPress={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: o.value === value }}
-                  testID={testID ? `${testID}-option-${o.value}` : undefined}
-                  style={[styles.option, o.value === value && { backgroundColor: c.backgroundSelected }]}>
-                  <T>{o.label}</T>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </SafeAreaView>
-        </View>
-      </Modal>
+      <Sheet visible={open} onClose={() => setOpen(false)} title={label}>
+        {options.map((o) => (
+          <Pressable
+            key={o.value}
+            onPress={() => {
+              onChange(o.value);
+              setOpen(false);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={o.label}
+            accessibilityState={{ selected: o.value === value }}
+            testID={testID ? `${testID}-option-${o.value}` : undefined}
+            style={[styles.option, o.value === value && { backgroundColor: c.backgroundSelected }]}>
+            <T style={o.value === value ? { fontWeight: '700' } : undefined}>{o.label}</T>
+            {o.value === value ? <T tone="accent" accessibilityLabel="Selected">✓</T> : null}
+          </Pressable>
+        ))}
+      </Sheet>
     </FieldShell>
   );
 }
@@ -437,7 +444,7 @@ export function Segmented<V extends string>({
 }) {
   const c = useTheme();
   return (
-    <View style={[styles.segmented, { backgroundColor: c.backgroundElement, borderColor: c.border }]} accessibilityRole="radiogroup" accessibilityLabel={label}>
+    <Glass radius={Radius.md} style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -448,14 +455,15 @@ export function Segmented<V extends string>({
             accessibilityState={{ checked: active }}
             accessibilityLabel={o.label}
             testID={testID ? `${testID}-${o.value}` : undefined}
-            style={[styles.segment, active && { backgroundColor: c.accent }]}>
-            <T variant="label" style={{ color: active ? c.onAccent : c.text }}>
+            style={styles.segment}>
+            {active && <GradientFill colors={c.hero} />}
+            <T variant="label" tone={active ? 'onHero' : 'default'} style={active ? { fontWeight: '800' } : undefined}>
               {o.label}
             </T>
           </Pressable>
         );
       })}
-    </View>
+    </Glass>
   );
 }
 
@@ -489,6 +497,7 @@ export function ToggleRow({
         accessibilityLabel={label}
         testID={testID}
         trackColor={{ true: c.accent, false: c.border }}
+        thumbColor="#FFFFFF"
       />
     </View>
   );
@@ -549,7 +558,7 @@ export function ListRow({
 
 export function EmptyState({ title, message, action }: { title: string; message: string; action?: ReactNode }) {
   return (
-    <View style={styles.empty}>
+    <Glass style={styles.empty}>
       <T variant="heading" style={{ textAlign: 'center' }}>
         {title}
       </T>
@@ -557,7 +566,7 @@ export function EmptyState({ title, message, action }: { title: string; message:
         {message}
       </T>
       {action}
-    </View>
+    </Glass>
   );
 }
 
@@ -580,20 +589,21 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingBottom: Spacing.six },
   screenInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.three },
   webTabsInset: { paddingTop: 72 },
-  card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: Spacing.three, gap: Spacing.two },
+  screenHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.two },
-  button: { minHeight: 48, borderRadius: 12, paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 50, borderRadius: 16, overflow: 'hidden', paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
   field: { gap: Spacing.one },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },
+  input: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },
   pressableInput: { justifyContent: 'center' },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { maxHeight: '70%', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: Spacing.three },
-  option: { minHeight: 48, justifyContent: 'center', paddingHorizontal: Spacing.two, borderRadius: 8 },
-  segmented: { flexDirection: 'row', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 3, gap: 3 },
-  segment: { flex: 1, minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(3,4,12,0.55)', justifyContent: 'flex-end' },
+  sheet: { maxHeight: '80%', width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
+  handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, opacity: 0.5, marginBottom: Spacing.three },
+  option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.three, borderRadius: 14 },
+  segmented: { flexDirection: 'row', padding: 4, gap: 4 },
+  segment: { flex: 1, minHeight: 44, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 52, paddingVertical: Spacing.two },
   rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth },
-  empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
+  empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five, paddingHorizontal: Spacing.three },
   stat: { flex: 1, minWidth: 120, gap: 2 },
   doneBar: { flexDirection: 'row', justifyContent: 'flex-end', borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.two },
   doneButton: { minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center' },

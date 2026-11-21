@@ -3,9 +3,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, View } from 'react-native';
 
-import { Button, Card, MoneyField, Screen, SelectField, T, ToggleRow } from '@/components/ui';
+import { Button, Card, HeroCard, MoneyField, Screen, SelectField, T, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/data/DataProvider';
+import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { defaultSettings } from '@/data/defaults';
 import {
   PAYDAY_OPTIONS,
@@ -27,7 +29,11 @@ const initial = defaultSettings();
 
 export default function Onboarding() {
   const router = useRouter();
+  const c = useTheme();
   const { repo, bump } = useData();
+  const { active, profiles } = useProfiles();
+  // The first profile is "Me"; later ones say whose setup this is.
+  const isFirstProfile = profiles[0]?.id === active.id;
   const currency = initial.currency;
 
   const moduleChoices = moduleList();
@@ -124,11 +130,23 @@ export default function Onboarding() {
       <T variant="caption" tone="secondary" accessibilityLabel={`Step ${index + 1} of ${STEPS}`} testID="onboarding-step">
         {`Step ${index + 1} of ${STEPS}`}
       </T>
+      <View style={{ flexDirection: 'row', gap: Spacing.one }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {steps.map((s, i) => (
+          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= index ? c.accent : c.border }} />
+        ))}
+      </View>
 
       {step === 'welcome' && (
         <View style={{ gap: Spacing.three }}>
-          <ScreenTitle>Welcome</ScreenTitle>
-          <T>See where your money goes and what is left each month. Add your income and bills once, and the app shows what is coming.</T>
+          <HeroCard testID="onboarding-hero">
+            <ScreenTitle>Welcome</ScreenTitle>
+            {!isFirstProfile && (
+              <T variant="label" testID="onboarding-profile-name">
+                {`Setting up ${active.name}`}
+              </T>
+            )}
+            <T>See where your money goes and what is left each month. Add your income and bills once, and the app shows what is coming.</T>
+          </HeroCard>
           <Card>
             <T variant="label">Your data stays on this phone. No account, no bank login.</T>
           </Card>
@@ -142,15 +160,17 @@ export default function Onboarding() {
         <View style={{ gap: Spacing.three }}>
           <ScreenTitle>Your salary</ScreenTitle>
           <T tone="secondary">We will add it as a monthly income so your plan starts with it. You can skip this and add it later.</T>
-          <MoneyField label="Monthly salary" value={salary} onChange={setSalary} currency={currency} testID="onboarding-salary" />
-          <SelectField
-            label="Payday"
-            value={paydayChoice}
-            options={PAYDAY_OPTIONS}
-            onChange={setPaydayChoice}
-            error={error}
-            testID="onboarding-payday"
-          />
+          <Card>
+            <MoneyField label="Monthly salary" value={salary} onChange={setSalary} currency={currency} testID="onboarding-salary" />
+            <SelectField
+              label="Payday"
+              value={paydayChoice}
+              options={PAYDAY_OPTIONS}
+              onChange={setPaydayChoice}
+              error={error}
+              testID="onboarding-payday"
+            />
+          </Card>
         </View>
       )}
 
@@ -158,18 +178,20 @@ export default function Onboarding() {
         <View style={{ gap: Spacing.three }}>
           <ScreenTitle>Your balance today</ScreenTitle>
           <T tone="secondary">The forecast starts from what is in your bank account now.</T>
-          <MoneyField label="Bank balance today" value={balance} onChange={setBalance} currency={currency} testID="onboarding-balance" />
           <Card>
+            <MoneyField label="Bank balance today" value={balance} onChange={setBalance} currency={currency} testID="onboarding-balance" />
             <ToggleRow label="My account is overdrawn" value={overdrawn} onChange={setOverdrawn} testID="onboarding-overdrawn" />
           </Card>
-          <MoneyField
-            label="Buffer"
-            value={buffer}
-            onChange={setBuffer}
-            currency={currency}
-            hint="The least you want to keep in your account. You get a warning if the forecast goes below it."
-            testID="onboarding-buffer"
-          />
+          <Card>
+            <MoneyField
+              label="Buffer"
+              value={buffer}
+              onChange={setBuffer}
+              currency={currency}
+              hint="The least you want to keep in your account. You get a warning if the forecast goes below it."
+              testID="onboarding-buffer"
+            />
+          </Card>
         </View>
       )}
 

@@ -131,11 +131,14 @@ function transaction(db: SQLite.SQLiteDatabase, task: (txn: SQLite.SQLiteDatabas
   });
 }
 
-export function createSqliteRepository(): Repository {
+const CLOSED = 'This database is closed.';
+
+export function createSqliteRepository(dbName: string = DB_NAME): Repository {
   let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+  let closed = false;
 
   async function open(): Promise<SQLite.SQLiteDatabase> {
-    const db = await SQLite.openDatabaseAsync(DB_NAME);
+    const db = await SQLite.openDatabaseAsync(dbName);
     await db.execAsync('PRAGMA busy_timeout = 5000;');
     await db.execAsync('PRAGMA journal_mode = WAL;');
     await migrate(db);
@@ -154,12 +157,14 @@ export function createSqliteRepository(): Repository {
   // A failed write rejects for its caller only; the queue carries on.
   let queue: Promise<unknown> = Promise.resolve();
   function write<T>(task: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
-    const run = queue.then(async () => task(await getDb()));
+    if (closed) return Promise.reject(new Error(CLOSED));
+    // Accepted before close(): runs even if close() is called meanwhile (close waits for the queue).
+    const run = queue.then(async () => task(await openOnce()));
     queue = run.catch(() => undefined);
     return run;
   }
 
-  const getDb = () => {
+  const openOnce = () => {
     if (!dbPromise) {
       dbPromise = open().catch((e) => {
         dbPromise = null;
@@ -168,6 +173,7 @@ export function createSqliteRepository(): Repository {
     }
     return dbPromise;
   };
+  const getDb = () => (closed ? Promise.reject(new Error(CLOSED)) : openOnce());
 
   async function readSettings(db: SQLite.SQLiteDatabase): Promise<Settings> {
     const base = defaultSettings();
@@ -217,6 +223,16 @@ export function createSqliteRepository(): Repository {
   return {
     async init() {
       await getDb();
+    },
+    async close() {
+      if (closed) return;
+      // Reject new calls first, then let queued writes finish before closing.
+      const opened = dbPromise;
+      closed = true;
+      await queue;
+      if (!opened) return;
+      const db = await opened.catch(() => null);
+      if (db) await db.closeAsync();
     },
 
     async getSettings() {

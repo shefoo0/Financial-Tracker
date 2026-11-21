@@ -1,17 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, PanResponder, View } from 'react-native';
+import { AccessibilityInfo, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, EmptyState, ListRow, Screen, SectionHeader, Stat, T } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Button, Card, EmptyState, IconBadge, Pill, Screen, ScreenHeader, SectionHeader, Stat, StatTile, T } from '@/components/ui';
+import { Palette, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
 import { monthSummary, occurrencesInRange } from '@/engine';
 import { buildMonthItems } from '@/features/dashboard/month-items';
-import { ErrorScreen, LoadingScreen, Stepper } from '@/features/dashboard/Parts';
+import { ErrorScreen, LoadingScreen } from '@/features/dashboard/Parts';
 import { useToday } from '@/features/dashboard/useToday';
+import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatDate, formatMonth, monthEnd, monthKey, monthStart } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
-import type { PlanInput } from '@/types';
+import type { ISODate, PlanInput } from '@/types';
 
 export default function MonthScreen() {
   const { data, loading, error, reload } = usePlanInput();
@@ -22,6 +23,7 @@ export default function MonthScreen() {
 
 function MonthBody({ input }: { input: PlanInput }) {
   const router = useRouter();
+  const c = useTheme();
   const todayStr = useToday();
   const currentMonth = monthKey(todayStr);
   const [month, setMonth] = useState(currentMonth);
@@ -30,13 +32,7 @@ function MonthBody({ input }: { input: PlanInput }) {
 
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const items = useMemo(
-    () =>
-      buildMonthItems(
-        occurrencesInRange(input.recurring, input.overrides, monthStart(month), monthEnd(month)),
-        input.transactions,
-        monthStart(month),
-        monthEnd(month),
-      ),
+    () => buildMonthItems(occurrencesInRange(input.recurring, input.overrides, monthStart(month), monthEnd(month)), input.transactions, monthStart(month), monthEnd(month)),
     [month, input],
   );
 
@@ -62,58 +58,162 @@ function MonthBody({ input }: { input: PlanInput }) {
 
   const newDate = month === currentMonth ? todayStr : monthStart(month);
 
+  // Category colour: position of the category in the list picks a Palette colour.
+  const colourOf = useMemo(() => {
+    const catOf = new Map<string, string | null>();
+    input.recurring.forEach((r) => catOf.set(`/recurring/${r.id}`, r.categoryId));
+    input.transactions.forEach((t) => catOf.set(`/transaction/${t.id}`, t.categoryId));
+    return (href: string) => {
+      const idx = input.categories.findIndex((cat) => cat.id === catOf.get(href));
+      return Palette[(idx < 0 ? 7 : idx) % Palette.length];
+    };
+  }, [input]);
+
+  const days: {
+    date: ISODate;
+    rows: { it: (typeof items)[number]; i: number }[];
+  }[] = [];
+  items.forEach((it, i) => {
+    const last = days[days.length - 1];
+    if (last && last.date === it.date) last.rows.push({ it, i });
+    else days.push({ date: it.date, rows: [{ it, i }] });
+  });
+
+  const stepBtn = [styles.stepBtn, { backgroundColor: c.glass, borderColor: c.glassBorder }];
+
   return (
     <Screen testID="month-screen">
-      <View {...swipe.panHandlers} style={{ gap: Spacing.three }} testID="month-swipe-area">
-      <T variant="title">Month</T>
-      <Stepper
-        label={formatMonth(month)}
-        onPrev={() => setMonth(addMonthKey(month, -1))}
-        onNext={() => setMonth(addMonthKey(month, 1))}
-        prevTestID="month-prev"
-        nextTestID="month-next"
-        prevLabel="Previous month"
-        nextLabel="Next month"
-        extra={
-          <Button label="Today" variant="secondary" onPress={() => setMonth(currentMonth)} disabled={month === currentMonth} testID="month-today" accessibilityHint="Jump to the current month" />
-        }
-      />
-      <Card testID="month-summary">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three }}>
-          <Stat label="Total income" value={money(ms.totalIncome)} />
-          <Stat label="Recurring costs" value={money(ms.recurringCosts)} />
-          <Stat label="One-time costs" value={money(ms.oneTimeCosts)} />
-          <Stat label="Total spend" value={money(ms.totalSpend)} />
-          <Stat label="Free money" value={money(ms.freeMoney)} tone={ms.freeMoney < 0 ? 'negative' : 'positive'} />
-          <Stat label="Spent % of income" value={ms.spentPct == null ? 'No income' : `${ms.spentPct.toFixed(1)}%`} />
+      <View {...swipe.panHandlers} style={styles.body} testID="month-swipe-area">
+        <ScreenHeader title={formatMonth(month)} subtitle="Everything planned and spent" />
+        <View style={styles.stepper}>
+          <Pressable onPress={() => setMonth(addMonthKey(month, -1))} accessibilityRole="button" accessibilityLabel="Previous month" testID="month-prev" style={stepBtn}>
+            <T variant="heading">‹</T>
+          </Pressable>
+          <View style={styles.flex}>
+            <Button
+              label="Today"
+              variant="secondary"
+              onPress={() => setMonth(currentMonth)}
+              disabled={month === currentMonth}
+              testID="month-today"
+              accessibilityHint="Jump to the current month"
+            />
+          </View>
+          <Pressable onPress={() => setMonth(addMonthKey(month, 1))} accessibilityRole="button" accessibilityLabel="Next month" testID="month-next" style={stepBtn}>
+            <T variant="heading">›</T>
+          </Pressable>
         </View>
-      </Card>
 
-      <SectionHeader title={`Everything in ${formatMonth(month)}`} />
-      <Button label="Add one-time item" onPress={() => router.push(`/transaction/new?date=${newDate}`)} testID="month-add-item" />
-      {items.length === 0 ? (
-        <EmptyState title="Nothing in this month" message="No recurring items or one-time items fall in this month. Add a one-time item, or set up recurring income and costs." />
-      ) : (
-        <View>
-          {items.map((it, i) => {
-            const signed = it.kind === 'cost' ? -it.amount : it.amount;
-            const sub = [formatDate(it.date), ...it.badges].join(' · ');
-            return (
-              <ListRow
-                key={it.key}
-                title={it.title}
-                subtitle={sub}
-                value={money(signed)}
-                valueTone={it.kind === 'cost' ? 'negative' : 'positive'}
-                onPress={() => router.push(it.href as never)}
-                testID={`month-item-${i}`}
-                accessibilityLabel={`${it.title}, ${it.kind === 'cost' ? 'cost' : 'income'} ${money(it.amount)}, ${sub}`}
-              />
-            );
-          })}
+        <View style={styles.body} testID="month-summary">
+          <View style={styles.tiles}>
+            <StatTile label="Income" value={money(ms.totalIncome)} tone="positive" icon="↓" testID="month-income" accessibilityLabel={`Total income: ${money(ms.totalIncome)}`} />
+            <StatTile label="Spent" value={money(ms.totalSpend)} tone="negative" icon="↑" testID="month-spent" accessibilityLabel={`Total spend: ${money(ms.totalSpend)}`} />
+            <StatTile
+              label="Free"
+              value={money(ms.freeMoney)}
+              tone={ms.freeMoney < 0 ? 'negative' : 'accent'}
+              icon="✦"
+              testID="month-free"
+              accessibilityLabel={`Free money: ${money(ms.freeMoney)}`}
+            />
+          </View>
+          <Card>
+            <View style={styles.stats}>
+              <Stat label="Recurring costs" value={money(ms.recurringCosts)} />
+              <Stat label="One-time costs" value={money(ms.oneTimeCosts)} />
+              <Stat label="Spent % of income" value={ms.spentPct == null ? 'No income' : `${ms.spentPct.toFixed(1)}%`} />
+            </View>
+          </Card>
         </View>
-      )}
+
+        <SectionHeader title={`Everything in ${formatMonth(month)}`} />
+        <Button label="Add one-time item" onPress={() => router.push(`/transaction/new?date=${newDate}`)} testID="month-add-item" />
+        {items.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="Nothing in this month"
+              message="No recurring items or one-time items fall in this month. Add a one-time item, or set up recurring income and costs."
+            />
+          </Card>
+        ) : (
+          days.map((day) => (
+            <View key={day.date} style={styles.day}>
+              <T variant="label" tone="secondary" accessibilityRole="header">
+                {formatDate(day.date)}
+              </T>
+              <Card style={styles.list}>
+                {day.rows.map(({ it, i }, n) => {
+                  const signed = it.kind === 'cost' ? -it.amount : it.amount;
+                  const sub = [formatDate(it.date), ...it.badges].join(' · ');
+                  return (
+                    <Pressable
+                      key={it.key}
+                      onPress={() => router.push(it.href as never)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${it.title}, ${it.kind === 'cost' ? 'cost' : 'income'} ${money(it.amount)}, ${sub}`}
+                      testID={`month-item-${i}`}
+                      style={({ pressed }) => [
+                        styles.row,
+                        n < day.rows.length - 1 && {
+                          borderBottomColor: c.border,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                        },
+                        pressed && { backgroundColor: c.backgroundSelected },
+                      ]}
+                    >
+                      <IconBadge glyph={it.kind === 'cost' ? '↑' : '↓'} color={colourOf(it.href)} />
+                      <View style={styles.flex}>
+                        <T numberOfLines={2}>{it.title}</T>
+                        {it.badges.length > 0 && (
+                          <View style={styles.pills}>
+                            {it.badges.map((b) => (
+                              <Pill key={b} label={b} tone={b === 'Paid' ? 'positive' : b === 'Moved' ? 'accent' : 'warning'} />
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                      <T variant="number" tone={it.kind === 'cost' ? 'negative' : 'positive'}>
+                        {money(signed)}
+                      </T>
+                    </Pressable>
+                  );
+                })}
+              </Card>
+            </View>
+          ))
+        )}
       </View>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  body: { gap: Spacing.three },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  stepBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tiles: { flexDirection: 'row', gap: Spacing.two },
+  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  day: { gap: Spacing.two },
+  list: { paddingVertical: Spacing.one },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    minHeight: 60,
+    paddingVertical: Spacing.two,
+  },
+  pills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+  },
+});

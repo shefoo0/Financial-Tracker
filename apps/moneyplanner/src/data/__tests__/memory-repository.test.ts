@@ -12,3 +12,13 @@ describe('memory repository seed', () => {
     expect((await repo.listCategories()).length).toBeGreaterThan(10);
   });
 });
+
+describe('memory close()', () => {
+  it('resolves and keeps its data', async () => {
+    const repo = createMemoryRepository();
+    await repo.init();
+    await repo.updateSettings({ currency: 'EUR' });
+    await repo.close();
+    expect((await repo.getSettings()).currency).toBe('EUR');
+  });
+});

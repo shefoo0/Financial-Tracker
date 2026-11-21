@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -29,8 +30,18 @@ export function BarList({
               {format(item.value)}
             </T>
           </View>
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: c.backgroundSelected }}>
-            <View style={{ height: 8, borderRadius: 4, backgroundColor: c.accent, width: `${Math.max(2, barFraction(item.value, max) * 100)}%` }} />
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: c.backgroundSelected, overflow: 'hidden' }}>
+            <View style={{ height: 10, borderRadius: 5, overflow: 'hidden', width: `${Math.max(2, barFraction(item.value, max) * 100)}%` }}>
+              <Svg width="100%" height="100%" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                <Defs>
+                  <LinearGradient id={`bar-${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')} x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor={c.hero[0]} />
+                    <Stop offset="1" stopColor={c.hero[2]} />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${`bar-${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')})`} />
+              </Svg>
+            </View>
           </View>
         </View>
       ))}

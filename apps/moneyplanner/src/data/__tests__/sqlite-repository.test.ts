@@ -13,6 +13,9 @@ jest.mock('expo-sqlite', () => {
     let inTxn = false;
     const db: any = {
       raw,
+      closeAsync: async () => {
+        db.closedCount = (db.closedCount ?? 0) + 1;
+      },
       execAsync: async (sql: string) => raw.exec(sql),
       runAsync: async (sql: string, params: any[] = []) => {
         if (inTxn) throw new Error('database is locked');
@@ -44,7 +47,17 @@ jest.mock('expo-sqlite', () => {
     };
     return db;
   };
-  return { openDatabaseAsync: async () => make(), __make: make };
+  const opened: any[] = [];
+  return {
+    openDatabaseAsync: async (name: string) => {
+      const db = make();
+      db.name = name;
+      opened.push(db);
+      return db;
+    },
+    __opened: opened,
+    __make: make,
+  };
 });
 
 runRepositoryContract('sqlite', async () => createSqliteRepository());
@@ -69,5 +82,37 @@ describe('sqlite specifics', () => {
     expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
     await migrate(db);
     expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
+  });
+});
+
+describe('sqlite close()', () => {
+  const opened = () => (require('expo-sqlite') as any).__opened as any[];
+
+  it('opens the named file, closes it once, and then rejects calls', async () => {
+    const before = opened().length;
+    const repo = createSqliteRepository('moneyplanner-x.db');
+    await repo.init();
+    const db = opened()[before];
+    expect(db.name).toBe('moneyplanner-x.db');
+    await repo.close();
+    await repo.close();
+    expect(db.closedCount).toBe(1);
+    await expect(repo.getSettings()).rejects.toThrow(/closed/);
+    await expect(repo.init()).rejects.toThrow(/closed/);
+    expect(opened().length).toBe(before + 1);
+  });
+
+  it('waits for queued writes before closing', async () => {
+    const repo = createSqliteRepository();
+    await repo.init();
+    const pending = repo.updateSettings({ currency: 'EUR' });
+    await repo.close();
+    await expect(pending).resolves.toMatchObject({ currency: 'EUR' });
+  });
+
+  it('close() before init is fine', async () => {
+    const repo = createSqliteRepository();
+    await repo.close();
+    await expect(repo.init()).rejects.toThrow(/closed/);
   });
 });

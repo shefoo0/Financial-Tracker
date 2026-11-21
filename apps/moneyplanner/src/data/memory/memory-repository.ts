@@ -53,6 +53,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   }
 
   return {
+    async close() {
+      // Memory keeps its data; nothing to release.
+    },
     async init() {
       if (initialised) return;
       initialised = true;

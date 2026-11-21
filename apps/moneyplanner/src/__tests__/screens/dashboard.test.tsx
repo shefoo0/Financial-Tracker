@@ -34,7 +34,8 @@ describe('Dashboard', () => {
       ],
     });
     expect(await screen.findByTestId('dashboard-forecast')).toBeTruthy();
-    expect(screen.getByText('Balance today: AED 6,500.00')).toBeTruthy();
+    expect(screen.getByText('BALANCE TODAY')).toBeTruthy();
+    expect(screen.getByLabelText('Balance today: AED 6,500.00')).toBeTruthy();
     // This month: income 18,000, spend 9,500, free 8,500, spent 9,500/18,000 = 52.8%.
     const month = within(screen.getByTestId('dashboard-month-card'));
     expect(month.getByText('AED 18,000.00')).toBeTruthy();
@@ -50,6 +51,17 @@ describe('Dashboard', () => {
       recurring: [recurring({ id: 'r', name: 'Rent', kind: 'cost', amount: 950000, schedule: { type: 'weekly', everyWeeks: 1 } })],
     });
     expect(await screen.findByTestId('dashboard-forecast-warning')).toBeTruthy();
+  });
+
+  it('lists what is coming up and links to the Month tab', async () => {
+    await renderWithRepo(<DashboardScreen />, {
+      settings,
+      recurring: [recurring({ id: 'r', name: 'Gym', kind: 'cost', amount: 15000, schedule: { type: 'weekly', everyWeeks: 1 } })],
+    });
+    expect(await screen.findByTestId('dashboard-upcoming-0')).toBeTruthy();
+    expect(within(screen.getByTestId('dashboard-upcoming')).getAllByText('Gym').length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByTestId('dashboard-see-all'));
+    expect(router.push).toHaveBeenCalledWith('/month');
   });
 
   it('changes the month with the stepper', async () => {

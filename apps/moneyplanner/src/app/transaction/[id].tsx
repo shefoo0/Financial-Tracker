@@ -3,7 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 
-import { Button, DateField, EmptyState, MoneyField, Screen, SelectField, Segmented, T, TextField, ToggleRow } from '@/components/ui';
+import { Button, Card, DateField, EmptyState, MoneyField, Screen, SelectField, Segmented, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import {
@@ -24,7 +24,11 @@ import type { Kind, PlanInput, Transaction } from '@/types';
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default function TransactionScreen() {
-  const params = useLocalSearchParams<{ id: string; kind?: string; date?: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    kind?: string;
+    date?: string;
+  }>();
   const id = first(params.id) ?? 'new';
   const isNew = id === 'new';
   const { data, error, reload } = usePlanInput();
@@ -38,7 +42,11 @@ export default function TransactionScreen() {
     return (
       <Screen>
         {error ? (
-          <EmptyState title="Couldn't load this item" message="Nothing has been lost. Try again." action={<Button label="Try again" onPress={reload} testID="transaction-retry" />} />
+          <EmptyState
+            title="Couldn't load this item"
+            message="Nothing has been lost. Try again."
+            action={<Button label="Try again" onPress={reload} testID="transaction-retry" />}
+          />
         ) : (
           <T tone="secondary">Loading…</T>
         )}
@@ -120,43 +128,72 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
         }}
       />
       <Screen testID="transaction-screen">
-        <Segmented
-          label="Type"
-          value={form.kind}
-          onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
-          options={[
-            { value: 'income', label: 'Income' },
-            { value: 'cost', label: 'Spend' },
-          ]}
-          testID="transaction-kind"
-        />
-        <TextField label="Description" value={form.description} onChangeText={(t) => set('description', t)} placeholder={form.kind === 'income' ? 'e.g. Bonus' : 'e.g. Groceries'} error={errors.description} testID="transaction-description" />
-        <MoneyField label="Amount" value={form.amount} onChange={(v) => set('amount', v)} currency={currency} error={errors.amount} hint="Enter a positive number. The type above says whether it is income or spend." testID="transaction-amount" />
-        <DateField
-          label="Date"
-          value={form.date}
-          onChange={(d) => setForm((f) => ({ ...f, date: d, planned: plannedTouched ? f.planned : defaultPlanned(d) }))}
-          error={errors.date}
-          testID="transaction-date"
-        />
-        <SelectField
-          label="Category"
-          value={form.categoryId ?? 'none'}
-          options={[{ value: 'none', label: 'No category' }, ...categories]}
-          onChange={(v) => set('categoryId', v === 'none' ? null : v)}
-          testID="transaction-category"
-        />
-        <ToggleRow
-          label="Planned (hasn't happened yet)"
-          description="Planned items count in the forecast. Turn off once it has happened."
-          value={form.planned}
-          onChange={(v) => {
-            setPlannedTouched(true);
-            set('planned', v);
-          }}
-          testID="transaction-planned"
-        />
-        <TextField label="Note (optional)" value={form.note} onChangeText={(t) => set('note', t)} multiline testID="transaction-note" />
+        <Card style={styles.group}>
+          <Segmented
+            label="Type"
+            value={form.kind}
+            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
+            options={[
+              { value: 'income', label: 'Income' },
+              { value: 'cost', label: 'Spend' },
+            ]}
+            testID="transaction-kind"
+          />
+          <MoneyField
+            label="Amount"
+            value={form.amount}
+            onChange={(v) => set('amount', v)}
+            currency={currency}
+            error={errors.amount}
+            hint="Enter a positive number. The type above says whether it is income or spend."
+            testID="transaction-amount"
+          />
+        </Card>
+
+        <Card style={styles.group}>
+          <TextField
+            label="Description"
+            value={form.description}
+            onChangeText={(t) => set('description', t)}
+            placeholder={form.kind === 'income' ? 'e.g. Bonus' : 'e.g. Groceries'}
+            error={errors.description}
+            testID="transaction-description"
+          />
+          <DateField
+            label="Date"
+            value={form.date}
+            onChange={(d) =>
+              setForm((f) => ({
+                ...f,
+                date: d,
+                planned: plannedTouched ? f.planned : defaultPlanned(d),
+              }))
+            }
+            error={errors.date}
+            testID="transaction-date"
+          />
+          <SelectField
+            label="Category"
+            value={form.categoryId ?? 'none'}
+            options={[{ value: 'none', label: 'No category' }, ...categories]}
+            onChange={(v) => set('categoryId', v === 'none' ? null : v)}
+            testID="transaction-category"
+          />
+        </Card>
+
+        <Card style={styles.group}>
+          <ToggleRow
+            label="Planned (hasn't happened yet)"
+            description="Planned items count in the forecast. Turn off once it has happened."
+            value={form.planned}
+            onChange={(v) => {
+              setPlannedTouched(true);
+              set('planned', v);
+            }}
+            testID="transaction-planned"
+          />
+          <TextField label="Note (optional)" value={form.note} onChangeText={(t) => set('note', t)} multiline testID="transaction-note" />
+        </Card>
         <Button label={item ? 'Save changes' : form.kind === 'income' ? 'Add income' : 'Add spend'} onPress={onSave} disabled={saving} testID="transaction-save-bottom" />
         {item && <Button label="Delete" variant="destructive" onPress={onDelete} testID="transaction-delete" />}
       </Screen>
@@ -166,5 +203,12 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  headerButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.one },
+  group: { gap: Spacing.three },
+  headerButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
+  },
 });
