@@ -9,7 +9,8 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [~] Milestone 1 — Core planner
   - [x] T1 engine · [x] T2 data and backup · [x] T3 plan and item screens · [x] T4 dashboard and month · [x] T5 wizard, settings and categories
   - [x] review (3 reviewers) · [x] tests (208 unit + screen tests, 4 Maestro flows) · [x] fix loop round 1 (all blockers/majors fixed)
-  - [~] Android test build on GitHub Actions (first run in progress)
+  - [x] Android test build: run 44936594995 passed (APK `moneyplanner-1.0.0-1-android`, signed with the upload key, target API check passed; first cold build 35 min)
+  - [~] Android emulator Maestro flows (same run) · [~] iPhone simulator test (`ios-simulator.yml`, run 44938983022)
 - [ ] Milestone 2 — Debts, cheques, alerts, lock: T6 · T7 · T8 · T9 · review · tests · Android test build
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
