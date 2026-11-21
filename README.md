@@ -49,7 +49,6 @@ You need:
 ```sh
 git clone https://github.com/shefoo0/tester.git
 cd tester
-git checkout ccr-644446f6-4wwixy
 npm install
 npx playwright install chromium
 claude
