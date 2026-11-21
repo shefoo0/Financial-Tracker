@@ -100,6 +100,7 @@ jobs:
             const fs = require("fs");
             fs.appendFileSync(process.env.GITHUB_OUTPUT, "url=" + b.artifacts.buildUrl + "\n");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "Expo simulator build: `" + b.id + "`\n");
+            console.log("Expo simulator build ID (reuse it with build_id): " + b.id);
           '
           echo "bundle_id=$(node -p "require('./app.json').expo.ios.bundleIdentifier")" >> "$GITHUB_OUTPUT"
 
