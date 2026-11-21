@@ -53,7 +53,7 @@ export function whenLabel(date: ISODate, todayStr: ISODate): string {
   return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
 }
 
-/** The next `limit` items in the next `days` days, soonest first. */
+/** The next payment of up to `limit` items in the next `days` days, soonest first. */
 export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, days = 90): UpcomingItem[] {
   const to = addDays(todayStr, days);
   const byId = new Map(input.recurring.map((r) => [r.id, r]));
@@ -93,5 +93,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
     });
   }
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
-  return items.slice(0, limit);
+  // One row per item (its next payment), so a monthly salary doesn't fill the list.
+  const seen = new Set<string>();
+  return items.filter((i) => !seen.has(i.href) && seen.add(i.href)).slice(0, limit);
 }

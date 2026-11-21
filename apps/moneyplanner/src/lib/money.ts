@@ -15,6 +15,24 @@ export function formatMoney(fils: Fils, currency: string): string {
   return `${fils < 0 ? '-' : ''}${currency} ${s}`;
 }
 
+/**
+ * Short form for tiles and big headline numbers, where space is tight:
+ * whole units with thousands separators ("18,000"), "1.25M" from a million.
+ * Always give the full formatMoney text as the accessibility label.
+ */
+export function formatCompact(fils: Fils): string {
+  const sign = fils < 0 ? '-' : '';
+  const units = Math.abs(fils) / 100;
+  if (units >= 1_000_000) return `${sign}${(Math.floor(units / 10_000) / 100).toLocaleString('en-US')}M`;
+  return `${sign}${Math.round(units).toLocaleString('en-US')}`;
+}
+
+/** formatMoney without ".00" for whole amounts ("AED 6,500"); keeps fils otherwise. */
+export function formatMoneyTrim(fils: Fils, currency: string): string {
+  const s = formatMoney(fils, currency);
+  return Math.abs(Math.round(fils)) % 100 === 0 ? s.slice(0, -3) : s;
+}
+
 /** Largest amount accepted: AED 999,999,999.99. */
 export const MAX_FILS: Fils = 99_999_999_999;
 

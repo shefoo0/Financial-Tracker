@@ -43,11 +43,11 @@ describe('Month tab', () => {
     expect(screen.queryByText('Nothing in this month')).toBeNull();
     const summary = within(screen.getByTestId('month-summary'));
     // income 18,000; recurring costs 9,500; one-time 50; spend 9,550; free 8,450; 53.1%
-    expect(summary.getByText('AED 18,000.00')).toBeTruthy();
+    expect(summary.getByLabelText('Total income: AED 18,000.00')).toBeTruthy();
     expect(summary.getByText('AED 9,500.00')).toBeTruthy();
     expect(summary.getByText('AED 50.00')).toBeTruthy();
-    expect(summary.getByText('AED 9,550.00')).toBeTruthy();
-    expect(summary.getByText('AED 8,450.00')).toBeTruthy();
+    expect(summary.getByLabelText('Total spend: AED 9,550.00')).toBeTruthy();
+    expect(summary.getByLabelText('Free money: AED 8,450.00')).toBeTruthy();
     expect(summary.getByText('53.1%')).toBeTruthy();
     expect(screen.getByTestId('month-item-0')).toBeTruthy();
     expect(screen.getByTestId('month-item-2')).toBeTruthy();

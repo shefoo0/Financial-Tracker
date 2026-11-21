@@ -28,7 +28,7 @@ import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboar
 import { useToday } from '@/features/dashboard/useToday';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
-import { formatMoney } from '@/lib/money';
+import { formatCompact, formatMoney, formatMoneyTrim } from '@/lib/money';
 import type { PlanInput } from '@/types';
 
 export default function Dashboard() {
@@ -119,7 +119,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
           maxFontSizeMultiplier={1.4}
           style={{ fontSize: 36, lineHeight: 44, fontVariant: ['tabular-nums'] }}
           accessibilityLabel={`${balanceLabel(fc.asOf, todayStr)}: ${money(fc.balanceAsOf)}`}>
-          {money(fc.balanceAsOf)}
+          {formatMoneyTrim(fc.balanceAsOf, currency)}
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
           <View style={{ backgroundColor: Colors.dark.glass, borderRadius: Radius.pill, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one }}>
@@ -147,9 +147,9 @@ function DashboardBody({ input }: { input: PlanInput }) {
       </HeroCard>
 
       <View style={{ flexDirection: 'row', gap: Spacing.two }} testID="dashboard-month-tiles">
-        <StatTile label="Income" value={money(ms.totalIncome)} tone="positive" icon="↓" testID="dashboard-tile-income" />
-        <StatTile label="Spent" value={money(ms.totalSpend)} tone="negative" icon="↑" testID="dashboard-tile-spent" />
-        <StatTile label="Free" value={money(ms.freeMoney)} tone={ms.freeMoney < 0 ? 'negative' : 'accent'} icon="✦" testID="dashboard-tile-free" />
+        <StatTile label="Income" value={formatCompact(ms.totalIncome)} accessibilityLabel={`Income: ${money(ms.totalIncome)}`} tone="positive" icon="↓" testID="dashboard-tile-income" />
+        <StatTile label="Spent" value={formatCompact(ms.totalSpend)} accessibilityLabel={`Spent: ${money(ms.totalSpend)}`} tone="negative" icon="↑" testID="dashboard-tile-spent" />
+        <StatTile label="Free" value={formatCompact(ms.freeMoney)} accessibilityLabel={`Free: ${money(ms.freeMoney)}`} tone={ms.freeMoney < 0 ? 'negative' : 'accent'} icon="✦" testID="dashboard-tile-free" />
       </View>
 
       {showWarning && (

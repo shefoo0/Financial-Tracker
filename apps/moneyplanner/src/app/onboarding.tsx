@@ -139,13 +139,17 @@ export default function Onboarding() {
       {step === 'welcome' && (
         <View style={{ gap: Spacing.three }}>
           <HeroCard testID="onboarding-hero">
-            <ScreenTitle>Welcome</ScreenTitle>
+            <View accessible accessibilityRole="header">
+              <T variant="title" style={{ color: '#FFFFFF' }}>
+                Welcome
+              </T>
+            </View>
             {!isFirstProfile && (
-              <T variant="label" testID="onboarding-profile-name">
+              <T variant="label" style={{ color: '#FFFFFF' }} testID="onboarding-profile-name">
                 {`Setting up ${active.name}`}
               </T>
             )}
-            <T>See where your money goes and what is left each month. Add your income and bills once, and the app shows what is coming.</T>
+            <T style={{ color: '#FFFFFF' }}>See where your money goes and what is left each month. Add your income and bills once, and the app shows what is coming.</T>
           </HeroCard>
           <Card>
             <T variant="label">Your data stays on this phone. No account, no bank login.</T>

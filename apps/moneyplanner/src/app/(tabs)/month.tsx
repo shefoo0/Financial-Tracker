@@ -11,7 +11,7 @@ import { ErrorScreen, LoadingScreen } from '@/features/dashboard/Parts';
 import { useToday } from '@/features/dashboard/useToday';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatDate, formatMonth, monthEnd, monthKey, monthStart } from '@/lib/dates';
-import { formatMoney } from '@/lib/money';
+import { formatCompact, formatMoney } from '@/lib/money';
 import type { ISODate, PlanInput } from '@/types';
 
 export default function MonthScreen() {
@@ -106,11 +106,11 @@ function MonthBody({ input }: { input: PlanInput }) {
 
         <View style={styles.body} testID="month-summary">
           <View style={styles.tiles}>
-            <StatTile label="Income" value={money(ms.totalIncome)} tone="positive" icon="↓" testID="month-income" accessibilityLabel={`Total income: ${money(ms.totalIncome)}`} />
-            <StatTile label="Spent" value={money(ms.totalSpend)} tone="negative" icon="↑" testID="month-spent" accessibilityLabel={`Total spend: ${money(ms.totalSpend)}`} />
+            <StatTile label="Income" value={formatCompact(ms.totalIncome)} tone="positive" icon="↓" testID="month-income" accessibilityLabel={`Total income: ${money(ms.totalIncome)}`} />
+            <StatTile label="Spent" value={formatCompact(ms.totalSpend)} tone="negative" icon="↑" testID="month-spent" accessibilityLabel={`Total spend: ${money(ms.totalSpend)}`} />
             <StatTile
               label="Free"
-              value={money(ms.freeMoney)}
+              value={formatCompact(ms.freeMoney)}
               tone={ms.freeMoney < 0 ? 'negative' : 'accent'}
               icon="✦"
               testID="month-free"

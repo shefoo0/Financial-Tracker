@@ -31,6 +31,22 @@ describe('Settings', () => {
     expect(screen.getByTestId('settings-currency').props.value).toBe('AED');
   });
 
+  it('shows the active profile and says data actions apply to it only', async () => {
+    await renderWithRepo(<SettingsScreen />, { settings });
+    expect(await screen.findByText('Profile & appearance')).toBeTruthy();
+    expect(screen.getByTestId('profile-button')).toBeTruthy();
+    expect(screen.getByLabelText('Delete all data in Me')).toBeTruthy();
+    expect(screen.getByTestId('settings-data-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-manage-profiles'));
+    expect(router.push).toHaveBeenCalledWith('/profiles');
+  });
+
+  it('changes the appearance', async () => {
+    await renderWithRepo(<SettingsScreen />, { settings });
+    await fireEvent.press(await screen.findByTestId('settings-appearance-dark'));
+    await waitFor(() => expect(screen.getByTestId('settings-appearance-dark').props.accessibilityState.checked).toBe(true));
+  });
+
   it('validates and saves the currency label', async () => {
     const { repo } = await renderWithRepo(<SettingsScreen />, { settings });
     await fireEvent.changeText(await screen.findByTestId('settings-currency'), '');

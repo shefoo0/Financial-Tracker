@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -10,10 +10,12 @@ import { T, type Tone } from './text';
 /** Three big soft radial blobs over the background (top-left, right-middle, bottom-left). Decorative. */
 export function AuroraBackground() {
   const c = useTheme();
+  // Unique ids: on the web every mounted screen's SVG shares one document.
+  const uid = 'au' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const blobs = [
-    { id: 'au0', cx: '15%', cy: '8%', r: '55%', color: c.aurora[0] },
-    { id: 'au1', cx: '95%', cy: '45%', r: '48%', color: c.aurora[1] },
-    { id: 'au2', cx: '5%', cy: '95%', r: '52%', color: c.aurora[2] },
+    { id: uid + '0', cx: '15%', cy: '8%', r: '55%', color: c.aurora[0] },
+    { id: uid + '1', cx: '95%', cy: '45%', r: '48%', color: c.aurora[1] },
+    { id: uid + '2', cx: '5%', cy: '95%', r: '52%', color: c.aurora[2] },
   ];
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background }]} pointerEvents="none" {...hiddenFromA11y}>

@@ -29,6 +29,7 @@ describe('Onboarding wizard', () => {
     expect(await screen.findByText('Welcome')).toBeTruthy();
     expect(screen.getByText(/^Step 1 of \d$/)).toBeTruthy();
     expect(screen.queryByTestId('onboarding-back')).toBeNull();
+    expect(screen.queryByTestId('onboarding-profile-name')).toBeNull();
   });
 
   it('asks for a payday when a salary is entered without one', async () => {

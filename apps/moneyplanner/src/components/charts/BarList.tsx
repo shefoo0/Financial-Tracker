@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -17,6 +18,7 @@ export function BarList({
   testID?: string;
 }) {
   const c = useTheme();
+  const uid = 'bar' + useId().replace(/[^a-zA-Z0-9]/g, '') + '-';
   const max = items.reduce((m, i) => Math.max(m, i.value), 0);
   return (
     <View style={{ gap: Spacing.two }} testID={testID}>
@@ -34,12 +36,12 @@ export function BarList({
             <View style={{ height: 10, borderRadius: 5, overflow: 'hidden', width: `${Math.max(2, barFraction(item.value, max) * 100)}%` }}>
               <Svg width="100%" height="100%" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                 <Defs>
-                  <LinearGradient id={`bar-${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')} x1="0" y1="0" x2="1" y2="0">
+                  <LinearGradient id={`${uid}${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')} x1="0" y1="0" x2="1" y2="0">
                     <Stop offset="0" stopColor={c.hero[0]} />
                     <Stop offset="1" stopColor={c.hero[2]} />
                   </LinearGradient>
                 </Defs>
-                <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${`bar-${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')})`} />
+                <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${`${uid}${item.id}`.replace(/[^a-zA-Z0-9-]/g, '')})`} />
               </Svg>
             </View>
           </View>
