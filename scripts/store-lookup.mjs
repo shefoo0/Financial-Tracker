@@ -10,6 +10,7 @@
 //
 // Add --json for machine-readable output.
 
+import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
@@ -190,7 +191,21 @@ async function main(argv) {
   return 2;
 }
 
+// Node's built-in fetch ignores HTTPS_PROXY unless NODE_USE_ENV_PROXY=1 (Node
+// 22.21+). Behind a proxy (cloud sessions), re-run this script with it set.
+function rerunWithProxy() {
+  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  if (!proxy || process.env.NODE_USE_ENV_PROXY) return null;
+  const r = spawnSync(process.execPath, process.argv.slice(1), {
+    stdio: "inherit",
+    env: { ...process.env, NODE_USE_ENV_PROXY: "1", NODE_NO_WARNINGS: "1" },
+  });
+  return r.status ?? 1;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const code = rerunWithProxy();
+  if (code !== null) process.exit(code);
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),
     (err) => {
