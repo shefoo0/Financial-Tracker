@@ -26,7 +26,7 @@ Read the **Developer profile** in `CLAUDE.md` (country, store country, currency,
 
 ## Money: free only
 
-This must cost nothing beyond the developer's Claude subscription. Never sign up for a service, create an account, add a payment method or API key, use a paid API or SDK, or run cloud builds (`eas build`, `eas submit`, or similar). Everything is built and checked locally. If something would need money, stop and say so in the report instead.
+This must cost nothing beyond the developer's Claude subscription. Never sign up for a service, create an account, add a payment method or API key, use a paid API or SDK, or run cloud builds (`eas build`, `eas submit`, or similar). Everything is built and checked locally. (The one exception is iOS release builds on Expo's free plan, which only `/release-app` does.) If something would need money, stop and say so in the report instead.
 
 ## What makes an app worth shipping
 

@@ -5,7 +5,13 @@ import { check } from "../.claude/hooks/guard-bash.mjs";
 
 const blocked = [
   "npx eas-cli@latest build --platform all",
-  "eas submit -p ios",
+  "eas update --branch production",
+  "npx eas-cli build -p ios --priority high",
+  "eas workflow:run deploy.yml",
+  "eas build -p ios && eas build -p android",
+  "npx eas-cli@latest build --platform=all",
+  "cat ~/Downloads/AuthKey_ABC123.p8",
+  "cp cert.p12 /tmp/",
   "npx eas credentials",
   "git push --force origin main",
   "git push -f",
@@ -22,6 +28,15 @@ const blocked = [
 ];
 const allowed = [
   "npx expo export --platform web",
+  "npx eas-cli@latest build --platform ios --profile production",
+  "eas build -p ios --profile production --non-interactive",
+  "eas submit -p ios --latest",
+  "npx eas-cli credentials --platform=ios",
+  "npx eas-cli@latest login",
+  "eas init",
+  "eas whoami",
+  "eas device:create",
+  "eas build:list --platform ios",
   "npx expo install expo@^58.0.0",
   "cd android && ./gradlew bundleRelease",
   "git push origin claude/Tester",
@@ -63,7 +78,7 @@ test("as a hook: exit 2 with a reason, or exit 0", () => {
   const run = (input) => spawnSync("node", [".claude/hooks/guard-bash.mjs"], { input, encoding: "utf8" });
   const bad = run(JSON.stringify({ tool_name: "Bash", tool_input: { command: "eas build" } }));
   assert.equal(bad.status, 2);
-  assert.match(bad.stderr, /free-only rule/);
+  assert.match(bad.stderr, /only for iOS/);
   assert.equal(run(JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" } })).status, 0);
   assert.equal(run("not json").status, 0);
 });

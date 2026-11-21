@@ -13,8 +13,9 @@ README.md.
 - Country: United Arab Emirates. Store research uses `--country ae`, plus `us`
   for the global picture.
 - Default currency AED; English first (Arabic and right-to-left later).
-- Develops on a PC: Android builds locally with Android Studio; iOS builds need
-  a Mac (or are done later).
+- Develops on a PC without a Mac: Android builds locally with Android Studio;
+  iOS builds on Expo's free cloud plan (no payment method) and is tested on an
+  iPhone with TestFlight.
 - Personal Google Play account, so a 12-tester, 14-day closed test comes
   before the first public release.
 
@@ -22,8 +23,11 @@ README.md.
 
 The developer pays for their Claude subscription and nothing else. Never add
 the Anthropic API or SDK, an API key, a paid service or SDK, or anything that
-needs a payment method, and don't run cloud builds (`eas build` /
-`eas submit`). The only accepted costs are the Apple Developer Program and
+needs a payment method. The one cloud service allowed is **Expo's free plan,
+for iOS builds and uploads only** (`eas build`/`eas submit`/`eas credentials`
+with `--platform ios`, run from `/release-app`), because iOS needs macOS to
+build: never add a payment method, upgrade, or use priority builds; Android
+builds stay local. The only accepted costs are the Apple Developer Program and
 Google Play developer accounts, which the developer pays for themselves to
 publish.
 
@@ -48,8 +52,10 @@ publish.
   have `maxTurns` limits; developer, tester and QC keep lessons in
   `.claude/agent-memory/<name>/MEMORY.md` (commit these).
 - `.claude/settings.json` + `.claude/hooks/guard-bash.mjs` — a PreToolUse hook
-  that blocks paid cloud builds (EAS), force-pushes, destructive deletes and
-  reading signing keys/passwords; `permissions.deny` blocks reading them too.
+  that allows Expo's free cloud only for iOS (build/submit/credentials with
+  `--platform ios`) and blocks other EAS use (Android or all-platform cloud
+  builds, updates, workflows, priority builds), force-pushes, destructive
+  deletes and reading signing keys, Apple API keys and passwords; `permissions.deny` blocks reading them too.
   Change the rules in the hook (and its tests), not by weakening the deny list.
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`, `PROGRESS.md` for resuming a run, `RELEASES.md`).

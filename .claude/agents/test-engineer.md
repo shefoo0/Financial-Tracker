@@ -24,7 +24,7 @@ Then run, from the project folder, and record each result:
 
 Native modules can't run in Jest: test them through their JavaScript mocks, and list them as needing a check on a real device.
 
-Everything here runs locally and is free. Don't run cloud builds (`eas build`) or anything that needs an account or a payment method.
+Everything here runs locally and is free. Don't run cloud builds (`eas build`) or anything that needs an account or a payment method; iOS cloud builds happen only in `/release-app`.
 
 Report in this format:
 - **Tests added:** paths, and what each covers

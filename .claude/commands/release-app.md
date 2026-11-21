@@ -13,7 +13,7 @@ You do the steps that can be done on this computer, and you guide the developer 
 
 ## Rules
 
-- **Free only.** The only costs are the developer's Apple Developer Program ($99/year) and Google Play developer account ($25 once). Don't use paid services, cloud builds (`eas build`, `eas submit`) or paid upload tools. Builds happen on this computer; uploads go through the Play Console website, Xcode or Apple's free Transporter app.
+- **Free only.** The only costs are the developer's Apple Developer Program ($99/year) and Google Play developer account ($25 once). Don't use paid services or paid upload tools. Android builds happen on this computer and upload through the Play Console website. iOS builds happen in Xcode on a Mac, or, without a Mac, on **Expo's free cloud plan (iOS only, no payment method)** as described in step 6.
 - **Secrets never touch the chat or the repo.** Never ask for, type, print or store passwords, and never commit signing keys. When a command needs a password, give the developer the command to run in their own terminal. Signing keys live outside the repository, in `~/.app-signing/`.
 - **Ask before you push to git or change anything outside the repository**, other than files the developer asked you to create.
 - Check the facts in this guide against the current store help pages when something doesn't match what the developer sees. The store websites change.
@@ -93,11 +93,42 @@ Needs Android Studio, which includes the Android SDK and a JDK. Check with `java
 
    The output is `android/app/build/outputs/bundle/release/app-release.aab`. Confirm it's signed with the upload key (`jarsigner -verify -verbose -certs <aab>` should name the upload certificate; it never needs the password). Copy it to `apps/<slug>/release/<version>-<versionCode>/` and make sure `release/`, `android/` and `ios/` are in the app's `.gitignore`.
 
-### 6. iOS build (Mac only)
+### 6. iOS build
 
-If `uname` isn't `Darwin`, explain that iOS builds need a Mac with Xcode, and suggest these free options: build Android now, borrow or use any Mac later, keep testing on iPhone with Expo Go. Then skip to step 7. Expo's cloud build service has a free plan, but don't use it unless the developer asks for it.
+#### Without a Mac: Expo's free cloud plan
 
-On a Mac, check `xcodebuild -version` meets Apple's minimum from step 1 (update Xcode from the Mac App Store if not; it's free). With the developer enrolled in the Apple Developer Program and signed in to Xcode (**Xcode → Settings → Accounts**) with that Apple ID:
+If `uname` isn't `Darwin`, build iOS on Expo's servers with the **free plan**. This is the one cloud service allowed, and only for iOS, because iOS apps can only be built on macOS. Rules:
+- The developer's Expo account must **never have a payment method**. Never upgrade, buy build credits, or pick a priority build. The safety hook blocks paid options and non-iOS cloud builds.
+- The free plan gives a limited number of builds a month in a slower queue. If the limit is reached, Expo stops building until the next month; it doesn't charge. So try changes on Android or in Expo Go first, and only build iOS for release candidates. Note each build in `RELEASES.md` so you can see how many are left.
+- Anything that asks for a password or Apple sign-in, the **developer runs in their own terminal**. Never ask for, type or print passwords.
+
+Steps:
+1. The developer creates a free account at expo.dev (no card), then runs `npx eas-cli@latest login` in their own terminal.
+2. In the app folder, run `npx eas-cli@latest init` (it links the project and adds its ID to `app.json`). Create `eas.json` if it doesn't exist:
+
+   ```json
+   {
+     "cli": { "appVersionSource": "local" },
+     "build": { "production": {} },
+     "submit": { "production": {} }
+   }
+   ```
+
+   `appVersionSource: local` means the build numbers come from `app.json`, so `scripts/bump-version.mjs` stays in charge of them.
+3. The App Store Connect app record must exist first (do step 8.1 if it doesn't).
+4. **First build (interactive, in the developer's terminal):** `npx eas-cli@latest build --platform ios --profile production`. Tell them how to answer:
+   - sign in to their Apple Developer account (Apple ID and two-factor code, entered only in the terminal): **yes**;
+   - generate a distribution certificate and provisioning profile: **yes**;
+   - set up push notifications: **no**, unless the app uses remote push (local notifications don't need it).
+
+   Expo stores these signing files for future builds. The developer can download a backup any time with `npx eas-cli@latest credentials --platform ios`.
+5. **Later builds:** you can run `npx eas-cli@latest build --platform ios --profile production --non-interactive` yourself. Check the build log says Xcode 26 or later (Apple's minimum from step 1).
+6. **Upload to App Store Connect:** the first time, the developer runs `npx eas-cli@latest submit --platform ios --latest` in their own terminal. It signs in to Apple and stores an App Store Connect API key with Expo for later uploads. After that, you can run it with `--non-interactive`.
+7. **Test on the iPhone with TestFlight (free):** in App Store Connect → TestFlight, add the developer as an internal tester (no review needed), install the TestFlight app on the iPhone, and test the build fully, especially native features such as OCR, notifications and Shortcuts. Record what was tested in `RELEASES.md`.
+
+#### On a Mac
+
+Check `xcodebuild -version` meets Apple's minimum from step 1 (update Xcode from the Mac App Store if not; it's free). With the developer enrolled in the Apple Developer Program and signed in to Xcode (**Xcode → Settings → Accounts**) with that Apple ID:
 
 ```sh
 cd apps/<slug>

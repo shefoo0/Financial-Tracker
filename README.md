@@ -35,17 +35,19 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 | --- | --- |
 | Building and testing apps with this team | Included in your Claude subscription. Large apps use more of your plan's usage limits, and if you hit a limit, wait for it to reset and type "continue". |
 | Expo, Jest, local builds, Expo Go on your phone | Free |
+| iOS builds without a Mac | Expo's free cloud plan: a free account with **no payment method**. Limited builds a month; if you hit the limit it waits for next month, it never charges. |
+| Testing on your iPhone | TestFlight, free with the Apple developer account |
 | Publishing on the App Store | Apple Developer Program, $99/year |
 | Publishing on Google Play | Google Play developer account, $25 once |
 
-The agents are told never to sign up for anything, add a payment method or API key, use a paid service, or run cloud builds.
+The agents are told never to sign up for anything, add a payment method or API key, or use a paid service. The one cloud service allowed is Expo's free plan for iOS builds, and the safety hook enforces that it's iOS-only and free.
 
 ## Setup on your PC
 
 You need:
 - [Claude Code](https://claude.com/claude-code), signed in with your Claude subscription
 - Node.js 20+ and Git
-- For release builds: Android Studio (free, any OS) and, for iOS, a Mac with Xcode (free)
+- For release builds: Android Studio (free, any OS) for Android. For iOS, a free Expo account (no card) if you don't have a Mac, or Xcode on a Mac. You test iOS builds on your iPhone with TestFlight.
 
 ```sh
 git clone https://github.com/shefoo0/tester.git
@@ -101,7 +103,7 @@ Run `/release-app <slug>` in Claude Code. It does what can be done on your PC, a
 3. **Store graphics:** the 512×512 icon and the 1024×500 feature graphic that Google Play requires.
 4. **Privacy and support pages:** publishes them to GitHub Pages, so the stores get the public URLs they require. GitHub Pages is free for public repositories. If this repository is private on GitHub's free plan, use a separate public repository for the pages.
 5. **Android:** you create an upload key once, in your own terminal so passwords never reach the chat. Claude builds a signed `.aab` with Android Studio's tools.
-6. **iOS (Mac only):** Claude prepares the Xcode project, and you archive and upload it from Xcode.
+6. **iOS:** without a Mac, the app is built on Expo's free cloud plan, iOS only and never with a card. You sign in to Expo and Apple in your own terminal the first time. Expo creates the signing certificates and uploads to App Store Connect, and you test on your iPhone with TestFlight. On a Mac, Claude prepares the Xcode project and you archive and upload from Xcode.
 7. **Play Console and App Store Connect:** every form, with the text to paste. New personal Google Play accounts must run a closed test with 12 testers for 14 days before going public. The command walks you through it and tracks the dates.
 
 Progress is logged in `apps/<slug>/RELEASES.md`. Signing keys stay in `~/.app-signing/`, outside the repository, so back them up somewhere safe.
@@ -140,7 +142,7 @@ The screenshot and graphics scripts need one-time setup: `npm install`, then `np
 
 ## Built-in safety and resilience
 
-- **Spending guard:** `.claude/hooks/guard-bash.mjs` runs before every shell command and blocks paid cloud builds, publishing, force-pushes, destructive deletes and anything that reads your signing keys or passwords. `.claude/settings.json` also denies reading those files. The agents can't spend money or see your secrets, even by mistake.
+- **Spending guard:** `.claude/hooks/guard-bash.mjs` runs before every shell command and allows Expo's free cloud only for iOS builds and uploads. It blocks everything else in Expo's cloud (Android or all-platform builds, over-the-air updates, workflows, paid priority builds), and also publishing, force-pushes, destructive deletes and anything that reads your signing keys, Apple API keys or passwords. `.claude/settings.json` also denies reading those files. The agents can't spend money or see your secrets, even by mistake.
 - **Resuming:** `/new-app` and `/update-app` keep `apps/<slug>/PROGRESS.md`, and `/release-app` uses `RELEASES.md`. If a run stops at a usage limit, run the same command again (or type "continue") and it picks up where it stopped.
 - **Milestones:** for big apps (more than 6 features, or native code such as OCR), the Lead splits the work into milestones and waits for your OK on the spec first. Each milestone ends with a working, tested app.
 - **Agent memory:** the developer, test engineer and QC inspector write lessons from each app into `.claude/agent-memory/`. Commit it so every app benefits.

@@ -19,6 +19,9 @@
       "Read(~/.gradle/gradle.properties)",
       "Read(**/*.jks)",
       "Read(**/*.keystore)",
+      "Read(**/*.p8)",
+      "Read(**/*.p12)",
+      "Read(**/*.mobileprovision)",
       "Read(**/.env)",
       "Edit(~/.app-signing/**)",
       "Edit(~/.gradle/gradle.properties)"
