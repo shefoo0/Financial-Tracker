@@ -51,4 +51,7 @@ export interface Repository {
   importAll(data: BackupData): Promise<void>;
   /** Removes all data and restores defaults (onboarded = false). */
   deleteAll(): Promise<void>;
+  /** Waits for queued writes, then closes the database. Used when switching or
+   * deleting a profile. The repository must not be used afterwards. */
+  close(): Promise<void>;
 }

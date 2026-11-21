@@ -14,6 +14,9 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Fixes: iOS "Done" bar above number pads (app), flows scroll and use a shared dismiss-keyboard subflow (tests)
   - [x] Re-runs 44941101336 (Android) and 44942614309 (iPhone): first launch and delete-all pass; flows 02/03 found a real bug (form stayed open after Save: "Discard changes?" guard), fixed in 624a390
   - [~] Re-runs with the fix: android.yml run 44944552322, ios-simulator.yml run 44944555203
+- [~] Redesign + profiles (developer asked after testing the first build; spec §12; design/redesign-2026.png)
+  - [x] Lead: tokens, profile types/provider, layouts · [ ] R1 stores · [ ] R2 kit · [ ] R3 dashboard · [ ] R4 month/plan/forms · [ ] R5 profiles/settings/wizard
+  - [ ] review · [ ] tests · [ ] fix loop · [ ] Android + iPhone test runs
 - [ ] Milestone 2 — Debts, cheques, alerts, lock: T6 · T7 · T8 · T9 · review · tests · Android test build
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
@@ -27,6 +30,8 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 
 - Cloud sessions: Expo CLI needs `EXPO_OFFLINE=1` (Expo's servers are blocked); versions come from the installed SDK.
 - Routes live in `src/app/` (SDK 58 template), not `app/` as the spec's task table says.
+
+- Redesign: Bold cards + Glass fintech, light and dark with an Appearance setting; profiles on one phone, one database per profile (the first keeps moneyplanner.db, so no data migration); no money accounts; no version bump (1.0.0 isn't released yet).
 
 ## Open findings
 - Privacy policy URL (`src/features/settings/links.ts`) is filled at release; the repo is private, so GitHub Pages needs a public repo for the pages.

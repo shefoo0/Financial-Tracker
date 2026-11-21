@@ -68,7 +68,7 @@ name: Screenshots of the main screens
 - tapOn:
     id: recurring-save
 - takeScreenshot: shots/03-plan
-- tapOn: "Dashboard"
+- tapOn: "Home"
 - takeScreenshot: shots/04-dashboard
 - tapOn: "Month"
 - takeScreenshot: shots/05-month

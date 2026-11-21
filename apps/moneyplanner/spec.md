@@ -90,6 +90,12 @@ Currency label (AED), salary amount and payday, current bank balance, a "buffer"
 - Pro (one-time, about AED 29-49, set in the store consoles; final price is the developer's call): no limits. No ads, ever, and no subscription.
 - `react-native-purchases` (RevenueCat, free until revenue is meaningful) behind `src/lib/purchases.ts`, with product IDs as constants and the API key as a clearly named constant for the developer to fill in at release. Includes a "Restore purchases" button. Until a key is set, the app runs with the free limits, and the upgrade screen says Pro isn't available in this build (so there's no dead button).
 
+### 12. Look, appearance and profiles (2026 redesign, during milestone 1)
+- **Look:** "Bold cards + Glass fintech" — see `design/redesign-2026.png` (and `design/redesign-2026.html`). Every screen has a soft aurora background (three blurred colour blobs), frosted glass cards with a hairline border, large rounded corners (18-28), bold numbers, colourful icon tiles. The dashboard opens with a greeting and the profile button, then a gradient **hero card** (balance today, lowest point in the next 60 days, glowing forecast line with the buffer as a dashed line), three **stat tiles** (Income, Spent, Free this month, each with a coloured icon), the **buffer alert** when the forecast dips under the buffer or zero, and **Coming up** (the next payments and income with "in N days" and instalment progress such as "14 of 48 paid"). Tokens live in `src/constants/theme.ts`.
+- **Light and dark:** both are designed (pastel aurora and white glass in light; deep navy aurora, translucent glass and neon accents in dark). **Settings → Appearance: System / Light / Dark**, saved on the device; native parts (date picker, alerts, tab bar, status bar) follow it.
+- **Profiles on one phone:** for a partner or a shared household budget. The profile button (avatar + name ▾) on the dashboard opens the **profile switcher** sheet: the list of profiles (avatar, name, tick on the open one), **Add profile**, **Manage profiles**, and the Appearance switch. Each profile has completely separate data (its own plan, one-time items, categories and settings, and its own backup, export and "delete all data"), stored in its own database. A new profile starts with the setup wizard. Profiles: up to 6, names 1-24 characters, a colour for the avatar; rename, recolour and delete (with a typed confirmation; the open profile and the last profile can't be deleted). Existing data becomes the first profile, "Me". No sign-in and no sync: everything stays on the phone. A per-profile PIN or Face ID lock comes with the lock in milestone 2.
+- **No money accounts** (bank, card, cash balances): the developer decided against them; the forecast keeps a single starting balance per profile.
+
 ## Data model (SQLite via `expo-sqlite`, money in integer fils)
 
 - `settings` (key/value): currency, payday, buffer, thresholds, enabled modules, onboarding done, lock enabled
@@ -150,6 +156,16 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 | --- | --- |
 | T14 Purchases module, limits, upgrade screen, restore purchases | `src/lib/purchases.ts`, `src/features/pro/**` |
 | Lead: icon, store listing, privacy policy, support page, privacy manifest, QC, test build, REPORT.md | `store/**`, `assets/**`, `REPORT.md` |
+
+### Redesign and profiles (during milestone 1)
+| Task | Owns |
+| --- | --- |
+| Lead: tokens, profile types and provider, root and tab layouts | `src/constants/theme.ts`, `src/data/profiles/types.ts`, `src/data/profiles/ProfileProvider.tsx`, `src/data/repository.ts`, `src/data/create-repository*.ts`, `src/hooks/**`, `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` |
+| R1 Profile stores (SQLite + memory), repository `close()` and database name | `src/data/sqlite/**`, `src/data/memory/**`, `src/data/profiles/*-profile-store.ts` |
+| R2 UI kit and charts restyle, new pieces (aurora, glass, hero, stat tile, sheet, avatar) | `src/components/**` |
+| R3 Dashboard redesign | `src/app/(tabs)/index.tsx`, `src/features/dashboard/**` |
+| R4 Month, Plan, item forms and Categories restyle | `src/app/(tabs)/month.tsx`, `src/app/(tabs)/plan.tsx`, `src/app/recurring/**`, `src/app/transaction/**`, `src/app/categories.tsx`, `src/features/items/**` |
+| R5 Profile switcher, Manage profiles, Appearance, Settings and wizard restyle | `src/features/profiles/**`, `src/app/profiles.tsx`, `src/app/(tabs)/settings.tsx`, `src/features/settings/**`, `src/app/onboarding.tsx` |
 
 ## Testing
 

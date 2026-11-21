@@ -9,7 +9,7 @@ import { useRepoQuery } from '@/data/DataProvider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const TABS = [
-  { name: 'index', label: 'Dashboard', icon: require('@/assets/images/tabs/dashboard.png') },
+  { name: 'index', label: 'Home', icon: require('@/assets/images/tabs/dashboard.png') },
   { name: 'month', label: 'Month', icon: require('@/assets/images/tabs/month.png') },
   { name: 'plan', label: 'Plan', icon: require('@/assets/images/tabs/plan.png') },
   { name: 'settings', label: 'Settings', icon: require('@/assets/images/tabs/settings.png') },
@@ -17,7 +17,7 @@ const TABS = [
 
 export default function TabLayout() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors[scheme];
   const { data: settings, loading, error, reload } = useRepoQuery((r) => r.getSettings());
 
   if (error && !settings) {
@@ -44,9 +44,11 @@ export default function TabLayout() {
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
+      backgroundColor={colors.tabBar}
+      blurEffect={scheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
       indicatorColor={colors.backgroundSelected}
-      labelStyle={{ selected: { color: colors.accent } }}>
+      iconColor={{ default: colors.textSecondary, selected: colors.accent }}
+      labelStyle={{ default: { color: colors.textSecondary }, selected: { color: colors.accent } }}>
       {TABS.map((t) => (
         <NativeTabs.Trigger key={t.name} name={t.name}>
           <NativeTabs.Trigger.Label>{t.label}</NativeTabs.Trigger.Label>

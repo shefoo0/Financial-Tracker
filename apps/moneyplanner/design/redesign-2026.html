@@ -1,0 +1,89 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"SF Pro Display","Inter","Segoe UI",Roboto,sans-serif;background:#e6e8ee;padding:40px 30px;display:flex;gap:36px;justify-content:center}
+.col{display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{font:700 22px sans-serif;color:#1b1f2a}.sub{font:15px sans-serif;color:#5b6170;margin-top:-8px}
+.phone{width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;border:10px solid #111;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.sb{display:flex;justify-content:space-between;padding:14px 28px 0;font:600 15px sans-serif}
+.in{padding:12px 20px}
+.row{display:flex;align-items:center;justify-content:space-between}
+.amt{font-weight:700;font-variant-numeric:tabular-nums}
+/* tokens */
+.dark{--bg:#070914;--fg:#eef2ff;--mut:rgba(238,242,255,.6);--glass:rgba(255,255,255,.07);--gb:rgba(255,255,255,.14);--pos:#3ee39a;--neg:#ff6b9a;--warn:#ffc25a;--acc:#5ef0ff;
+ background:radial-gradient(circle at 15% 8%,#2a2a8a 0,transparent 42%),radial-gradient(circle at 95% 45%,#6a1fb0 0,transparent 38%),radial-gradient(circle at 5% 95%,#0b6b62 0,transparent 40%),var(--bg);color:var(--fg)}
+.light{--bg:#f4f5fb;--fg:#12142b;--mut:rgba(18,20,43,.58);--glass:rgba(255,255,255,.62);--gb:rgba(255,255,255,.9);--pos:#0a9a5c;--neg:#e0336f;--warn:#b26b00;--acc:#5a4dff;
+ background:radial-gradient(circle at 15% 8%,#d9d6ff 0,transparent 42%),radial-gradient(circle at 95% 45%,#ffd6ec 0,transparent 38%),radial-gradient(circle at 5% 95%,#ccf5ea 0,transparent 40%),var(--bg);color:var(--fg)}
+.glass{background:var(--glass);border:1px solid var(--gb);backdrop-filter:blur(20px);border-radius:22px}
+.light .glass{box-shadow:0 8px 24px rgba(60,50,140,.08)}
+.hello{font-size:13px;color:var(--mut)}.name{font-size:24px;font-weight:800}
+.pf{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:30px;font-size:14px;font-weight:600}
+.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#ff9a5a,#ff4f8b);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+.hero{margin-top:14px;border-radius:28px;padding:20px;color:#fff;background:linear-gradient(135deg,#5b4dff 0%,#9b4dff 55%,#ff5fa8 100%);box-shadow:0 18px 40px rgba(122,77,255,.45);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.25),transparent 40%);pointer-events:none}
+.hero small{font-size:11px;letter-spacing:1.5px;opacity:.85;font-weight:700}
+.hero .big{font-size:36px;font-weight:800;margin:4px 0 2px}
+.pill{background:rgba(255,255,255,.22);padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700}
+.stats{display:flex;gap:10px;margin-top:14px}
+.st{flex:1;padding:12px;border-radius:20px}.st span{font-size:11px;color:var(--mut)}.st b{display:block;font-size:18px;margin-top:3px}
+.st .ic{width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;margin-bottom:6px}
+.alert{margin-top:12px;padding:11px 14px;font-size:13px;display:flex;gap:10px;align-items:center;border-color:color-mix(in srgb,var(--warn) 50%,transparent)!important}
+.alert i{font-style:normal;width:28px;height:28px;border-radius:9px;background:color-mix(in srgb,var(--warn) 22%,transparent);display:flex;align-items:center;justify-content:center}
+h4{font-size:16px;margin:16px 0 6px;display:flex;justify-content:space-between}h4 span{font-size:13px;color:var(--acc);font-weight:600}
+.list{padding:4px 14px}
+.up{display:flex;align-items:center;gap:12px;padding:10px 0}
+.up+.up{border-top:1px solid var(--gb)}
+.up .e{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.up .t{flex:1}.up .t b{display:block;font-size:15px}.up .t span{font-size:12px;color:var(--mut)}
+.tabs{position:absolute;bottom:0;left:0;right:0;height:84px;display:flex;justify-content:space-around;padding-top:12px;font-size:11px;color:var(--mut);background:var(--glass);backdrop-filter:blur(24px);border-top:1px solid var(--gb)}
+.tabs div{display:flex;flex-direction:column;align-items:center;gap:4px}.tabs .ic{font-size:22px}.tabs .on{color:var(--acc)}
+.dark .tabs .on{text-shadow:0 0 10px var(--acc)}
+/* sheet */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;padding:10px 20px 34px;border-radius:30px 30px 0 0;background:rgba(20,22,40,.82);backdrop-filter:blur(30px);border-top:1px solid rgba(255,255,255,.15)}
+.grab{width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.3);margin:0 auto 14px}
+.prof{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;margin-top:8px}
+.prof .av{width:44px;height:44px;font-size:17px}
+.prof b{display:block;font-size:16px}.prof span{font-size:12px;color:var(--mut)}
+.sel{border:1.5px solid var(--acc)!important;box-shadow:0 0 18px rgba(94,240,255,.25)}
+.seg{display:flex;padding:4px;border-radius:14px;margin-top:10px}.seg div{flex:1;text-align:center;padding:9px;border-radius:10px;font-size:14px;font-weight:600;color:var(--mut)}.seg .on{background:linear-gradient(135deg,#5b4dff,#9b4dff);color:#fff}
+</style></head><body>
+<template id="dash">
+<div class="sb"><span>9:41</span><span>▮▮▮ 100%</span></div><div class="in">
+ <div class="row"><div><div class="hello">Good morning</div><div class="name">Sam</div></div><div class="pf glass"><div class="av">S</div>Me ▾</div></div>
+ <div class="hero"><small>BALANCE TODAY</small><div class="big">AED 24,350</div>
+  <div class="row"><span class="pill">Lowest 6,120 · 28 Dec</span><span style="font-size:12px;opacity:.85">next 60 days</span></div>
+  <svg viewBox="0 0 300 64" width="100%" height="60" style="margin-top:8px"><defs><linearGradient id="gF" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="gl"><feGaussianBlur stdDeviation="3"/></filter></defs>
+  <line x1="0" x2="300" y1="48" y2="48" stroke="#fff" stroke-opacity=".5" stroke-dasharray="4 4"/>
+  <path d="M0 14 L40 18 L60 40 L95 44 L120 52 L150 22 L190 26 L215 46 L245 50 L270 20 L300 16 L300 64 L0 64Z" fill="url(#gF)"/>
+  <path d="M0 14 L40 18 L60 40 L95 44 L120 52 L150 22 L190 26 L215 46 L245 50 L270 20 L300 16" fill="none" stroke="#fff" stroke-width="5" filter="url(#gl)" opacity=".7"/>
+  <path d="M0 14 L40 18 L60 40 L95 44 L120 52 L150 22 L190 26 L215 46 L245 50 L270 20 L300 16" fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="120" cy="52" r="4.5" fill="#fff"/></svg>
+ </div>
+ <div class="stats">
+  <div class="st glass"><div class="ic" style="background:color-mix(in srgb,var(--pos) 20%,transparent)">↓</div><span>Income</span><b style="color:var(--pos)">+12,500</b></div>
+  <div class="st glass"><div class="ic" style="background:color-mix(in srgb,var(--neg) 20%,transparent)">↑</div><span>Spent</span><b style="color:var(--neg)">-8,100</b></div>
+  <div class="st glass"><div class="ic" style="background:color-mix(in srgb,var(--acc) 20%,transparent)">✦</div><span>Free</span><b style="color:var(--acc)">4,400</b></div>
+ </div>
+ <div class="alert glass"><i>⚠</i><span>Under your <b>5,000</b> buffer on <b>12 Jan</b> if nothing changes</span></div>
+ <h4>Coming up <span>See all</span></h4>
+ <div class="list glass">
+  <div class="up"><div class="e" style="background:#ff9a5a33">🏠</div><div class="t"><b>Rent</b><span>in 2 days · cheque 3 of 4</span></div><div class="amt" style="color:var(--neg)">-6,500</div></div>
+  <div class="up"><div class="e" style="background:#5b4dff33">🚗</div><div class="t"><b>Car loan</b><span>in 5 days · 14 of 48 paid</span></div><div class="amt" style="color:var(--neg)">-1,850</div></div>
+  <div class="up"><div class="e" style="background:#3ee39a33">💼</div><div class="t"><b>Salary</b><span>in 9 days</span></div><div class="amt" style="color:var(--pos)">+12,500</div></div>
+ </div>
+</div><div class="tabs"><div class="on"><span class="ic">⌂</span>Home</div><div><span class="ic">▤</span>Month</div><div><span class="ic">⟳</span>Plan</div><div><span class="ic">⚙</span>Settings</div></div>
+</template>
+<div class="col"><div class="cap">Dark</div><div class="sub">aurora glow, glass cards, gradient hero</div><div class="phone dark" data-d></div></div>
+<div class="col"><div class="cap">Light</div><div class="sub">same layout, soft pastel glass</div><div class="phone light" data-d></div></div>
+<div class="col"><div class="cap">Profile switcher</div><div class="sub">tap “Me ▾”; each profile has its own data</div><div class="phone dark" data-d id="p"></div></div>
+<script>
+const t=document.getElementById('dash').innerHTML;document.querySelectorAll('[data-d]').forEach(p=>p.innerHTML=t);
+document.getElementById('p').insertAdjacentHTML('beforeend',`<div class="dim"></div><div class="sheet"><div class="grab"></div>
+<div style="font-size:20px;font-weight:800">Profiles</div>
+<div class="prof glass sel"><div class="av">S</div><div style="flex:1"><b>Me</b><span>Sam · Face ID lock</span></div><span style="color:var(--acc);font-size:20px">✓</span></div>
+<div class="prof glass"><div class="av" style="background:linear-gradient(135deg,#5ef0ff,#5b4dff)">L</div><div style="flex:1"><b>Layla</b><span>PIN lock</span></div><span>🔒</span></div>
+<div class="prof glass"><div class="av" style="background:linear-gradient(135deg,#3ee39a,#0b8a7a)">H</div><div style="flex:1"><b>Household</b><span>Shared costs</span></div></div>
+<div class="prof glass" style="justify-content:center;color:var(--acc);font-weight:700">＋ Add profile</div>
+<div style="margin-top:18px;font-size:13px;color:var(--mut)">Appearance</div>
+<div class="seg glass"><div>System</div><div>Light</div><div class="on">Dark</div></div></div>`);
+</script></body></html>
