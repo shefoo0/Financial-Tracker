@@ -1,7 +1,7 @@
 // Settings: money, modules, categories, backup and restore, delete, about.
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { Button, Card, EmptyState, ListRow, MoneyField, Screen, SectionHeader, SelectField, T, TextField, ToggleRow } from '@/components/ui';
@@ -29,7 +29,8 @@ export default function SettingsScreen() {
   const { data: settings, error, reload } = useRepoQuery((r) => r.getSettings());
   const update = useRepoMutation((r, patch: Partial<Settings>) => r.updateSettings(patch));
 
-  const [currency, setCurrency] = useState('');
+  // The text box shows what's saved until the user starts typing.
+  const [currencyDraft, setCurrency] = useState<string | null>(null);
   const [currencyError, setCurrencyError] = useState<string | null>(null);
   const [newBalance, setNewBalance] = useState<Fils | null>(null);
   const [overdrawn, setOverdrawn] = useState(false);
@@ -38,10 +39,7 @@ export default function SettingsScreen() {
   const [newBuffer, setNewBuffer] = useState<Fils | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const savedCurrency = settings?.currency;
-  useEffect(() => {
-    if (savedCurrency != null) setCurrency(savedCurrency);
-  }, [savedCurrency]);
+  const currency = currencyDraft ?? settings?.currency ?? '';
 
   if (error) {
     return (
@@ -176,7 +174,7 @@ export default function SettingsScreen() {
         />
       </Card>
       <Card>
-        <T variant="label">Today's balance</T>
+        <T variant="label">{"Today's balance"}</T>
         <T testID="settings-balance-current">{`${formatMoney(settings.startingBalance, cur)} as of ${formatDate(settings.startingBalanceDate)}`}</T>
         <MoneyField key={`b${balanceKey}`} label="Update today's balance" value={newBalance} onChange={setNewBalance} currency={cur} testID="settings-balance" />
         <ToggleRow label="My account is overdrawn" value={overdrawn} onChange={setOverdrawn} testID="settings-overdrawn" />

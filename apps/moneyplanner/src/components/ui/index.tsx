@@ -64,7 +64,8 @@ const textStyles = StyleSheet.create({
 /** A full screen with safe-area padding, optional scrolling and a centred max width. */
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
   const c = useTheme();
-  const inner = <View style={styles.screenInner}>{children}</View>;
+  // On the web the tab bar sits over the top of the page, so leave room for it.
+  const inner = <View style={[styles.screenInner, Platform.OS === 'web' && styles.webTabsInset]}>{children}</View>;
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.background }]} edges={['top', 'left', 'right']} testID={testID}>
       {scroll ? (
@@ -514,6 +515,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: Spacing.six },
   screenInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.three },
+  webTabsInset: { paddingTop: 72 },
   card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: Spacing.three, gap: Spacing.two },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.two },
   button: { minHeight: 48, borderRadius: 12, paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
