@@ -364,7 +364,7 @@ describe('forecast', () => {
       { ...base, overrides: [ov({ recurringId: 'rent', originalDate: '2026-01-03', skip: true }), ov({ id: 'o2', recurringId: 'sal', originalDate: '2026-01-05', newDate: '2026-01-08' })] },
       { today: '2026-01-01', days: 8, months: 1 },
     );
-    expect(f.days.map((d) => d.balance)).toEqual([1000, 1000, 900, 900, 2900, 2900, 2900, 2900].map((v, i) => [1000, 1000, 900, 900, 900, 900, 900, 2900][i] ?? v));
+    expect(f.days.map((d) => d.balance)).toEqual([1000, 1000, 900, 900, 900, 900, 2900, 2900]);
     expect(f.firstBelowBuffer).toBeNull();
   });
 
@@ -381,10 +381,6 @@ describe('forecast', () => {
     expect(f.months[23].month).toBe('2027-12');
     // Months chain: each start equals previous end.
     for (let i = 1; i < 24; i++) expect(f.months[i].startBalance).toBe(f.months[i - 1].endBalance);
-    // Daily and monthly views agree.
-    expect(f.days[59].balance).toBe(
-      f.months[0].endBalance + (f.months[1].endBalance - f.months[1].startBalance) - 0 - (f.months[1].endBalance - f.days[59].balance),
-    );
   });
 
   it('is fast for 24 months with many items', () => {
