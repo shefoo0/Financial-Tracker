@@ -9,6 +9,7 @@ A team of Claude Code sub-agents that turns an app idea into a store-ready **Exp
 | **code-reviewer** | `.claude/agents/code-reviewer.md` | Read-only review for bugs, gaps against the spec and store-rejection risks, with `file:line` evidence |
 | **test-engineer** | `.claude/agents/test-engineer.md` | Writes Jest tests and runs the type checker, linter, `expo-doctor`, tests and bundle exports. It doesn't touch app code. |
 | **market-researcher** | `.claude/agents/market-researcher.md` | Researches one store niche for `/find-ideas`: top apps, review complaints, ideas with evidence |
+| **app-scout** | `.claude/agents/app-scout.md` | Studies the popular apps around your idea for `/similar-ideas`: competitors, chart leaders, neighbouring audiences, and variations close to your idea |
 | **qc-inspector** | `.claude/agents/qc-inspector.md` | Final pass or fail against the store guidelines, listing limits, privacy answers versus the code, leftover placeholders and hidden costs |
 
 The sub-agents run on Sonnet to save your plan's usage. The App Lead uses whatever model your session uses.
@@ -59,12 +60,13 @@ claude
 | Command | What it does |
 | --- | --- |
 | `/find-ideas [topic or audience]` | Sends market researchers into several niches in parallel, scores the ideas they find, and saves a ranked shortlist with ready-to-run `/new-app` lines to `ideas/` |
+| `/similar-ideas ["<your idea>" \| <slug>]` | Studies the popular apps around your idea, or your existing apps, and suggests the strongest variations close to it, with a competitor map, feature matrix and evidence. For an existing app, it also suggests features to add. |
 | `/new-app "<idea>" [bundle id] [monetization]` | Researches, plans, builds, reviews, tests and QCs a new app in `apps/<slug>/` |
 | `/release-app <slug> [android\|ios\|both]` | Takes you step by step through screenshots, store graphics, the privacy and support pages, signed builds, and setting up the app in the Play Console and App Store Connect |
 | `/update-app <slug> "<change>"` | Adds features or fixes with the same team, re-tests everything, writes release notes and bumps the version |
 | `/maintain-apps [slug ...]` | Checks the stores' current yearly requirements, finds apps whose Expo SDK or dependencies are falling behind, and upgrades the ones you choose |
 
-A typical cycle: `/find-ideas` → `/new-app` → test on your phone → `/release-app` → `/update-app` as users give feedback → `/maintain-apps` every three months.
+A typical cycle: `/find-ideas` or `/similar-ideas "your idea"` → `/new-app` → test on your phone → `/release-app` → `/update-app` as users give feedback → `/maintain-apps` every three months.
 
 ## Building an app
 

@@ -24,13 +24,16 @@ publish.
 - `.claude/commands/update-app.md` — the App Lead for changes to an existing app.
 - `.claude/commands/find-ideas.md` — researches niches in parallel and writes
   a ranked shortlist to `ideas/`.
+- `.claude/commands/similar-ideas.md` — studies popular apps around a seed
+  idea (or apps in `apps/`) with parallel `app-scout`s; writes variations to
+  `ideas/`.
 - `.claude/commands/maintain-apps.md` — yearly store requirements, SDK
   upgrades and security fixes; logs to `MAINTENANCE.md`.
 - `.claude/commands/release-app.md` — step-by-step release guide (screenshots,
   graphics, pages, signed builds, store consoles). Secrets never go in chat or
   the repo; signing keys live in `~/.app-signing/`.
 - `.claude/agents/` — sub-agents: `app-developer`, `code-reviewer`,
-  `test-engineer`, `qc-inspector`, `market-researcher`. Sub-agents can't spawn other sub-agents;
+  `test-engineer`, `qc-inspector`, `market-researcher`, `app-scout`. Sub-agents can't spawn other sub-agents;
   only the main session delegates.
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`).
@@ -56,6 +59,7 @@ publish.
 | Change an app | `/update-app <slug> "<change>"` |
 | Release an app | `/release-app <slug> [android\|ios\|both]` |
 | Find app ideas | `/find-ideas [topic]` |
+| Ideas close to yours | `/similar-ideas ["<idea>" \| <slug>]` |
 | Maintenance (every ~3 months) | `/maintain-apps` |
 
 ## Conventions
