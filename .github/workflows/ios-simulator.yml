@@ -1,0 +1,181 @@
+# Tests an app in apps/<slug> on an iPhone simulator, without an iPhone, a Mac
+# or the paid Apple Developer Program:
+#   1. Expo's FREE plan builds a simulator version (no signing needed). A cheap
+#      Linux job waits for it.
+#   2. One of GitHub's free macOS machines installs it on an iPhone simulator,
+#      runs the Maestro flows (apps/<slug>/.maestro/), and takes screenshots of
+#      the main screens (apps/<slug>/.maestro-screens/) as an artifact.
+#
+# Free only: Expo's free plan (iOS only, no payment method; one simulator build
+# per run, from the monthly free builds) and GitHub's free minutes. On a private
+# repository macOS minutes count 10x, so this is started by hand at milestone
+# ends, and the macOS job is capped at 30 minutes. If the free minutes run out,
+# GitHub stops the job (the account's spending limit is $0); it never charges.
+#
+# If the Expo build takes longer than the Linux job allows, run the workflow
+# again with the finished build's ID (from expo.dev) in `build_id` to skip it.
+
+name: iOS simulator test
+run-name: iOS simulator ${{ inputs.app }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App folder in apps/ (its slug)
+        required: true
+        type: string
+      build_id:
+        description: Optional - reuse a finished Expo simulator build (its ID from expo.dev) instead of building again
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ios-simulator-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APP: ${{ inputs.app }}
+      BUILD_ID: ${{ inputs.build_id }}
+      EAS_BUILD_NO_EXPO_GO_WARNING: "true"
+    outputs:
+      url: ${{ steps.build.outputs.url }}
+      bundle_id: ${{ steps.build.outputs.bundle_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs and the Expo token
+        env:
+          HAS_TOKEN: ${{ secrets.EXPO_TOKEN != '' }}
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::App name must be lowercase letters, digits and dashes."; exit 1; }
+          [ -f "apps/$APP/package.json" ] || { echo "::error::apps/$APP/package.json not found."; exit 1; }
+          [ -z "$BUILD_ID" ] || [[ "$BUILD_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "::error::build_id must be an Expo build ID."; exit 1; }
+          [ "$HAS_TOKEN" = "true" ] || { echo "::error::Add the EXPO_TOKEN secret first (free Expo account, no payment method)."; exit 1; }
+          grep -q '"simulator"' "apps/$APP/eas.json" || { echo "::error::apps/$APP/eas.json needs a \"simulator\" build profile with ios.simulator = true."; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/${{ inputs.app }}/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        working-directory: apps/${{ inputs.app }}
+        run: npm ci
+
+      - name: Build the simulator app on Expo's free plan (iOS only)
+        id: build
+        working-directory: apps/${{ inputs.app }}
+        run: |
+          set -o pipefail
+          if [ -n "$BUILD_ID" ]; then
+            eas build:view "$BUILD_ID" --json > build.json
+          else
+            echo "Queued on Expo's free plan; the free queue can take a while."
+            eas build --platform ios --profile simulator --non-interactive --wait --json > build.json
+          fi
+          node -e '
+            const raw = JSON.parse(require("fs").readFileSync("build.json", "utf8"));
+            const b = Array.isArray(raw) ? raw[0] : raw;
+            if (b.platform !== "IOS") { console.error("Not an iOS build"); process.exit(1); }
+            if (b.status !== "FINISHED") { console.error("Expo build status: " + b.status + " (" + b.id + ")"); process.exit(1); }
+            const fs = require("fs");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "url=" + b.artifacts.buildUrl + "\n");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "Expo simulator build: `" + b.id + "`\n");
+          '
+          echo "bundle_id=$(node -p "require('./app.json').expo.ios.bundleIdentifier")" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: build
+    # Free macOS minutes (counted 10x on private repositories). Keep it short.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      APP: ${{ inputs.app }}
+      BUNDLE_ID: ${{ needs.build.outputs.bundle_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the simulator app
+        env:
+          URL: ${{ needs.build.outputs.url }}
+        run: |
+          curl -fsSL "$URL" -o app.tar.gz
+          mkdir -p sim-app
+          tar -xzf app.tar.gz -C sim-app
+          app_path="$(find sim-app -maxdepth 3 -name '*.app' -type d | head -1)"
+          [ -n "$app_path" ] || { echo "::error::No .app in the Expo build."; exit 1; }
+          echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
+
+      - name: Start an iPhone simulator and install the app
+        run: |
+          # Prefer a "Pro Max" (6.9-inch, the App Store's main screenshot size).
+          udid="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devs = [d for rt, ds in json.load(sys.stdin)["devices"].items() if "iOS" in rt for d in ds if d["name"].startswith("iPhone")]
+          devs.sort(key=lambda d: ("Pro Max" in d["name"], d["name"]))
+          print(devs[-1]["udid"] if devs else "")
+          ')"
+          [ -n "$udid" ] || { echo "::error::No iPhone simulator available."; exit 1; }
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$APP_PATH"
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl list devices | grep "$udid"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the Maestro flows
+        id: flows
+        run: |
+          if ! ls "apps/$APP/.maestro/"*.yaml >/dev/null 2>&1; then
+            echo "::notice::No Maestro flows in apps/$APP/.maestro."
+            exit 0
+          fi
+          maestro --device "$UDID" test "apps/$APP/.maestro/" --format junit --output maestro-report.xml --debug-output maestro-debug
+
+      - name: Take screenshots of the main screens
+        if: always() && env.UDID != ''
+        run: |
+          mkdir -p shots
+          if ls "apps/$APP/.maestro-screens/"*.yaml >/dev/null 2>&1; then
+            maestro --device "$UDID" test "apps/$APP/.maestro-screens/" --debug-output maestro-screens-debug || echo "::warning::The screenshot flow did not finish; screenshots taken so far are kept."
+          else
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            sleep 8
+            xcrun simctl io "$UDID" screenshot shots/launch.png
+          fi
+          ls -la shots || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.app }}-ios-simulator
+          path: |
+            shots/
+            maestro-report.xml
+            maestro-debug/
+            maestro-screens-debug/
+          retention-days: 14
+          if-no-files-found: ignore

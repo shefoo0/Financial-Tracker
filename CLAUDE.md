@@ -15,8 +15,10 @@ README.md.
 - Default currency AED; English first (Arabic and right-to-left later).
 - Works in Claude Code cloud sessions on GitHub, with no build tools on a PC.
   Android builds and tests run on GitHub Actions (`.github/workflows/`); the
-  developer installs the APK on an Android phone. iOS builds run on Expo's
-  free plan, started from GitHub Actions, and are tested with TestFlight.
+  developer installs the APK on an Android phone. The developer has no iPhone
+  or Mac: iOS is tested with `ios-simulator.yml` (iPhone simulator on GitHub's
+  free macOS runner). The paid Apple Developer Program (for TestFlight and the
+  App Store via `ios.yml`) comes closer to release.
 - Start workflows with the GitHub tools (`actions_run_trigger`), and read the
   results with `actions_get` and `get_job_logs`.
 - Personal Google Play account, so a 12-tester, 14-day closed test comes
@@ -32,7 +34,10 @@ with `--platform ios`, run from `/release-app`), because iOS needs macOS to
 build: never add a payment method, upgrade, or use priority builds.
 **GitHub Actions** is allowed on its free minutes, on standard `ubuntu-latest`
 runners only (never larger, billed runners); keep workflows started by hand
-(`workflow_dispatch`), not on every push. The only accepted costs are the Apple Developer Program and
+(`workflow_dispatch`), not on every push. The one exception is the `test` job
+of `ios-simulator.yml`, which uses the free `macos-latest` runner (counted 10x
+on private repos, capped at 30 minutes) because the developer has no iPhone or
+Mac; run it at milestone ends, not on every change. The only accepted costs are the Apple Developer Program and
 Google Play developer accounts, which the developer pays for themselves to
 publish.
 
@@ -65,7 +70,11 @@ publish.
 - `.github/workflows/` — `android.yml` (type check, unit tests, signed APK
   and AAB, target API check, Maestro on an emulator), `android-upload-key.yml`
   (creates the upload key once; private repos only), `ios.yml` (queues an iOS
-  build and TestFlight upload on Expo's free plan). Check changes with
+  build and TestFlight upload on Expo's free plan; needs the paid Apple
+  program), `ios-simulator.yml` (no iPhone or paid Apple account needed: Expo's
+  free simulator build, then Maestro flows and screenshots of the main screens
+  on an iPhone simulator; flows in `apps/<slug>/.maestro/`, screenshot flow in
+  `apps/<slug>/.maestro-screens/`). All workflows use `shell: bash` (pipefail). Check changes with
   `npm test` (the workflow tests parse them and `bash -n` their scripts).
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`, `PROGRESS.md` for resuming a run, `RELEASES.md`).

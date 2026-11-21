@@ -1,0 +1,64 @@
+# Store and review screenshots: sets up a realistic plan, then captures each main
+# screen. Run by the "iOS simulator test" workflow (not part of the test suite).
+appId: com.shefoo.moneyplanner
+name: Screenshots of the main screens
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-salary
+- inputText: "18000"
+- hideKeyboard
+- tapOn:
+    id: onboarding-payday
+- tapOn:
+    id: onboarding-payday-option-25
+- takeScreenshot: shots/01-setup
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-balance
+- inputText: "6500"
+- hideKeyboard
+- tapOn:
+    id: onboarding-buffer
+- inputText: "2000"
+- hideKeyboard
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+- tapOn: "Plan"
+- tapOn:
+    id: plan-add-cost
+- tapOn:
+    id: recurring-name
+- inputText: "Rent"
+- hideKeyboard
+- tapOn:
+    id: recurring-amount
+- inputText: "9500"
+- hideKeyboard
+- tapOn:
+    id: recurring-category
+- tapOn:
+    id: recurring-category-option-housing
+- takeScreenshot: shots/02-recurring-form
+- tapOn:
+    id: recurring-save
+- takeScreenshot: shots/03-plan
+- tapOn: "Dashboard"
+- takeScreenshot: shots/04-dashboard
+- tapOn: "Month"
+- takeScreenshot: shots/05-month
+- tapOn: "Settings"
+- takeScreenshot: shots/06-settings

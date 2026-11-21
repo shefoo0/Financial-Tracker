@@ -32,6 +32,11 @@ on:
 permissions:
   contents: read
 
+# `shell: bash` makes a failure anywhere in a pipeline fail the step (pipefail).
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: ios-${{ inputs.app }}
   cancel-in-progress: false
@@ -104,7 +109,10 @@ jobs:
 
       - name: Start the iOS build on Expo's free plan
         working-directory: apps/${{ inputs.app }}
+        env:
+          EAS_BUILD_NO_EXPO_GO_WARNING: "true"
         run: |
+          set -o pipefail
           args=(build --platform ios --profile production --non-interactive --no-wait)
           if [ "$SUBMIT" = "true" ]; then args+=(--auto-submit); fi
           eas "${args[@]}" | tee eas-output.txt

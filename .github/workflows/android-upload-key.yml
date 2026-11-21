@@ -30,6 +30,11 @@ on:
 permissions:
   contents: read
 
+# `shell: bash` makes a failure anywhere in a pipeline fail the step (pipefail).
+defaults:
+  run:
+    shell: bash
+
 jobs:
   create:
     runs-on: ubuntu-latest
