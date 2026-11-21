@@ -7,10 +7,11 @@ import { Button, Card, EmptyState, Screen, SectionHeader, Segmented, Stat, T } f
 import { Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
 import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
-import { categoryBars, describeBalanceTrend, monthShort, moneyTone, shortDate } from '@/features/dashboard/helpers';
-import { ErrorScreen, LoadingScreen, Stepper } from '@/features/dashboard/Parts';
+import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, moneyTone, shortDate } from '@/features/dashboard/helpers';
+import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
+import { useToday } from '@/features/dashboard/useToday';
 import { useTheme } from '@/hooks/use-theme';
-import { addMonthKey, formatMonth, monthKey, today } from '@/lib/dates';
+import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import type { PlanInput } from '@/types';
 
@@ -24,7 +25,7 @@ export default function Dashboard() {
 function DashboardBody({ input }: { input: PlanInput }) {
   const router = useRouter();
   const c = useTheme();
-  const todayStr = today();
+  const todayStr = useToday();
   const currentMonth = monthKey(todayStr);
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(Number(currentMonth.slice(0, 4)));
@@ -34,7 +35,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
 
   const empty = input.recurring.length === 0 && input.transactions.length === 0;
 
-  const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 24 }), [input, todayStr]);
+  const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 12 }), [input, todayStr]);
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const ys = useMemo(() => yearSummary(year, input), [year, input]);
 
@@ -75,7 +76,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
     { label: 'Spent %', get: (i) => ys.months[i].spentPct, kind: 'pct' },
   ];
   const labelW = 150;
-  const colW = 104;
+    const colMin = 104;
 
   return (
     <Screen testID="dashboard-screen">
@@ -86,7 +87,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
       <Card testID="dashboard-forecast">
         <SectionHeader title="Forecast: next 60 days" />
         <T variant="caption" tone="secondary">
-          Balance today: {money(fc.balanceAsOf)}
+          {balanceLabel(fc.asOf, todayStr)}: {money(fc.balanceAsOf)}
         </T>
         <BalanceChart
           days={fc.days}
@@ -119,7 +120,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
         <T variant="label" style={{ marginTop: Spacing.two }}>
           End-of-month balance, next 12 months
         </T>
-        {fc.months.slice(0, 12).map((m) => (
+        {fc.months.map((m) => (
           <View
             key={m.month}
             accessible
@@ -179,19 +180,17 @@ function DashboardBody({ input }: { input: PlanInput }) {
               {ys.months.map((m) => (
                 <View
                   key={m.month}
-                  style={{ width: colW, padding: Spacing.one, backgroundColor: m.month === currentMonth ? c.backgroundSelected : undefined }}>
-                  <T variant="label" style={{ textAlign: 'right' }}>
+                  style={{ minWidth: colMin, padding: Spacing.one, backgroundColor: m.month === currentMonth ? c.backgroundSelected : undefined }}>
+                  <TableText bold right>
                     {monthShort(m.month)}
-                  </T>
+                  </TableText>
                 </View>
               ))}
             </View>
             {rows.map((r) => (
               <View key={r.label} style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: c.border }}>
                 <View style={{ width: labelW, padding: Spacing.one, justifyContent: 'center' }}>
-                  <T variant="caption" style={r.bold ? { fontWeight: '700' } : undefined}>
-                    {r.label}
-                  </T>
+                  <TableText bold={r.bold}>{r.label}</TableText>
                 </View>
                 {ys.months.map((m, i) => {
                   const v = r.get(i);
@@ -202,10 +201,10 @@ function DashboardBody({ input }: { input: PlanInput }) {
                       key={m.month}
                       accessible
                       accessibilityLabel={`${r.label}, ${formatMonth(m.month)}: ${v == null ? 'no income' : r.kind === 'pct' ? text : money(v)}`}
-                      style={{ width: colW, padding: Spacing.one, backgroundColor: m.month === currentMonth ? c.backgroundSelected : undefined }}>
-                      <T variant="caption" tone={neg ? 'negative' : 'default'} style={{ textAlign: 'right', fontVariant: ['tabular-nums'], fontWeight: r.bold ? '700' : '400' }}>
+                      style={{ minWidth: colMin, padding: Spacing.one, backgroundColor: m.month === currentMonth ? c.backgroundSelected : undefined }}>
+                      <TableText bold={r.bold} negative={neg} right>
                         {text}
-                      </T>
+                      </TableText>
                     </View>
                   );
                 })}

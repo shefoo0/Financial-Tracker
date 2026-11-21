@@ -1,6 +1,6 @@
 // Small shared pieces for the Dashboard and Month screens.
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, type TextStyle } from 'react-native';
 
 import { Button, EmptyState, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -70,5 +70,33 @@ export function ErrorScreen({ onRetry }: { onRetry: () => void }) {
         action={<Button label="Try again" onPress={onRetry} testID="retry-load" />}
       />
     </Screen>
+  );
+}
+
+/** Text for the year table: capped scaling so big numbers do not blow up the columns. */
+export function TableText({
+  children,
+  bold,
+  negative,
+  right,
+  style,
+}: {
+  children: ReactNode;
+  bold?: boolean;
+  negative?: boolean;
+  right?: boolean;
+  style?: TextStyle;
+}) {
+  const c = useTheme();
+  return (
+    <Text
+      maxFontSizeMultiplier={1.6}
+      style={[
+        { fontSize: 13, lineHeight: 18, color: negative ? c.negative : c.text, fontWeight: bold ? '700' : '400', fontVariant: ['tabular-nums'] },
+        right ? { textAlign: 'right' } : null,
+        style,
+      ]}>
+      {children}
+    </Text>
   );
 }

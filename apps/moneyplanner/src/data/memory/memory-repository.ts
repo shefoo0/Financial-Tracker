@@ -32,9 +32,20 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     transactions = [];
   }
 
+  /** Defaults filled in under the given values, with the nested objects merged too (like SQLite's readSettings). */
+  function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
+    const p = clone(patch);
+    return {
+      ...base,
+      ...p,
+      enabledModules: { ...defaultSettings().enabledModules, ...(p.enabledModules ?? base.enabledModules) },
+      alertThresholds: { ...defaultSettings().alertThresholds, ...(p.alertThresholds ?? base.alertThresholds) },
+    };
+  }
+
   function replaceAll(d: Partial<BackupData>) {
     reset();
-    if (d.settings) settings = { ...settings, ...clone(d.settings) };
+    if (d.settings) settings = mergeSettings(settings, d.settings);
     if (d.categories) categories = clone(d.categories);
     if (d.recurring) recurring = clone(d.recurring);
     if (d.overrides) overrides = clone(d.overrides);
@@ -52,7 +63,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       return clone(settings);
     },
     async updateSettings(patch) {
-      settings = { ...settings, ...clone(patch) };
+      settings = mergeSettings(settings, patch);
       return clone(settings);
     },
 

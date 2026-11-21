@@ -1,0 +1,36 @@
+# Month -> add one-time item -> appears in Month.
+appId: com.shefoo.moneyplanner
+name: Add a one-time item
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-start
+- tapOn: "Month"
+- assertVisible: "Nothing in this month"
+- tapOn:
+    id: month-add-item
+- assertVisible:
+    id: transaction-screen
+- tapOn:
+    id: transaction-description
+- inputText: "Taxi"
+- hideKeyboard
+- tapOn:
+    id: transaction-amount
+- inputText: "45"
+- hideKeyboard
+- tapOn:
+    id: transaction-save-bottom
+- assertVisible:
+    id: month-screen
+- assertVisible: "Taxi"
+- assertNotVisible: "Nothing in this month"

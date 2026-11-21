@@ -1,4 +1,4 @@
-import { areaPath, barFraction, categoryBars, describeBalanceTrend, linePath, scaleSeries, shortDate } from '../helpers';
+import { areaPath, balanceLabel, barFraction, categoryBars, describeBalanceTrend, linePath, scaleSeries, shortDate } from '../helpers';
 
 describe('dashboard helpers', () => {
   it('formats short dates', () => {
@@ -30,6 +30,18 @@ describe('dashboard helpers', () => {
     expect(bars.map((b) => b.label)).toEqual(['Other / uncategorized', 'Rent']);
     expect(barFraction(450, 900)).toBe(0.5);
     expect(barFraction(1, 0)).toBe(0);
+  });
+  it('merges deleted and uncategorized ids into one bar', () => {
+    const cats = [{ id: 'a', name: 'Rent', kind: 'cost' as const, sort: 0, archived: false }];
+    const bars = categoryBars({ a: 500, uncategorized: 300, gone: 400, gone2: 100 }, cats);
+    expect(bars).toEqual([
+      { id: 'uncategorized', label: 'Other / uncategorized', value: 800 },
+      { id: 'a', label: 'Rent', value: 500 },
+    ]);
+  });
+  it('labels the balance date', () => {
+    expect(balanceLabel('2026-11-21', '2026-11-21')).toBe('Balance today');
+    expect(balanceLabel('2026-12-01', '2026-11-21')).toBe('Balance on 1 Dec');
   });
   it('describes the trend', () => {
     const days = [

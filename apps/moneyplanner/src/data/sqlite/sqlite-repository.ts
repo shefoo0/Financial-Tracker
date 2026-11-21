@@ -58,15 +58,19 @@ const toTransaction = (r: Row): Transaction => ({
 
 const writeCategory = (w: Writer, c: Category) =>
   w.runAsync(
-    'INSERT OR REPLACE INTO categories (id, name, kind, sort, archived) VALUES (?, ?, ?, ?, ?)',
+    `INSERT INTO categories (id, name, kind, sort, archived) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, kind = excluded.kind, sort = excluded.sort, archived = excluded.archived`,
     [c.id, c.name, c.kind, c.sort, bool(c.archived)],
   );
 
 const writeRecurring = (w: Writer, r: RecurringItem) =>
   w.runAsync(
-    `INSERT OR REPLACE INTO recurring_items
+    `INSERT INTO recurring_items
       (id, kind, name, category_id, amount, schedule, start_date, end_date, count, note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, name = excluded.name, category_id = excluded.category_id,
+       amount = excluded.amount, schedule = excluded.schedule, start_date = excluded.start_date,
+       end_date = excluded.end_date, count = excluded.count, note = excluded.note`,
     [r.id, r.kind, r.name, r.categoryId, r.amount, JSON.stringify(r.schedule), r.startDate, r.endDate, r.count, r.note],
   );
 
@@ -78,23 +82,32 @@ async function writeOverride(w: Writer, o: OccurrenceOverride) {
     o.id,
   ]);
   await w.runAsync(
-    `INSERT OR REPLACE INTO occurrence_overrides
-      (id, recurring_id, original_date, skip, new_date, new_amount, paid) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO occurrence_overrides
+      (id, recurring_id, original_date, skip, new_date, new_amount, paid) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET recurring_id = excluded.recurring_id, original_date = excluded.original_date,
+       skip = excluded.skip, new_date = excluded.new_date, new_amount = excluded.new_amount, paid = excluded.paid`,
     [o.id, o.recurringId, o.originalDate, bool(o.skip), o.newDate, o.newAmount, bool(o.paid)],
   );
 }
 
 const writeTransaction = (w: Writer, t: Transaction) =>
   w.runAsync(
-    `INSERT OR REPLACE INTO transactions
+    `INSERT INTO transactions
       (id, kind, date, description, category_id, amount, note, source, import_id, planned)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, date = excluded.date, description = excluded.description,
+       category_id = excluded.category_id, amount = excluded.amount, note = excluded.note, source = excluded.source,
+       import_id = excluded.import_id, planned = excluded.planned`,
     [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned)],
   );
 
-async function writeSettings(w: Writer, s: Settings) {
+async function writeSettings(w: Writer, s: Partial<Settings>) {
   for (const [key, value] of Object.entries(s)) {
-    await w.runAsync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, JSON.stringify(value)]);
+    if (value === undefined) continue;
+    await w.runAsync('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [
+      key,
+      JSON.stringify(value),
+    ]);
   }
 }
 
@@ -110,21 +123,40 @@ async function writeDefaults(w: Writer) {
   for (const c of DEFAULT_CATEGORIES) await writeCategory(w, c);
 }
 
+/** Runs a task in an exclusive transaction. That uses its own connection, so it needs its own busy timeout. */
+function transaction(db: SQLite.SQLiteDatabase, task: (txn: SQLite.SQLiteDatabase) => Promise<void>) {
+  return db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.execAsync('PRAGMA busy_timeout = 5000;');
+    await task(txn);
+  });
+}
+
 export function createSqliteRepository(): Repository {
   let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
   async function open(): Promise<SQLite.SQLiteDatabase> {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
+    await db.execAsync('PRAGMA busy_timeout = 5000;');
     await db.execAsync('PRAGMA journal_mode = WAL;');
     await migrate(db);
     const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM settings');
     if (!row || row.n === 0) {
-      await db.withExclusiveTransactionAsync(async (txn) => {
+      await transaction(db, async (txn) => {
         await clearAll(txn);
         await writeDefaults(txn);
       });
     }
     return db;
+  }
+
+  // Every write goes through this queue, one at a time, so writes on the main connection never
+  // overlap an exclusive transaction (which would fail with "database is locked").
+  // A failed write rejects for its caller only; the queue carries on.
+  let queue: Promise<unknown> = Promise.resolve();
+  function write<T>(task: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
+    const run = queue.then(async () => task(await getDb()));
+    queue = run.catch(() => undefined);
+    return run;
   }
 
   const getDb = () => {
@@ -191,20 +223,21 @@ export function createSqliteRepository(): Repository {
       return readSettings(await getDb());
     },
     async updateSettings(patch) {
-      const db = await getDb();
-      const next = { ...(await readSettings(db)), ...patch };
-      await db.withExclusiveTransactionAsync((txn) => writeSettings(txn, next));
-      return readSettings(db);
+      return write(async (db) => {
+        // Inside the queue, so overlapping calls apply one after the other; only the patched keys are written.
+        await transaction(db, (txn) => writeSettings(txn, patch));
+        return readSettings(db);
+      });
     },
 
     async listCategories() {
       return readCategories(await getDb());
     },
     async upsertCategory(category) {
-      await writeCategory(await getDb(), category);
+      await write((db) => writeCategory(db, category));
     },
-    async removeCategory(id) {
-      const db = await getDb();
+    removeCategory: (id) =>
+      write(async (db) => {
       const used = await db.getFirstAsync<{ n: number }>(
         `SELECT (SELECT COUNT(*) FROM recurring_items WHERE category_id = ?)
               + (SELECT COUNT(*) FROM transactions WHERE category_id = ?) AS n`,
@@ -212,41 +245,41 @@ export function createSqliteRepository(): Repository {
       );
       if (used && used.n > 0) await db.runAsync('UPDATE categories SET archived = 1 WHERE id = ?', [id]);
       else await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
-    },
+      }),
 
     async listRecurring() {
       return readRecurring(await getDb());
     },
     async upsertRecurring(item) {
-      await writeRecurring(await getDb(), item);
+      await write((db) => writeRecurring(db, item));
     },
     async deleteRecurring(id) {
-      const db = await getDb();
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        await txn.runAsync('DELETE FROM occurrence_overrides WHERE recurring_id = ?', [id]);
-        await txn.runAsync('DELETE FROM recurring_items WHERE id = ?', [id]);
-      });
+      await write((db) =>
+        transaction(db, async (txn) => {
+          await txn.runAsync('DELETE FROM occurrence_overrides WHERE recurring_id = ?', [id]);
+          await txn.runAsync('DELETE FROM recurring_items WHERE id = ?', [id]);
+        }),
+      );
     },
 
     async listOverrides(recurringId) {
       return readOverrides(await getDb(), recurringId);
     },
     async upsertOverride(o) {
-      const db = await getDb();
-      await db.withExclusiveTransactionAsync((txn) => writeOverride(txn, o));
+      await write((db) => transaction(db, (txn) => writeOverride(txn, o)));
     },
     async deleteOverride(id) {
-      await (await getDb()).runAsync('DELETE FROM occurrence_overrides WHERE id = ?', [id]);
+      await write((db) => db.runAsync('DELETE FROM occurrence_overrides WHERE id = ?', [id]));
     },
 
     async listTransactions(range) {
       return readTransactions(await getDb(), range);
     },
     async upsertTransaction(t) {
-      await writeTransaction(await getDb(), t);
+      await write((db) => writeTransaction(db, t));
     },
     async deleteTransaction(id) {
-      await (await getDb()).runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+      await write((db) => db.runAsync('DELETE FROM transactions WHERE id = ?', [id]));
     },
 
     async exportAll(): Promise<BackupData> {
@@ -263,22 +296,24 @@ export function createSqliteRepository(): Repository {
       };
     },
     async importAll(data) {
-      const db = await getDb();
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        await clearAll(txn);
-        await writeSettings(txn, { ...defaultSettings(), ...data.settings });
-        for (const c of data.categories) await writeCategory(txn, c);
-        for (const r of data.recurring) await writeRecurring(txn, r);
-        for (const o of data.overrides) await writeOverride(txn, o);
-        for (const t of data.transactions) await writeTransaction(txn, t);
-      });
+      await write((db) =>
+        transaction(db, async (txn) => {
+          await clearAll(txn);
+          await writeSettings(txn, { ...defaultSettings(), ...data.settings });
+          for (const c of data.categories) await writeCategory(txn, c);
+          for (const r of data.recurring) await writeRecurring(txn, r);
+          for (const o of data.overrides) await writeOverride(txn, o);
+          for (const t of data.transactions) await writeTransaction(txn, t);
+        }),
+      );
     },
     async deleteAll() {
-      const db = await getDb();
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        await clearAll(txn);
-        await writeDefaults(txn);
-      });
+      await write((db) =>
+        transaction(db, async (txn) => {
+          await clearAll(txn);
+          await writeDefaults(txn);
+        }),
+      );
     },
   };
 }

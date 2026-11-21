@@ -20,3 +20,14 @@ describe('money', () => {
     expect(percent(1, 0)).toBeNull();
   });
 });
+
+describe('parseAmount rejects ambiguous or unsafe input', () => {
+  it.each(['12.345', '12,5', '1.234,50', '1,23', '1000000000.00', '99999999999999999'])('%s -> null', (t) => {
+    expect(parseAmount(t)).toBeNull();
+  });
+  it('accepts grouped thousands and the maximum', () => {
+    expect(parseAmount('1,234,567.89')).toBe(123456789);
+    expect(parseAmount('999,999,999.99')).toBe(99999999999);
+    expect(parseAmount('AED -1,000')).toBe(-100000);
+  });
+});

@@ -119,6 +119,8 @@ export function validateRecurring(
     const n = Number(form.count);
     if (!isWholeNumber(form.count) || n < 1 || n > 1200) errors.count = 'Enter a whole number of payments from 1 to 1200.';
     else count = n;
+    // An end date saved together with a count stays (the item stops at whichever comes first).
+    if (form.endDate && isValidISODate(form.endDate) && isValidISODate(form.startDate) && compareDates(form.endDate, form.startDate) >= 0) endDate = form.endDate;
   }
 
   if (Object.keys(errors).length || !schedule) return { errors, item: null };

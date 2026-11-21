@@ -1,9 +1,9 @@
 // Pure helpers for the Dashboard and Month screens (chart scaling, labels, sorting).
+import { UNCATEGORIZED } from '@/engine';
 import { MONTHS, parseISODate } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import type { Category, Fils, ForecastDay, ISODate } from '@/types';
 
-export const UNCATEGORIZED = 'uncategorized';
 
 /** '2026-03-14' -> '14 Mar'. */
 export function shortDate(d: ISODate): string {
@@ -83,16 +83,17 @@ export interface BarItem {
   value: Fils;
 }
 
-/** Category spend sorted largest first; zero amounts dropped. */
+/** Category spend sorted largest first; zero amounts dropped; unknown ids and uncategorized merged into one bar. */
 export function categoryBars(costsByCategory: Record<string, Fils>, categories: Category[]): BarItem[] {
   const names = new Map(categories.map((c) => [c.id, c.name]));
-  return Object.entries(costsByCategory)
-    .filter(([, v]) => v > 0)
-    .map(([id, value]) => ({
-      id,
-      label: id === UNCATEGORIZED ? 'Other / uncategorized' : (names.get(id) ?? 'Other / uncategorized'),
-      value,
-    }))
+  const merged = new Map<string, Fils>();
+  for (const [rawId, v] of Object.entries(costsByCategory)) {
+    if (v <= 0) continue;
+    const id = names.has(rawId) ? rawId : UNCATEGORIZED;
+    merged.set(id, (merged.get(id) ?? 0) + v);
+  }
+  return [...merged.entries()]
+    .map(([id, value]) => ({ id, label: names.get(id) ?? 'Other / uncategorized', value }))
     .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
 }
 
@@ -110,4 +111,9 @@ export function monthShort(m: string): string {
 /** Signed money: negatives get a minus (formatMoney already does) and the tone is 'negative'. */
 export function moneyTone(v: Fils): 'negative' | 'default' {
   return v < 0 ? 'negative' : 'default';
+}
+
+/** 'Balance today' when the balance is as of today, else 'Balance on 1 Dec'. */
+export function balanceLabel(asOf: ISODate, todayStr: ISODate): string {
+  return asOf === todayStr ? 'Balance today' : `Balance on ${shortDate(asOf)}`;
 }

@@ -16,7 +16,7 @@ export function parseISODate(d: ISODate): { year: number; month: number; day: nu
 export function isValidISODate(d: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
   const { year, month, day } = parseISODate(d);
-  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month);
+  return year >= 1900 && year <= 2200 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month);
 }
 
 const toUTC = (d: ISODate) => {

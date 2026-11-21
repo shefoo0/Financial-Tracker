@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  useColorScheme,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -69,7 +70,7 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.background }]} edges={['top', 'left', 'right']} testID={testID}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
           {inner}
         </ScrollView>
       ) : (
@@ -114,7 +115,7 @@ export function Button({
 }) {
   const c = useTheme();
   const bg = { primary: c.accent, secondary: c.backgroundElement, destructive: c.negative, plain: 'transparent' }[variant];
-  const fg = { primary: c.onAccent, secondary: c.text, destructive: '#FFFFFF', plain: c.accent }[variant];
+  const fg = { primary: c.onAccent, secondary: c.text, destructive: c.onNegative, plain: c.accent }[variant];
   return (
     <Pressable
       onPress={onPress}
@@ -248,26 +249,34 @@ export function DateField({
   testID?: string;
 }) {
   const c = useTheme();
+  const scheme = useColorScheme();
   const [open, setOpen] = useState(false);
+  // Web: free typing; the value updates once the text is a valid date.
+  const [webText, setWebText] = useState<string | null>(null);
   if (Platform.OS === 'web') {
+    const text = webText ?? value ?? '';
     return (
       <TextField
         label={label}
-        value={value ?? ''}
+        value={text}
         placeholder="YYYY-MM-DD"
-        error={error}
+        error={error ?? (text && !isValidISODate(text) ? 'Use the format YYYY-MM-DD' : null)}
         hint={hint}
         testID={testID}
-        onChangeText={(t) => isValidISODate(t) && onChange(t)}
+        onChangeText={(t) => {
+          setWebText(t);
+          if (isValidISODate(t)) onChange(t);
+        }}
       />
     );
   }
-  const current = value ?? today();
+  const current = value && isValidISODate(value) ? value : today();
   const [y, m, d] = current.split('-').map(Number);
+  const pickerValue = new Date(y, m - 1, d);
   return (
     <FieldShell label={label} error={error} hint={hint}>
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={() => setOpen((o) => !o)}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value ? formatDate(value) : 'not set'}`}
         accessibilityHint="Opens a date picker"
@@ -275,18 +284,37 @@ export function DateField({
         style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.background }]}>
         <T>{value ? formatDate(value) : 'Choose a date'}</T>
       </Pressable>
-      {open && (
+      {open && Platform.OS === 'android' && (
         <DateTimePicker
-          value={new Date(y, m - 1, d)}
+          value={pickerValue}
           mode="date"
           onChange={(event, date) => {
-            setOpen(Platform.OS === 'ios');
-            if (event.type === 'set' && date) {
-              onChange(today(date));
-            }
-            if (Platform.OS === 'ios' && event.type !== 'set') setOpen(false);
+            setOpen(false);
+            if (event.type === 'set' && date) onChange(today(date));
           }}
         />
+      )}
+      {Platform.OS === 'ios' && (
+        <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+          <View style={styles.modalContainer} accessibilityViewIsModal>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" />
+            <SafeAreaView edges={['bottom']} style={[styles.modalSheet, { backgroundColor: c.background, borderColor: c.border }]}>
+              <View style={styles.sectionHeader}>
+                <T variant="heading">{label}</T>
+                <Button label="Done" variant="plain" onPress={() => setOpen(false)} testID={testID ? `${testID}-done` : undefined} />
+              </View>
+              <DateTimePicker
+                value={pickerValue}
+                mode="date"
+                display="inline"
+                themeVariant={scheme === 'dark' ? 'dark' : 'light'}
+                onChange={(_event, date) => {
+                  if (date) onChange(today(date));
+                }}
+              />
+            </SafeAreaView>
+          </View>
+        </Modal>
       )}
     </FieldShell>
   );
@@ -329,8 +357,9 @@ export function SelectField<V extends string>({
         <T tone={selected ? 'default' : 'secondary'}>{selected?.label ?? placeholder}</T>
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)} accessibilityLabel="Close">
-          <View style={[styles.modalSheet, { backgroundColor: c.background, borderColor: c.border }]}>
+        <View style={styles.modalContainer} accessibilityViewIsModal>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" />
+          <SafeAreaView edges={['bottom']} style={[styles.modalSheet, { backgroundColor: c.background, borderColor: c.border }]}>
             <T variant="heading" style={{ marginBottom: Spacing.two }}>
               {label}
             </T>
@@ -350,8 +379,8 @@ export function SelectField<V extends string>({
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
-        </Pressable>
+          </SafeAreaView>
+        </View>
       </Modal>
     </FieldShell>
   );
@@ -424,7 +453,7 @@ export function ToggleRow({
         onValueChange={onChange}
         accessibilityLabel={label}
         testID={testID}
-        trackColor={{ true: c.accent, false: c.backgroundSelected }}
+        trackColor={{ true: c.accent, false: c.border }}
       />
     </View>
   );
@@ -522,7 +551,7 @@ const styles = StyleSheet.create({
   field: { gap: Spacing.one },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },
   pressableInput: { justifyContent: 'center' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: { maxHeight: '70%', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: Spacing.three },
   option: { minHeight: 48, justifyContent: 'center', paddingHorizontal: Spacing.two, borderRadius: 8 },
   segmented: { flexDirection: 'row', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 3, gap: 3 },

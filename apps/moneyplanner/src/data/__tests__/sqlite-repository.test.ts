@@ -8,22 +8,37 @@ jest.mock('expo-sqlite', () => {
   const { DatabaseSync } = require('node:sqlite');
   const make = () => {
     const raw = new DatabaseSync(':memory:');
+    // Like the real thing, the exclusive transaction is a second connection: while it is open,
+    // writes on the main connection fail with "database is locked" (and so does a second transaction).
+    let inTxn = false;
     const db: any = {
       raw,
       execAsync: async (sql: string) => raw.exec(sql),
       runAsync: async (sql: string, params: any[] = []) => {
+        if (inTxn) throw new Error('database is locked');
         raw.prepare(sql).run(...params);
       },
       getAllAsync: async (sql: string, params: any[] = []) => raw.prepare(sql).all(...params),
       getFirstAsync: async (sql: string, params: any[] = []) => raw.prepare(sql).get(...params) ?? null,
       withExclusiveTransactionAsync: async (task: (t: any) => Promise<void>) => {
+        if (inTxn) throw new Error('database is locked');
+        inTxn = true;
         raw.exec('BEGIN');
+        const txn = {
+          ...db,
+          execAsync: async (sql: string) => raw.exec(sql),
+          runAsync: async (sql: string, params: any[] = []) => {
+            raw.prepare(sql).run(...params);
+          },
+        };
         try {
-          await task(db);
+          await task(txn);
           raw.exec('COMMIT');
         } catch (e) {
           raw.exec('ROLLBACK');
           throw e;
+        } finally {
+          inTxn = false;
         }
       },
     };

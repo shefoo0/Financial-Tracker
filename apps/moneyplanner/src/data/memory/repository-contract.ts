@@ -47,6 +47,61 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       expect(last.enabledModules.cheques).toBe(true);
     });
 
+    it('applies overlapping updateSettings calls one after the other without losing any', async () => {
+      await Promise.all([
+        repo.updateSettings({ buffer: 111 }),
+        repo.updateSettings({ payday: 7 }),
+        repo.updateSettings({ startingBalance: 222 }),
+        repo.updateSettings({ currency: 'USD' }),
+      ]);
+      expect(await repo.getSettings()).toMatchObject({ buffer: 111, payday: 7, startingBalance: 222, currency: 'USD' });
+    });
+
+    it('keeps every write when many overlap (double taps)', async () => {
+      const writes: Promise<unknown>[] = [];
+      for (let i = 0; i < 10; i++) {
+        writes.push(repo.upsertTransaction(txn({ id: `t${i}`, date: '2026-04-01' })));
+        writes.push(repo.upsertRecurring(rec({ id: `r${i}` })));
+        writes.push(repo.upsertOverride(ovr({ id: `o${i}`, recurringId: `r${i}` })));
+      }
+      writes.push(repo.updateSettings({ onboarded: true }));
+      writes.push(repo.deleteRecurring('r0'));
+      writes.push(repo.upsertCategory({ id: 'pets', name: 'Pets', kind: 'cost', sort: 99, archived: false }));
+      await Promise.all(writes);
+      expect(await repo.listTransactions()).toHaveLength(10);
+      expect((await repo.listRecurring()).map((r) => r.id)).toEqual(['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9']);
+      expect(await repo.listOverrides()).toHaveLength(9);
+      expect((await repo.getSettings()).onboarded).toBe(true);
+      expect((await repo.listCategories()).some((c) => c.id === 'pets')).toBe(true);
+    });
+
+    it('keeps creation order when an item or override is edited', async () => {
+      await repo.upsertRecurring(rec({ id: 'a' }));
+      await repo.upsertRecurring(rec({ id: 'b' }));
+      await repo.upsertRecurring(rec({ id: 'c' }));
+      await repo.upsertRecurring(rec({ id: 'a', name: 'Edited' }));
+      const list = await repo.listRecurring();
+      expect(list.map((r) => r.id)).toEqual(['a', 'b', 'c']);
+      expect(list[0].name).toBe('Edited');
+      await repo.upsertOverride(ovr({ id: 'o1', recurringId: 'a', originalDate: '2026-02-01' }));
+      await repo.upsertOverride(ovr({ id: 'o2', recurringId: 'a', originalDate: '2026-03-01' }));
+      await repo.upsertOverride(ovr({ id: 'o1', recurringId: 'a', originalDate: '2026-02-01', paid: false }));
+      const os = await repo.listOverrides();
+      expect(os.map((o) => o.id)).toEqual(['o1', 'o2']);
+      expect(os[0].paid).toBe(false);
+    });
+
+    it('fills in missing nested settings with defaults', async () => {
+      const data = await repo.exportAll();
+      const partial = { ...data, settings: { ...data.settings, enabledModules: { cheques: true }, alertThresholds: { cardUsagePct: 70 } } } as any;
+      await repo.importAll(partial);
+      const s = await repo.getSettings();
+      expect(s.enabledModules).toEqual({ debts: true, cheques: true, alerts: true, import: true });
+      expect(s.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 70 });
+      const s2 = await repo.updateSettings({ alertThresholds: { cardUsagePct: 60 } as any });
+      expect(s2.alertThresholds.debtHighPct).toBe(50);
+    });
+
     it('upserts categories and keeps them sorted', async () => {
       await repo.upsertCategory({ id: 'pets', name: 'Pets', kind: 'cost', sort: 99, archived: false });
       await repo.upsertCategory({ id: 'salary', name: 'Pay', kind: 'income', sort: 0, archived: false });

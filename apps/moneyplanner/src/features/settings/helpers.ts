@@ -1,26 +1,32 @@
 // Pure helpers for the setup wizard, Settings and Categories screens.
 import { addMonths, daysInMonth, monthKey, parseISODate, toISODate } from '@/lib/dates';
+import { AVAILABLE_MODULES, MODULE_INFO } from '@/data/modules';
 import { newId } from '@/lib/id';
 import type { Category, Fils, ISODate, Kind, ModuleId, RecurringItem } from '@/types';
 
 export type PaydayDay = number | 'last';
 
-export const MODULE_INFO: { id: ModuleId; label: string; description: string }[] = [
-  { id: 'debts', label: 'Debts', description: 'Loans, credit cards and instalment plans' },
-  { id: 'cheques', label: 'Cheques', description: 'Post-dated cheques you have written or expect' },
-  { id: 'alerts', label: 'Alerts', description: 'Warnings before money runs short' },
-  { id: 'import', label: 'Statement import', description: 'Read bank and card statements' },
-];
+/** Switches to show: only modules that are built (see data/modules.ts). */
+export function moduleList(available: ModuleId[] = AVAILABLE_MODULES): { id: ModuleId; label: string; description: string }[] {
+  return available.map((id) => ({ id, label: MODULE_INFO[id].title, description: MODULE_INFO[id].description }));
+}
 
-/** Select options for a payday: "Not set", 1-31 and "Last day of the month". Values are strings. */
+export type WizardStep = 'welcome' | 'salary' | 'balance' | 'modules' | 'done';
+
+/** Wizard steps in order; the Modules step only exists when a module is available. */
+export function wizardSteps(hasModules: boolean): WizardStep[] {
+  return hasModules ? ['welcome', 'salary', 'balance', 'modules', 'done'] : ['welcome', 'salary', 'balance', 'done'];
+}
+
+/** Select options for a payday: "Not set", 1-30 and "Last day of the month" (stored as 31). Values are strings. */
 export const PAYDAY_OPTIONS: { value: string; label: string }[] = [
   { value: 'none', label: 'Not set' },
-  ...Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Day ${i + 1}` })),
+  ...Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `Day ${i + 1}` })),
   { value: 'last', label: 'Last day of the month' },
 ];
 
 export function paydayToChoice(payday: number | null): string {
-  return payday == null ? 'none' : String(payday);
+  return payday == null ? 'none' : payday >= 31 ? 'last' : String(payday);
 }
 
 /** Select value -> payday day, or null when not set. */
@@ -36,7 +42,7 @@ export function paydayForSettings(day: PaydayDay | null): number | null {
 }
 
 export function formatPayday(payday: number | null): string {
-  return payday == null ? 'Not set' : payday === 31 ? 'Day 31 (or the last day)' : `Day ${payday}`;
+  return payday == null ? 'Not set' : payday >= 31 ? 'Last day of the month' : `Day ${payday}`;
 }
 
 /** The next date on or after `from` that falls on payday (clamped to short months). */
@@ -51,9 +57,9 @@ export function nextPayday(from: ISODate, day: PaydayDay): ISODate {
 }
 
 /** The recurring "Salary" income made by the wizard. */
-export function buildSalaryItem(amount: Fils, day: PaydayDay, todayDate: ISODate): RecurringItem {
+export function buildSalaryItem(amount: Fils, day: PaydayDay, todayDate: ISODate, id: string = newId()): RecurringItem {
   return {
-    id: newId(),
+    id,
     kind: 'income',
     name: 'Salary',
     categoryId: 'salary',
@@ -64,6 +70,11 @@ export function buildSalaryItem(amount: Fils, day: PaydayDay, todayDate: ISODate
     count: null,
     note: '',
   };
+}
+
+/** Wording for a chosen payday in summaries. */
+export function describePayday(day: PaydayDay): string {
+  return day === 'last' || day >= 31 ? 'on the last day of the month' : `on day ${day}`;
 }
 
 /** Balance entered as a positive number, negative when the account is overdrawn. */

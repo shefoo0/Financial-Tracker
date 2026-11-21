@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, PanResponder, View } from 'react-native';
 
 import { Button, Card, EmptyState, ListRow, Screen, SectionHeader, Stat, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -8,7 +8,8 @@ import { usePlanInput } from '@/data/DataProvider';
 import { monthSummary, occurrencesInRange } from '@/engine';
 import { buildMonthItems } from '@/features/dashboard/month-items';
 import { ErrorScreen, LoadingScreen, Stepper } from '@/features/dashboard/Parts';
-import { addMonthKey, formatDate, formatMonth, monthEnd, monthKey, monthStart, today } from '@/lib/dates';
+import { useToday } from '@/features/dashboard/useToday';
+import { addMonthKey, formatDate, formatMonth, monthEnd, monthKey, monthStart } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import type { PlanInput } from '@/types';
 
@@ -21,7 +22,7 @@ export default function MonthScreen() {
 
 function MonthBody({ input }: { input: PlanInput }) {
   const router = useRouter();
-  const todayStr = today();
+  const todayStr = useToday();
   const currentMonth = monthKey(todayStr);
   const [month, setMonth] = useState(currentMonth);
   const { currency } = input.settings;
@@ -39,10 +40,33 @@ function MonthBody({ input }: { input: PlanInput }) {
     [month, input],
   );
 
+  // Swipe left for the next month, right for the previous one (the stepper buttons stay).
+  const monthRef = useRef(month);
+  monthRef.current = month;
+  const swipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+      onPanResponderRelease: (_e, g) => {
+        if (Math.abs(g.dx) < 60) return;
+        setMonth(addMonthKey(monthRef.current, g.dx < 0 ? 1 : -1));
+      },
+    }),
+  ).current;
+
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility(formatMonth(month));
+  }, [month]);
+
   const newDate = month === currentMonth ? todayStr : monthStart(month);
 
   return (
     <Screen testID="month-screen">
+      <View {...swipe.panHandlers} style={{ gap: Spacing.three }} testID="month-swipe-area">
       <T variant="title">Month</T>
       <Stepper
         label={formatMonth(month)}
@@ -91,6 +115,7 @@ function MonthBody({ input }: { input: PlanInput }) {
           })}
         </View>
       )}
+      </View>
     </Screen>
   );
 }

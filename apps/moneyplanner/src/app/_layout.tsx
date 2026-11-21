@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
 
 import { Button, EmptyState, Screen } from '@/components/ui';
 import { createRepository } from '@/data/create-repository';
@@ -57,7 +57,11 @@ export default function RootLayout() {
             <Stack.Screen name="categories" options={{ title: 'Categories' }} />
           </Stack>
         </DataProvider>
-      ) : null}
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator accessibilityLabel="Opening your data" />
+        </View>
+      )}
     </ThemeProvider>
   );
 }

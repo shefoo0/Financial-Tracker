@@ -67,9 +67,11 @@ export function useRepoMutation<A extends unknown[], R>(write: (repo: Repository
   const { repo, bump } = useData();
   return useCallback(
     async (...args: A) => {
-      const result = await write(repo, ...args);
-      bump();
-      return result;
+      try {
+        return await write(repo, ...args);
+      } finally {
+        bump(); // refresh even if the write failed part-way
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [repo, bump],

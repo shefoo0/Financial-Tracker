@@ -1,0 +1,47 @@
+# Plan -> add cost "Rent" 9500 -> appears on Plan and in Month. Starts from an empty (skipped) setup.
+appId: com.shefoo.moneyplanner
+name: Add a recurring cost
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-start
+# Empty dashboard
+- assertVisible: "Welcome to Money Planner"
+- tapOn: "Plan"
+- assertVisible: "Plan your regular money"
+- tapOn:
+    id: plan-add-cost
+- assertVisible:
+    id: recurring-screen
+- tapOn:
+    id: recurring-name
+- inputText: "Rent"
+- hideKeyboard
+- tapOn:
+    id: recurring-amount
+- inputText: "9500"
+- hideKeyboard
+- tapOn:
+    id: recurring-day
+- eraseText: 2
+- inputText: "1"
+- hideKeyboard
+- tapOn:
+    id: recurring-save-bottom
+- assertVisible:
+    id: plan-screen
+- assertVisible: "Rent"
+- assertVisible: "Total ≈ AED 9,500.00 / month"
+- tapOn: "Month"
+- assertVisible:
+    id: month-screen
+- assertVisible: "Rent"

@@ -1,0 +1,29 @@
+# Settings -> delete all data -> back to the wizard.
+appId: com.shefoo.moneyplanner
+name: Delete all data returns to the wizard
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-skip
+- tapOn:
+    id: onboarding-start
+- tapOn: "Settings"
+- assertVisible:
+    id: settings-screen
+- scrollUntilVisible:
+    element:
+      id: settings-delete-all
+- tapOn:
+    id: settings-delete-all
+- tapOn: "Continue"
+- tapOn: "Delete everything"
+- assertVisible:
+    id: onboarding-screen
+- assertVisible: "Welcome"

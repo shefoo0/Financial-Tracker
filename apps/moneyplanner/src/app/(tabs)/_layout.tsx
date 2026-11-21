@@ -1,7 +1,9 @@
 // Tab bar, and the first-launch redirect to the setup wizard. Owned by the lead.
 import { Redirect } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
 import { NativeTabs } from 'expo-router/native-tabs';
 
+import { Button, EmptyState, Screen } from '@/components/ui';
 import { Colors } from '@/constants/theme';
 import { useRepoQuery } from '@/data/DataProvider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -16,10 +18,29 @@ const TABS = [
 export default function TabLayout() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  const { data: settings, loading } = useRepoQuery((r) => r.getSettings());
+  const { data: settings, loading, error, reload } = useRepoQuery((r) => r.getSettings());
 
-  if (loading && !settings) return null;
-  if (settings && !settings.onboarded) return <Redirect href="/onboarding" />;
+  if (error && !settings) {
+    return (
+      <Screen>
+        <EmptyState
+          title="Your settings couldn't be loaded"
+          message="Nothing has been deleted. Try again."
+          action={<Button label="Try again" onPress={reload} testID="tabs-retry" />}
+        />
+      </Screen>
+    );
+  }
+  // Wait for fresh settings before deciding: right after the setup wizard
+  // finishes, the cached value still says onboarded = false.
+  if (!settings || loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator accessibilityLabel="Loading" color={colors.accent} />
+      </View>
+    );
+  }
+  if (!settings.onboarded) return <Redirect href="/onboarding" />;
 
   return (
     <NativeTabs

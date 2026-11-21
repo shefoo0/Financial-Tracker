@@ -22,6 +22,7 @@ export const Colors = {
     onAccent: '#FFFFFF',
     positive: '#0A7A3E',
     negative: '#B4232C',
+    onNegative: '#FFFFFF',
     warning: '#8A5A00',
   },
   dark: {
@@ -35,6 +36,7 @@ export const Colors = {
     onAccent: '#06201B',
     positive: '#4CC98A',
     negative: '#FF7A82',
+    onNegative: '#2A0A0D',
     warning: '#F2B84B',
   },
 } as const;

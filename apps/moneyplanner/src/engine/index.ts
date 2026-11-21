@@ -152,7 +152,8 @@ export function monthlyEquivalent(item: RecurringItem): Fils {
 
 // ---- Summaries ----
 
-const UNCAT = 'uncategorized';
+/** Key used in `costsByCategory` for costs without a category. */
+export const UNCATEGORIZED = 'uncategorized';
 
 function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[]): MonthSummary {
   let recurringIncome = 0;
@@ -161,7 +162,7 @@ function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[]): Mon
   let oneTimeCosts = 0;
   const costsByCategory: Record<string, Fils> = {};
   const addCost = (cat: string | null, amt: Fils) => {
-    const k = cat ?? UNCAT;
+    const k = cat ?? UNCATEGORIZED;
     costsByCategory[k] = (costsByCategory[k] ?? 0) + amt;
   };
   for (const o of occs) {

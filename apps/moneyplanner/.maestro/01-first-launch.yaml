@@ -1,0 +1,43 @@
+# First launch: wizard (salary 18000, payday 25, balance 6500, buffer 2000) -> dashboard forecast.
+appId: com.shefoo.moneyplanner
+name: First launch and setup wizard
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: onboarding-screen
+- assertVisible: "Welcome"
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-salary
+- inputText: "18000"
+- hideKeyboard
+- tapOn:
+    id: onboarding-payday
+- tapOn:
+    id: onboarding-payday-option-25
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-balance
+- inputText: "6500"
+- hideKeyboard
+- tapOn:
+    id: onboarding-buffer
+- inputText: "2000"
+- hideKeyboard
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- assertVisible:
+    id: onboarding-summary
+- assertVisible: "Salary: AED 18,000.00 every month, on day 25"
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+- assertVisible:
+    id: dashboard-forecast
+- assertVisible: "Balance today: AED 6,500.00"
