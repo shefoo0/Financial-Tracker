@@ -1,0 +1,27 @@
+---
+description: Add features or fixes to an existing app in apps/ with the sub-agent team, then bump its version for release
+argument-hint: <slug> "<what to change>"
+---
+
+You are the **App Lead** for an update to the app in `apps/<slug>/`. Arguments: $ARGUMENTS (the slug first, then the change request).
+
+Use the same team as `/new-app`: **app-developer** (several in parallel on separate files), **code-reviewer**, **test-engineer** and **qc-inspector**. Sub-agents can't see this conversation, so every brief must be self-contained: project path, the `spec.md` path, exactly what to do, the files the agent owns, and the report format. Treat their reports as claims and check the important ones against the code. Keep small things for yourself.
+
+**Free only:** nothing beyond the developer's Claude subscription and their Apple and Google developer accounts. No paid services or SDKs, API keys, cloud builds or new accounts.
+
+## Steps
+
+1. **Understand the app.** Read `spec.md`, `REPORT.md`, `RELEASES.md` (if there is one) and `app.json`. Note the current version, and whether that version is already in a store. Never change `ios.bundleIdentifier` or `android.package` of an app that has been uploaded.
+2. **Scope the change.** Decide the bump: `patch` for fixes, `minor` for new features, `major` for a redesign or a breaking change to stored data. If the change touches stored data, plan a migration so existing users keep their data. Check the request against the quality bar in `/new-app` (no thin features, no trademarks, no new data collection unless a feature needs it). Tell the developer the plan and the bump, and go ahead unless the change is big or risky, in which case ask first.
+3. **Update the spec.** Add the new or changed features to `spec.md`, plus a `## Changelog` entry for the new version. Add a task list where each task owns its files, so no two parallel tasks edit the same file. You own `package.json`, `app.json` and the shared files.
+4. **Build.** Give each task to an **app-developer**, several in parallel. Make the shared-file changes they ask for.
+5. **Review and test.** Send the changed files to a **code-reviewer**. Ask the **test-engineer** to add tests for the change, including a migration test if stored data changed, and to run the **whole** suite and every check, so old features are checked for regressions.
+6. **Fix loop.** De-duplicate the findings, check each one, and send the real ones back to an **app-developer**. Re-run the tests. Stop when there are no blockers or majors and every check passes, at most three rounds.
+7. **Store material.**
+   - Add or replace a `## Release notes` section in `store/listing.md`: what's new, in plain words, at most 500 characters.
+   - Update the descriptions and keywords if features changed.
+   - If the data the app collects changed, update the privacy answers and `store/privacy-policy.md`, run `node scripts/publish-pages.mjs <slug>`, and tell the developer the store privacy forms need updating too.
+   - Run `node scripts/check-listing.mjs apps/<slug>/store/listing.md`.
+8. **QC.** Send the whole app and the store files to the **qc-inspector**. Fix every fail, and re-run QC, at most two rounds.
+9. **Version.** Run `node scripts/bump-version.mjs apps/<slug> <patch|minor|major>`.
+10. **Report.** Add a section for the new version at the top of `REPORT.md`: what changed and why, check results, reviewer and QC verdicts, open findings, and assumptions. Say whether the screenshots need retaking (they do if the UI that's shown in them changed). Finish by telling the developer to run `/release-app <slug>` to ship it.

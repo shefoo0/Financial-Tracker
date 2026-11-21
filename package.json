@@ -1,12 +1,19 @@
 {
   "name": "app-factory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "A Claude Code team (lead + sub-agents) that builds Expo apps for the App Store and Google Play, using only a Claude subscription.",
+  "description": "A Claude Code team (lead + sub-agents) that builds, updates and releases Expo apps for the App Store and Google Play, using only a Claude subscription.",
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check-listing": "node scripts/check-listing.mjs"
+    "check-listing": "node scripts/check-listing.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "render-graphic": "node scripts/render-graphic.mjs",
+    "publish-pages": "node scripts/publish-pages.mjs",
+    "bump-version": "node scripts/bump-version.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   },
   "engines": {
     "node": ">=20"

@@ -20,6 +20,12 @@ export const LIMITS = {
   "Google Play full description": 4000,
 };
 
+// Checked only when present. Release notes are the App Store's "What's New"
+// and Google Play's "Release notes"; Play's 500-character limit is the lower.
+export const OPTIONAL_LIMITS = {
+  "Release notes": 500,
+};
+
 const PLACEHOLDER = /\b(lorem ipsum|todo|tbd|fixme|placeholder|coming soon)\b|\[[^\]]*(insert|your app)[^\]]*\]/i;
 
 // Characters as the stores count them (code points, so an emoji is one).
@@ -45,7 +51,8 @@ export function parseSections(markdown) {
 export function checkListing(markdown, banned = []) {
   const sections = parseSections(markdown);
   const results = [];
-  for (const [field, max] of Object.entries(LIMITS)) {
+  const fields = [...Object.entries(LIMITS), ...Object.entries(OPTIONAL_LIMITS).filter(([f]) => sections[f] !== undefined)];
+  for (const [field, max] of fields) {
     const text = sections[field];
     if (text === undefined || text === "") {
       results.push({ field, ok: false, detail: "missing" });

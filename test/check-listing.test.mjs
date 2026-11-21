@@ -57,3 +57,12 @@ test("counts emoji as one character and keeps multi-line sections", () => {
   assert.equal(length("🙂ab"), 3);
   assert.equal(parseSections("## A\nline 1\n\nline 2\n## B\nx")["A"], "line 1\n\nline 2");
 });
+
+test("release notes are optional but limited when present", () => {
+  assert.ok(!checkListing(good).some((r) => r.field === "Release notes"));
+  const withNotes = good + "\n## Release notes\n" + "x".repeat(501) + "\n";
+  const r = checkListing(withNotes).find((x) => x.field === "Release notes");
+  assert.equal(r.ok, false);
+  assert.match(r.detail, /501\/500/);
+  assert.ok(checkListing(good + "\n## Release notes\nFixed the streak counter.\n").every((x) => x.ok));
+});

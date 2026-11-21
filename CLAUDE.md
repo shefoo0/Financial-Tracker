@@ -21,24 +21,34 @@ publish.
 
 - `.claude/commands/new-app.md` — the App Lead (master): plans, delegates,
   integrates, writes the store listing and report.
+- `.claude/commands/update-app.md` — the App Lead for changes to an existing app.
+- `.claude/commands/release-app.md` — step-by-step release guide (screenshots,
+  graphics, pages, signed builds, store consoles). Secrets never go in chat or
+  the repo; signing keys live in `~/.app-signing/`.
 - `.claude/agents/` — sub-agents: `app-developer`, `code-reviewer`,
   `test-engineer`, `qc-inspector`. Sub-agents can't spawn other sub-agents;
   only the main session delegates.
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`).
-- `scripts/check-listing.mjs` — offline checker for store listing limits.
+- `scripts/` — free local tools: `check-listing.mjs` (listing limits),
+  `screenshots.mjs` (store screenshots from the web build, via Playwright),
+  `render-graphic.mjs` (HTML → exact-size PNG), `publish-pages.mjs` (privacy
+  and support pages into `docs/` for GitHub Pages), `bump-version.mjs`.
+- `docs/` — generated GitHub Pages site; don't edit by hand.
 - `test/` — `node:test` tests for the scripts.
 
 ## Commands
 
 | Task | Command |
 | --- | --- |
-| Install dependencies | none at the root (no dependencies); each app: `npm install` in `apps/<slug>` |
+| Install dependencies | `npm install` then `npx playwright install chromium` (root); each app: `npm install` in `apps/<slug>` |
 | Build / typecheck | per app: `npx tsc --noEmit` in `apps/<slug>` |
 | Run tests | `npm test` (root scripts); per app: `npx jest --ci` |
 | Lint / format | per app: `npx expo lint` |
 | Check a store listing | `node scripts/check-listing.mjs apps/<slug>/store/listing.md` |
 | Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
+| Change an app | `/update-app <slug> "<change>"` |
+| Release an app | `/release-app <slug> [android\|ios\|both]` |
 
 ## Conventions
 
