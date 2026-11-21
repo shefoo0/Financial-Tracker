@@ -42,6 +42,8 @@ function applyNativeAppearance(appearance: Appearance) {
   set?.(appearance === 'system' ? 'unspecified' : appearance);
 }
 
+const CLOSE_DELAY_MS = 1000;
+
 type Status =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
@@ -88,24 +90,36 @@ class ProfileController {
     const profile = s.state.profiles.find((p) => p.id === id);
     if (!profile) throw new Error('That profile no longer exists');
     const repo = this.store.openRepository(profile);
-    await repo.init();
-    await this.store.setActiveProfile(id);
-    const state = await this.store.init();
+    let state: DeviceState;
+    try {
+      await repo.init();
+      await this.store.setActiveProfile(id);
+      state = await this.store.init();
+    } catch (e) {
+      await repo.close().catch(() => undefined);
+      throw e;
+    }
     this.set({ kind: 'ready', state, repo });
-    await s.repo.close().catch(() => undefined);
+    // The old screens unmount on React's next commit; close their database a
+    // moment later so a read in flight doesn't hit "This database is closed".
+    setTimeout(() => s.repo.close().catch(() => undefined), CLOSE_DELAY_MS);
   }
 
+  /** (Re)loads everything. Also runs again after dispose() (dev Strict Mode, Fast Refresh). */
   load() {
+    this.disposed = false;
     this.set({ kind: 'loading' });
     return this.run(async () => {
+      let repo: Repository | null = null;
       try {
         const state = await this.store.init();
         applyNativeAppearance(state.appearance);
         const profile = state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0];
-        const repo = this.store.openRepository(profile);
+        repo = this.store.openRepository(profile);
         await repo.init();
         this.set({ kind: 'ready', state: { ...state, activeProfileId: profile.id }, repo });
       } catch (e) {
+        await repo?.close().catch(() => undefined);
         this.set({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
       }
     });
@@ -113,7 +127,9 @@ class ProfileController {
 
   dispose() {
     this.disposed = true;
-    if (this.status.kind === 'ready') this.status.repo.close().catch(() => undefined);
+    const s = this.status;
+    this.status = { kind: 'loading' };
+    if (s.kind === 'ready') s.repo.close().catch(() => undefined);
   }
 
   switchProfile = (id: string) => this.run(() => this.open(id));

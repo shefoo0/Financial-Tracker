@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import Onboarding from '@/app/onboarding';
+import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { today } from '@/lib/dates';
 
 import { resetRouterMock, router } from '../../../test-support/expo-router-mock';
@@ -97,5 +98,30 @@ describe('Onboarding wizard', () => {
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Could not save your setup', 'disk full'));
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('shows "Setting up <name>" only for a second profile, which starts at the wizard', async () => {
+    let api: ReturnType<typeof useProfiles> | undefined;
+    function Capture() {
+      api = useProfiles();
+      return null;
+    }
+    await renderWithRepo(
+      <>
+        <Capture />
+        <Onboarding />
+      </>,
+    );
+    expect(await screen.findByText('Welcome')).toBeTruthy();
+    expect(screen.queryByTestId('onboarding-profile-name')).toBeNull();
+    await act(async () => {
+      await api!.addProfile('Layla', 1);
+    });
+    expect(await screen.findByText('Setting up Layla')).toBeTruthy();
+    expect(screen.getByText(/^Step 1 of \d$/)).toBeTruthy();
+    await act(async () => {
+      await api!.switchProfile(api!.profiles[0].id);
+    });
+    await waitFor(() => expect(screen.queryByTestId('onboarding-profile-name')).toBeNull());
   });
 });

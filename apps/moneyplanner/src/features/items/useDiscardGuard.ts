@@ -17,6 +17,14 @@ import { Alert } from 'react-native';
  */
 export function useDiscardGuard(dirty: boolean): () => void {
   const leaving = useRef(false);
+  // The mark only covers this exit: if the navigation doesn't happen (nothing
+  // to go back to, or it was cancelled), the guard protects edits again.
+  const markLeaving = () => {
+    leaving.current = true;
+    setTimeout(() => {
+      leaving.current = false;
+    }, 1500);
+  };
   usePreventRemove(dirty, ({ repeat }) => {
     if (leaving.current) {
       repeat();
@@ -28,14 +36,14 @@ export function useDiscardGuard(dirty: boolean): () => void {
         text: 'Discard',
         style: 'destructive',
         onPress: () => {
-          leaving.current = true;
+          markLeaving();
           repeat();
         },
       },
     ]);
   });
   return () => {
-    leaving.current = true;
+    markLeaving();
     router.back();
   };
 }

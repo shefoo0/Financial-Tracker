@@ -1,6 +1,6 @@
 // Tab bar, and the first-launch redirect to the setup wizard. Owned by the lead.
-import { Redirect } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, Image, Platform, View } from 'react-native';
 import { NativeTabs } from 'expo-router/native-tabs';
 
 import { Button, EmptyState, Screen } from '@/components/ui';
@@ -41,6 +41,33 @@ export default function TabLayout() {
     );
   }
   if (!settings.onboarded) return <Redirect href="/onboarding" />;
+
+  // The web preview (store screenshots) has no native tab bar: draw the same
+  // bar at the bottom, where the thumb reaches it, like on the phone.
+  if (Platform.OS === 'web') {
+    return (
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarStyle: { backgroundColor: colors.tabBar, borderTopColor: colors.glassBorder, height: 64, paddingTop: 6 },
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+          sceneStyle: { backgroundColor: colors.background },
+        }}>
+        {TABS.map((t) => (
+          <Tabs.Screen
+            key={t.name}
+            name={t.name}
+            options={{
+              title: t.label,
+              tabBarIcon: ({ color }) => <Image source={t.icon} style={{ width: 24, height: 24, tintColor: color }} />,
+            }}
+          />
+        ))}
+      </Tabs>
+    );
+  }
 
   return (
     <NativeTabs

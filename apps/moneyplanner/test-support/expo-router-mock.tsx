@@ -23,8 +23,19 @@ export const useFocusEffect = (effect: () => void | (() => void)) => {
 };
 export const navigation = { addListener: jest.fn(() => () => undefined), dispatch: jest.fn() };
 export const useNavigation = () => navigation;
-// Back navigation is not blocked in tests; the discard prompt itself needs a real navigator (device check).
-export const usePreventRemove = () => () => undefined;
+// Records what useDiscardGuard registered, so tests can fire the beforeRemove callback themselves.
+// (A real navigator only exists on a device; there the prompt is a device check.)
+export const preventRemove: {
+  current: boolean;
+  callback: ((e: { data: { action: unknown }; repeat: () => void }) => void) | null;
+} = { current: false, callback: null };
+export const usePreventRemove = (
+  prevent: boolean,
+  callback: (e: { data: { action: unknown }; repeat: () => void }) => void,
+) => {
+  preventRemove.current = prevent;
+  preventRemove.callback = callback;
+};
 export const Link = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 
 export function resetRouterMock() {
@@ -33,4 +44,6 @@ export function resetRouterMock() {
   router.back.mockClear();
   router.navigate.mockClear();
   params.current = {};
+  preventRemove.current = false;
+  preventRemove.callback = null;
 }

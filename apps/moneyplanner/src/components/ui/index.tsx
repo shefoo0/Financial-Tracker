@@ -37,8 +37,7 @@ export { AuroraBackground, Avatar, Card, HeroCard, IconBadge, Pill, StatTile } f
 
 /** A full screen with the aurora behind it, safe-area padding, optional scrolling and a centred max width. */
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
-  // On the web the tab bar sits over the top of the page, so leave room for it.
-  const inner = <View style={[styles.screenInner, Platform.OS === 'web' && styles.webTabsInset]}>{children}</View>;
+  const inner = <View style={styles.screenInner}>{children}</View>;
   return (
     <View style={styles.screen}>
       <AuroraBackground />
@@ -588,7 +587,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: Spacing.six },
   screenInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.three },
-  webTabsInset: { paddingTop: 72 },
   screenHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.two },
   button: { minHeight: 50, borderRadius: 16, overflow: 'hidden', paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },

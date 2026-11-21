@@ -1,0 +1,56 @@
+# Add a second profile -> its own setup wizard -> switch back to the first profile.
+appId: com.shefoo.moneyplanner
+name: Profiles
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+# Add a profile.
+- tapOn:
+    id: profile-button
+- tapOn:
+    id: profile-add
+- tapOn:
+    id: profile-name-input
+- inputText: "Layla"
+- runFlow: common/dismiss-keyboard.yaml
+- tapOn:
+    id: profile-create
+# The new profile starts with the setup wizard.
+- assertVisible:
+    id: onboarding-profile-name
+- assertVisible: "Setting up Layla"
+- tapOn:
+    id: onboarding-next
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+- assertVisible: "Layla"
+# Switch back to the first profile.
+- tapOn:
+    id: profile-button
+- tapOn:
+    id: profile-row-0
+- assertVisible:
+    id: dashboard-screen
+- assertVisible: "Me"

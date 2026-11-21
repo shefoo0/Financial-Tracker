@@ -64,8 +64,8 @@ export const Colors = {
   },
 } as const;
 
-/** Category and profile colours (icon tiles and avatars), readable in both schemes. */
-export const Palette = ['#FF8A4C', '#5B4DFF', '#1FB57A', '#E0447C', '#1FA2D6', '#C78A00', '#8B45F0', '#5E6B85'] as const;
+/** Category and profile colours (icon tiles and avatars). Each meets AA (4.5:1) with white text on top. */
+export const Palette = ['#B85A1E', '#5B4DFF', '#14855A', '#C93A6E', '#17739C', '#9A6A00', '#8B45F0', '#5E6B85'] as const;
 
 export const Radius = { sm: 12, md: 18, lg: 22, xl: 28, pill: 999 } as const;
 
