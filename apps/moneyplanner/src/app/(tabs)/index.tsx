@@ -21,6 +21,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
+import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
 import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, shortDate } from '@/features/dashboard/helpers';
 import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
@@ -106,7 +107,8 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const colMin = 104;
 
   return (
-    <Screen testID="dashboard-screen">
+    <View style={{ flex: 1 }}>
+      <Screen testID="dashboard-screen">
       {header}
 
       <HeroCard testID="dashboard-forecast">
@@ -338,6 +340,9 @@ function DashboardBody({ input }: { input: PlanInput }) {
           Amounts in {currency}. The current month is highlighted.
         </T>
       </Card>
-    </Screen>
+        <QuickAddSpacer />
+      </Screen>
+      <QuickAddButton testID="quick-add" />
+    </View>
   );
 }

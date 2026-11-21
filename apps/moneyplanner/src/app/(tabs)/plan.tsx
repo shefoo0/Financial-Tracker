@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, IconBadge, Screen, ScreenHeader, SectionHeade
 import { Palette, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
 import { expandRecurring, monthlyEquivalent } from '@/engine';
+import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { describeEnd, describeSchedule } from '@/features/items/schedule';
 import { useTheme } from '@/hooks/use-theme';
 import { today } from '@/lib/dates';
@@ -73,6 +74,7 @@ export default function PlanScreen() {
   ];
 
   return (
+    <View style={styles.flex}>
     <Screen testID="plan-screen">
       <ScreenHeader title="Plan" subtitle="Income and costs that repeat" />
       {sections.map((s) => {
@@ -118,7 +120,10 @@ export default function PlanScreen() {
           </View>
         );
       })}
+      <QuickAddSpacer />
     </Screen>
+    <QuickAddButton testID="quick-add" />
+    </View>
   );
 }
 
@@ -200,6 +205,7 @@ function PlanRow({
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   section: { gap: Spacing.two },
   emptyButtons: {
     alignSelf: 'stretch',

@@ -8,6 +8,7 @@ import { usePlanInput } from '@/data/DataProvider';
 import { monthSummary, occurrencesInRange } from '@/engine';
 import { buildMonthItems } from '@/features/dashboard/month-items';
 import { ErrorScreen, LoadingScreen } from '@/features/dashboard/Parts';
+import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { useToday } from '@/features/dashboard/useToday';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatDate, formatMonth, monthEnd, monthKey, monthStart } from '@/lib/dates';
@@ -82,6 +83,7 @@ function MonthBody({ input }: { input: PlanInput }) {
   const stepBtn = [styles.stepBtn, { backgroundColor: c.glass, borderColor: c.glassBorder }];
 
   return (
+    <View style={styles.flex}>
     <Screen testID="month-screen">
       <View {...swipe.panHandlers} style={styles.body} testID="month-swipe-area">
         <ScreenHeader title={formatMonth(month)} subtitle="Everything planned and spent" />
@@ -182,8 +184,11 @@ function MonthBody({ input }: { input: PlanInput }) {
             </View>
           ))
         )}
+        <QuickAddSpacer />
       </View>
     </Screen>
+    <QuickAddButton testID="quick-add" defaultDate={month === currentMonth ? undefined : newDate} />
+    </View>
   );
 }
 

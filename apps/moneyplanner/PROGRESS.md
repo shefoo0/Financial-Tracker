@@ -15,8 +15,9 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Re-runs 44941101336 (Android) and 44942614309 (iPhone): first launch and delete-all pass; flows 02/03 found a real bug (form stayed open after Save: "Discard changes?" guard), fixed in 624a390
   - [~] Re-runs with the fix: android.yml run 44944552322, ios-simulator.yml run 44944555203
 - [~] Redesign + profiles (developer asked after testing the first build; spec §12; design/redesign-2026.png)
-  - [x] Lead: tokens, profile types/provider, layouts · [ ] R1 stores · [ ] R2 kit · [ ] R3 dashboard · [ ] R4 month/plan/forms · [ ] R5 profiles/settings/wizard
-  - [ ] review · [ ] tests · [ ] fix loop · [ ] Android + iPhone test runs
+  - [x] Lead: tokens, profile types/provider, layouts · [x] R1 stores · [x] R2 kit · [x] R3 dashboard · [x] R4 month/plan/forms · [x] R5 profiles/settings/wizard · [x] quick-add button (one-handed use; developer asked)
+  - [x] review (no blockers; major + minors fixed) · [x] tests (287 Jest, Maestro 05-profiles) · [x] fix loop · [~] Android + iPhone test runs
+  - [x] Save-closes-form fix v2: the state-based guard switch was still blocked on iPhone (run 44944555203); now a ref mark + repeat
 - [ ] Milestone 2 — Debts, cheques, alerts, lock: T6 · T7 · T8 · T9 · review · tests · Android test build
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
