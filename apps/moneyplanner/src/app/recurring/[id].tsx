@@ -16,10 +16,11 @@ import {
   type RecurringField,
   type RecurringForm,
 } from '@/features/items/form';
-import { applyOverridePatch, type OverridePatch } from '@/features/items/overrides';
+import { applyOverridePatch, scheduleChanged, type OverridePatch } from '@/features/items/overrides';
+import { useDiscardGuard } from '@/features/items/useDiscardGuard';
 import { describeSchedule, MONTH_NAMES, WEEKDAY_NAMES } from '@/features/items/schedule';
 import { useTheme } from '@/hooks/use-theme';
-import { addMonths, formatDate, today, weekday } from '@/lib/dates';
+import { addMonths, compareDates, formatDate, today, weekday } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import { formatMoney } from '@/lib/money';
 import type { Fils, Kind, OccurrenceOverride, PlanInput, RecurringItem } from '@/types';
@@ -62,28 +63,47 @@ export default function RecurringScreen() {
 
 function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind }) {
   const [form, setForm] = useState<RecurringForm>(() => (item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
+  const [initialForm] = useState(() => JSON.stringify(item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
+  const allowLeave = useDiscardGuard(JSON.stringify(form) !== initialForm);
   const [errors, setErrors] = useState<FormErrors<RecurringField>>({});
   const [saving, setSaving] = useState(false);
   const save = useRepoMutation((r, i: RecurringItem) => r.upsertRecurring(i));
   const remove = useRepoMutation((r, id: string) => r.deleteRecurring(id));
+  const removeOverride = useRepoMutation((r, id: string) => r.deleteOverride(id));
   const currency = input.settings.currency;
   const set = <K extends keyof RecurringForm>(key: K, value: RecurringForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const categories = useMemo(() => categoryOptions(input.categories, form.kind, form.categoryId), [input.categories, form.kind, form.categoryId]);
+
+  const persist = async (next: RecurringItem, resetOverrides: OccurrenceOverride[]) => {
+    setSaving(true);
+    try {
+      await save(next);
+      // The item is saved first; payments changed one by one no longer match its dates, so they go.
+      for (const o of resetOverrides) await removeOverride(o.id);
+      allowLeave();
+      router.back();
+    } catch {
+      setSaving(false);
+      Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
+    }
+  };
 
   const onSave = async () => {
     if (saving) return;
     const result = validateRecurring(form, item?.id ?? newId());
     setErrors(result.errors);
     if (!result.item) return;
-    setSaving(true);
-    try {
-      await save(result.item);
-      router.back();
-    } catch {
-      setSaving(false);
-      Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
+    const next = result.item;
+    const mine = item ? input.overrides.filter((o) => o.recurringId === item.id) : [];
+    if (item && mine.length > 0 && scheduleChanged(item, next)) {
+      Alert.alert('Reset changes to individual payments?', 'Changing the schedule resets changes you made to individual payments (skipped, moved, paid or changed amounts).', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Save and reset', style: 'destructive', onPress: () => persist(next, mine) },
+      ]);
+      return;
     }
+    await persist(next, []);
   };
 
   const onDelete = () => {
@@ -96,6 +116,7 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         onPress: async () => {
           try {
             await remove(item.id);
+            allowLeave();
             router.back();
           } catch {
             Alert.alert("Couldn't delete", 'Please try again.');
@@ -212,11 +233,20 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         )}
 
         <DateField label="Start date" value={form.startDate} onChange={(d) => set('startDate', d)} error={errors.startDate} hint="The first date it can happen on." testID="recurring-start-date" />
-        <T variant="label">Ends</T>
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <T variant="label">Ends</T>
+        </View>
         <Segmented
           label="Ends"
           value={form.endMode}
-          onChange={(v) => set('endMode', v)}
+          onChange={(v) =>
+            setForm((f) => ({
+              ...f,
+              endMode: v,
+              // An end date only stays with a count when the saved item had both.
+              endDate: v === 'none' ? null : v === 'count' && item?.count == null ? null : f.endDate,
+            }))
+          }
           options={[
             { value: 'none', label: 'No end' },
             { value: 'date', label: 'End date' },
@@ -257,28 +287,36 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
 
   const rows = useMemo<Row[]>(() => {
     const now = today();
+    const recent = addMonths(now, -1);
     // Expand with skips switched off so skipped occurrences can be shown with an Undo.
     const open = overrides.map((o) => ({ ...o, skip: false }));
-    const all = expandRecurring(item, open, now, addMonths(now, 12 * 8));
+    const all = expandRecurring(item, open, addMonths(now, -3), addMonths(now, 12 * 8));
     const out: Row[] = [];
     let live = 0;
     for (const o of all) {
-      if (live >= 6) break;
       const ov = overrides.find((x) => x.originalDate === o.originalDate);
       const skipped = !!ov?.skip;
-      if (!skipped) live++;
+      const past = compareDates(o.date, now) < 0;
+      // Past payments only show when changed, or when they are recent and still unpaid.
+      if (past && !ov && (o.paid || compareDates(o.date, recent) < 0)) continue;
+      if (!past) {
+        if (live >= 6) break;
+        if (!skipped) live++;
+      }
       out.push({ originalDate: o.originalDate, date: o.date, amount: o.amount, paid: o.paid, skipped, override: ov });
     }
     return out;
   }, [item, overrides]);
 
-  const apply = async (row: Row, patch: OverridePatch) => {
+  const apply = async (row: Row, patch: OverridePatch): Promise<boolean> => {
     const action = applyOverridePatch(row.override, { recurringId: item.id, originalDate: row.originalDate, baseAmount: item.amount }, patch, newId);
     try {
       if (action.type === 'upsert') await upsert(action.override);
       else if (action.type === 'delete') await del(action.id);
+      return true;
     } catch {
       Alert.alert("Couldn't save", 'The change was not saved. Please try again.');
+      return false;
     }
   };
 
@@ -305,7 +343,7 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
                 <View style={styles.flex}>
                   <T style={row.skipped && styles.struck}>{formatDate(row.date)}</T>
                   <T variant="caption" tone="secondary">
-                    {row.skipped ? 'Skipped' : row.paid ? 'Paid' : 'Planned'}
+                    {row.skipped ? 'Skipped' : row.paid ? 'Paid' : compareDates(row.date, today()) < 0 ? 'Overdue' : 'Planned'}
                     {moved ? ` · moved from ${formatDate(row.originalDate)}` : ''}
                     {changedAmount && !row.skipped ? ' · amount changed' : ''}
                   </T>
@@ -346,8 +384,7 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
                       label="Apply"
                       disabled={draftAmount == null || draftAmount <= 0}
                       onPress={async () => {
-                        await apply(row, { newAmount: draftAmount });
-                        setEditing(null);
+                        if (await apply(row, { newAmount: draftAmount })) setEditing(null);
                       }}
                       testID={`occurrence-amount-apply-${i}`}
                     />
@@ -362,8 +399,7 @@ function Upcoming({ item, overrides, currency }: { item: RecurringItem; override
                     <Button
                       label="Apply"
                       onPress={async () => {
-                        await apply(row, { newDate: draftDate ?? row.date });
-                        setEditing(null);
+                        if (await apply(row, { newDate: draftDate ?? row.date })) setEditing(null);
                       }}
                       testID={`occurrence-date-apply-${i}`}
                     />

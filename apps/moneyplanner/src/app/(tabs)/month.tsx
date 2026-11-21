@@ -41,17 +41,15 @@ function MonthBody({ input }: { input: PlanInput }) {
   );
 
   // Swipe left for the next month, right for the previous one (the stepper buttons stay).
-  const monthRef = useRef(month);
-  monthRef.current = month;
-  const swipe = useRef(
+  const [swipe] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
       onPanResponderRelease: (_e, g) => {
         if (Math.abs(g.dx) < 60) return;
-        setMonth(addMonthKey(monthRef.current, g.dx < 0 ? 1 : -1));
+        setMonth((m) => addMonthKey(m, g.dx < 0 ? 1 : -1));
       },
     }),
-  ).current;
+  );
 
   const firstRender = useRef(true);
   useEffect(() => {

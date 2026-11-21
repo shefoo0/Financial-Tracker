@@ -3,6 +3,12 @@ import {
   buildCategory,
   buildSalaryItem,
   choiceToPayday,
+  describePayday,
+  formatPayday,
+  moduleList,
+  paydayToChoice,
+  PAYDAY_OPTIONS,
+  wizardSteps,
   nextPayday,
   paydayForSettings,
   signedBalance,
@@ -70,5 +76,31 @@ describe('validation', () => {
     const all = [cat({ id: 'a', sort: 3 }), cat({ id: 'b', sort: 1, name: 'B' }), cat({ id: 'c', archived: true })];
     expect(buildCategory(' New ', 'income', all)).toMatchObject({ name: 'New', kind: 'income', sort: 4, archived: false });
     expect(activeCategories(all, 'cost').map((c) => c.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('modules and wizard steps', () => {
+  it('lists nothing when no module is built', () => expect(moduleList([])).toEqual([]));
+  it('lists titles from MODULE_INFO', () => expect(moduleList(['debts'])).toEqual([{ id: 'debts', label: 'Debts', description: expect.any(String) }]));
+  it('skips the Modules step when none are available', () => {
+    expect(wizardSteps(false)).toEqual(['welcome', 'salary', 'balance', 'done']);
+    expect(wizardSteps(true)).toContain('modules');
+  });
+});
+
+describe('last day of the month', () => {
+  it('shows 31 as the last day', () => {
+    expect(formatPayday(31)).toBe('Last day of the month');
+    expect(formatPayday(30)).toBe('Day 30');
+    expect(paydayToChoice(31)).toBe('last');
+    expect(describePayday('last')).toBe('on the last day of the month');
+    expect(describePayday(5)).toBe('on day 5');
+  });
+  it('has no separate Day 31 option', () => expect(PAYDAY_OPTIONS.map((o) => o.label)).not.toContain('Day 31'));
+});
+
+describe('salary id', () => {
+  it('uses the given id so a second save updates the same item', () => {
+    expect(buildSalaryItem(100, 5, '2026-11-01', 'fixed').id).toBe('fixed');
   });
 });

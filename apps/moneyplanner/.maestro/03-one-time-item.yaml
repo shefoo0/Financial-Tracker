@@ -6,12 +6,14 @@ name: Add a one-time item
     clearState: true
 - tapOn:
     id: onboarding-next
-- tapOn:
-    id: onboarding-skip
-- tapOn:
-    id: onboarding-skip
-- tapOn:
-    id: onboarding-skip
+# The number of wizard steps can vary, so go on until Start is shown.
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
 - tapOn:
     id: onboarding-start
 - tapOn: "Month"

@@ -14,7 +14,7 @@ import type { Kind, RecurringItem } from '@/types';
 const openNew = (kind: Kind) => router.push({ pathname: '/recurring/[id]', params: { id: 'new', kind } });
 
 export default function PlanScreen() {
-  const { data, error, loading, reload } = usePlanInput();
+  const { data, error, reload } = usePlanInput();
 
   if (!data) {
     return (
@@ -26,7 +26,7 @@ export default function PlanScreen() {
             action={<Button label="Try again" onPress={reload} testID="plan-retry" />}
           />
         ) : (
-          <T tone="secondary">{loading ? 'Loading…' : ''}</T>
+          <T tone="secondary">Loading…</T>
         )}
       </Screen>
     );

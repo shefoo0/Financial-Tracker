@@ -29,8 +29,13 @@ name: First launch and setup wizard
 - hideKeyboard
 - tapOn:
     id: onboarding-next
-- tapOn:
-    id: onboarding-next
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
 - assertVisible:
     id: onboarding-summary
 - assertVisible: "Salary: AED 18,000.00 every month, on day 25"

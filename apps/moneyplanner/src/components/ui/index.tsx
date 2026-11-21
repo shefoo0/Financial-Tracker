@@ -42,6 +42,8 @@ export function T({
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
   accessibilityLabel?: string;
+  accessibilityRole?: 'header' | 'text' | 'alert';
+  maxFontSizeMultiplier?: number;
   testID?: string;
 }) {
   const c = useTheme();

@@ -1,4 +1,4 @@
-import { applyOverridePatch } from '../overrides';
+import { applyOverridePatch, scheduleChanged } from '../overrides';
 import { describeEnd, describeSchedule, ordinal } from '../schedule';
 import { defaultPlanned, emptyRecurringForm, emptyTransactionForm, formFromRecurring, validateRecurring, validateTransaction, categoryOptions } from '../form';
 import type { OccurrenceOverride } from '@/types';
@@ -101,5 +101,27 @@ describe('applyOverridePatch', () => {
     expect(applyOverridePatch(undefined, ids, { newDate: '2026-12-01', newAmount: 1000 }, mk)).toEqual({ type: 'none' });
     const r = applyOverridePatch(undefined, ids, { newDate: '2026-12-05', newAmount: 1200 }, mk);
     expect(r).toMatchObject({ type: 'upsert', override: { newDate: '2026-12-05', newAmount: 1200 } });
+  });
+});
+
+describe('scheduleChanged', () => {
+  const base = { schedule: { type: 'monthly', day: 25 } as const, startDate: '2026-11-25' };
+  it('ignores equal schedules and a default everyMonths', () => {
+    expect(scheduleChanged(base, { ...base, schedule: { type: 'monthly', day: 25, everyMonths: 1 } })).toBe(false);
+  });
+  it('detects a new day, type or start date', () => {
+    expect(scheduleChanged(base, { ...base, schedule: { type: 'monthly', day: 26 } })).toBe(true);
+    expect(scheduleChanged(base, { ...base, schedule: { type: 'weekly', everyWeeks: 1 } })).toBe(true);
+    expect(scheduleChanged(base, { ...base, startDate: '2026-12-25' })).toBe(true);
+  });
+});
+
+describe('end date with a count', () => {
+  it('keeps both when both were saved', () => {
+    const item = { id: 'a', kind: 'cost', name: 'Loan', categoryId: null, amount: 100, schedule: { type: 'monthly', day: 5 }, startDate: '2026-01-05', endDate: '2027-01-05', count: 6, note: '' } as const;
+    const form = formFromRecurring(item);
+    expect(form.endMode).toBe('count');
+    const r = validateRecurring(form, 'a');
+    expect(r.item).toMatchObject({ count: 6, endDate: '2027-01-05' });
   });
 });

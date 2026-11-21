@@ -23,6 +23,8 @@ export const useFocusEffect = (effect: () => void | (() => void)) => {
 };
 export const navigation = { addListener: jest.fn(() => () => undefined), dispatch: jest.fn() };
 export const useNavigation = () => navigation;
+// Back navigation is not blocked in tests; the discard prompt itself needs a real navigator (device check).
+export const usePreventRemove = () => () => undefined;
 export const Link = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 
 export function resetRouterMock() {

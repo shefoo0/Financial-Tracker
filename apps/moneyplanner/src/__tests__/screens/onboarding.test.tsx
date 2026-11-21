@@ -17,11 +17,17 @@ beforeEach(() => {
 });
 
 
+// The number of steps depends on which optional modules exist, so go on until Start shows.
+async function toLastStep() {
+  for (let i = 0; i < 10 && !screen.queryByTestId('onboarding-start'); i++) await fireEvent.press(screen.getByTestId('onboarding-next'));
+  expect(screen.getByTestId('onboarding-start')).toBeTruthy();
+}
+
 describe('Onboarding wizard', () => {
   it('starts on the welcome step with no Back button', async () => {
     await renderWithRepo(<Onboarding />);
     expect(await screen.findByText('Welcome')).toBeTruthy();
-    expect(screen.getByText('Step 1 of 5')).toBeTruthy();
+    expect(screen.getByText(/^Step 1 of \d$/)).toBeTruthy();
     expect(screen.queryByTestId('onboarding-back')).toBeNull();
   });
 
@@ -31,7 +37,7 @@ describe('Onboarding wizard', () => {
     await fireEvent.changeText(screen.getByTestId('onboarding-salary'), '18000');
     await fireEvent.press(screen.getByTestId('onboarding-next'));
     expect(await screen.findByText('Choose the day you get paid, or clear the amount.')).toBeTruthy();
-    expect(screen.getByText('Step 2 of 5')).toBeTruthy();
+    expect(screen.getByText(/^Step 2 of \d$/)).toBeTruthy();
   });
 
   it('creates the Salary item, saves settings and marks onboarded', async () => {
@@ -43,8 +49,7 @@ describe('Onboarding wizard', () => {
     await fireEvent.press(screen.getByTestId('onboarding-next'));
     await fireEvent.changeText(screen.getByTestId('onboarding-balance'), '6500');
     await fireEvent.changeText(screen.getByTestId('onboarding-buffer'), '2000');
-    await fireEvent.press(screen.getByTestId('onboarding-next'));
-    await fireEvent.press(screen.getByTestId('onboarding-next'));
+    await toLastStep();
     const summary = within(screen.getByTestId('onboarding-summary'));
     expect(summary.getByText('Salary: AED 18,000.00 every month, on day 25')).toBeTruthy();
     expect(summary.getByText('Balance today: AED 6,500.00')).toBeTruthy();
@@ -63,8 +68,7 @@ describe('Onboarding wizard', () => {
     const { repo } = await renderWithRepo(<Onboarding />);
     await fireEvent.press(await screen.findByTestId('onboarding-next'));
     await fireEvent.press(screen.getByTestId('onboarding-skip'));
-    await fireEvent.press(screen.getByTestId('onboarding-skip'));
-    await fireEvent.press(screen.getByTestId('onboarding-skip'));
+    await toLastStep();
     expect(screen.getByText('Salary: not added yet')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
@@ -78,8 +82,7 @@ describe('Onboarding wizard', () => {
     await fireEvent.press(screen.getByTestId('onboarding-skip'));
     await fireEvent.changeText(screen.getByTestId('onboarding-balance'), '300');
     await fireEvent(screen.getByTestId('onboarding-overdrawn'), 'valueChange', true);
-    await fireEvent.press(screen.getByTestId('onboarding-next'));
-    await fireEvent.press(screen.getByTestId('onboarding-next'));
+    await toLastStep();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(router.replace).toHaveBeenCalled());
     expect((await repo.getSettings()).startingBalance).toBe(-30000);
@@ -89,7 +92,7 @@ describe('Onboarding wizard', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { repo } = await renderWithRepo(<Onboarding />);
     jest.spyOn(repo, 'updateSettings').mockRejectedValue(new Error('disk full'));
-    for (let i = 0; i < 4; i++) await fireEvent.press(screen.getByTestId('onboarding-next'));
+    await toLastStep();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(alert).toHaveBeenCalledWith('Could not save your setup', 'disk full'));
     expect(router.replace).not.toHaveBeenCalled();

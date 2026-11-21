@@ -16,6 +16,7 @@ import {
   type TransactionField,
   type TransactionForm,
 } from '@/features/items/form';
+import { useDiscardGuard } from '@/features/items/useDiscardGuard';
 import { isValidISODate } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import type { Kind, PlanInput, Transaction } from '@/types';
@@ -58,6 +59,8 @@ export default function TransactionScreen() {
 
 function TransactionEditor({ input, item, initialKind, initialDate }: { input: PlanInput; item: Transaction | null; initialKind: Kind; initialDate?: string }) {
   const [form, setForm] = useState<TransactionForm>(() => (item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
+  const [initialForm] = useState(() => JSON.stringify(item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
+  const allowLeave = useDiscardGuard(JSON.stringify(form) !== initialForm);
   // Until the user flips the switch, "planned" follows the date (future = planned).
   const [plannedTouched, setPlannedTouched] = useState(!!item);
   const [errors, setErrors] = useState<FormErrors<TransactionField>>({});
@@ -76,6 +79,7 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
     setSaving(true);
     try {
       await save(result.item);
+      allowLeave();
       router.back();
     } catch {
       setSaving(false);
@@ -93,7 +97,8 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
         onPress: async () => {
           try {
             await remove(item.id);
-            router.back();
+            allowLeave();
+      router.back();
           } catch {
             Alert.alert("Couldn't delete", 'Please try again.');
           }
