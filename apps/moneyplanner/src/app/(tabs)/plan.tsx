@@ -26,9 +26,7 @@ export default function PlanScreen() {
             action={<Button label="Try again" onPress={reload} testID="plan-retry" />}
           />
         ) : (
-          <T tone="secondary" accessibilityLabel={loading ? 'Loading' : ''}>
-            Loading…
-          </T>
+          <T tone="secondary">{loading ? 'Loading…' : ''}</T>
         )}
       </Screen>
     );

@@ -1,11 +1,12 @@
 // Categories: add, rename and remove. Removing one that is in use archives it.
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Modal, Pressable, View } from 'react-native';
 
 import { Button, Card, EmptyState, ListRow, Screen, SectionHeader, Segmented, T, TextField } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useRepoMutation, useRepoQuery } from '@/data/DataProvider';
+import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
+import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { activeCategories, buildCategory, validateCategoryName } from '@/features/settings/helpers';
 import { useTheme } from '@/hooks/use-theme';
 import type { Category, Kind } from '@/types';
@@ -14,6 +15,8 @@ type Editing = { mode: 'add' } | { mode: 'edit'; category: Category } | null;
 
 export default function Categories() {
   const c = useTheme();
+  const { repo } = useData();
+  const submitting = useRef(false);
   const { data: all, error, loading, reload } = useRepoQuery((r) => r.listCategories());
   const save = useRepoMutation((r, cat: Category) => r.upsertCategory(cat));
   const remove = useRepoMutation((r, id: string) => r.removeCategory(id));
@@ -36,18 +39,23 @@ export default function Categories() {
   };
 
   const submit = async () => {
-    if (!editing || !all) return;
-    const problem = validateCategoryName(name, all, kind, editing.mode === 'edit' ? editing.category.id : undefined);
-    if (problem) {
-      setFormError(problem);
-      return;
-    }
+    if (!editing || !all || submitting.current) return;
+    submitting.current = true;
     try {
-      if (editing.mode === 'add') await save(buildCategory(name, kind, all));
+      // Check against fresh data, in case another save landed since the list loaded.
+      const fresh = await repo.listCategories();
+      const problem = validateCategoryName(name, fresh, kind, editing.mode === 'edit' ? editing.category.id : undefined);
+      if (problem) {
+        setFormError(problem);
+        return;
+      }
+      if (editing.mode === 'add') await save(buildCategory(name, kind, fresh));
       else await save({ ...editing.category, name: name.trim() });
       setEditing(null);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -117,7 +125,7 @@ export default function Categories() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: Spacing.three }}>
           <Pressable style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} onPress={() => setEditing(null)} accessibilityLabel="Close" />
           <View style={{ backgroundColor: c.background, borderRadius: 14, padding: Spacing.three, gap: Spacing.three, maxWidth: 480, width: '100%', alignSelf: 'center' }}>
-            <T variant="heading">{editing?.mode === 'edit' ? 'Rename category' : 'New category'}</T>
+            <ScreenTitle variant="heading">{editing?.mode === 'edit' ? 'Rename category' : 'New category'}</ScreenTitle>
             <TextField label="Name" value={name} onChangeText={setName} error={formError} testID="category-name" />
             {editing?.mode === 'add' && (
               <Segmented

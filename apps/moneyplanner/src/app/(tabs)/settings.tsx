@@ -2,21 +2,23 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 
 import { Button, Card, EmptyState, ListRow, MoneyField, Screen, SectionHeader, SelectField, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { exportBackup, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
 import {
-  MODULE_INFO,
   PAYDAY_OPTIONS,
   choiceToPayday,
+  moduleList,
   paydayForSettings,
   paydayToChoice,
   signedBalance,
   validateCurrency,
 } from '@/features/settings/helpers';
+import { PRIVACY_POLICY_URL } from '@/features/settings/links';
+import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { formatDate, today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import type { Fils, ModuleId, Settings } from '@/types';
@@ -57,6 +59,26 @@ export default function SettingsScreen() {
   }
 
   const cur = settings.currency;
+  const moduleChoices = moduleList();
+
+  // Start the text boxes from the saved values again (after Restore or Delete all).
+  const resetDrafts = () => {
+    setCurrency(null);
+    setCurrencyError(null);
+    setNewBalance(null);
+    setOverdrawn(false);
+    setBalanceKey((k) => k + 1);
+    setNewBuffer(null);
+    setBufferKey((k) => k + 1);
+  };
+
+  const openPrivacyPolicy = async () => {
+    try {
+      if (PRIVACY_POLICY_URL) await Linking.openURL(PRIVACY_POLICY_URL);
+    } catch {
+      Alert.alert('Could not open the privacy policy', 'Check that this phone has a web browser, then try again.');
+    }
+  };
 
   const run = async (title: string, fn: () => Promise<void>) => {
     setBusy(true);
@@ -108,6 +130,7 @@ export default function SettingsScreen() {
           );
         }),
       );
+      resetDrafts();
       bump();
       if (result === 'restored') Alert.alert('Backup restored', 'Your data has been replaced with the backup.');
     });
@@ -127,6 +150,7 @@ export default function SettingsScreen() {
               onPress: () =>
                 run('Could not delete', async () => {
                   await repo.deleteAll();
+                  resetDrafts();
                   bump();
                   router.replace('/onboarding');
                 }),
@@ -145,9 +169,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen testID="settings-screen">
-      <T variant="title" accessibilityLabel="Settings">
-        Settings
-      </T>
+      <ScreenTitle>Settings</ScreenTitle>
 
       <SectionHeader title="Money" />
       <Card>
@@ -195,19 +217,23 @@ export default function SettingsScreen() {
         <Button label="Save buffer" onPress={saveBuffer} disabled={busy || newBuffer == null} testID="settings-buffer-save" />
       </Card>
 
-      <SectionHeader title="Modules" />
-      <Card>
-        {MODULE_INFO.map((m) => (
-          <ToggleRow
-            key={m.id}
-            label={m.label}
-            description={m.description}
-            value={settings.enabledModules[m.id]}
-            onChange={(v) => toggleModule(m.id, v)}
-            testID={`settings-module-${m.id}`}
-          />
-        ))}
-      </Card>
+      {moduleChoices.length > 0 && (
+        <>
+          <SectionHeader title="Modules" />
+          <Card>
+            {moduleChoices.map((m) => (
+              <ToggleRow
+                key={m.id}
+                label={m.label}
+                description={m.description}
+                value={settings.enabledModules[m.id]}
+                onChange={(v) => toggleModule(m.id, v)}
+                testID={`settings-module-${m.id}`}
+              />
+            ))}
+          </Card>
+        </>
+      )}
 
       <SectionHeader title="Categories" />
       <Card>
@@ -237,6 +263,9 @@ export default function SettingsScreen() {
         <T variant="caption" tone="secondary">
           Your data never leaves this phone unless you export it.
         </T>
+        {PRIVACY_POLICY_URL && (
+          <ListRow title="Privacy policy" subtitle="Opens in your browser" onPress={openPrivacyPolicy} accessibilityLabel="Privacy policy. Opens in your browser" testID="settings-privacy" />
+        )}
       </Card>
       <View style={{ height: Spacing.four }} />
     </Screen>
