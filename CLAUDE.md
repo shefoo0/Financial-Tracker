@@ -13,9 +13,12 @@ README.md.
 - Country: United Arab Emirates. Store research uses `--country ae`, plus `us`
   for the global picture.
 - Default currency AED; English first (Arabic and right-to-left later).
-- Develops on a PC without a Mac: Android builds locally with Android Studio;
-  iOS builds on Expo's free cloud plan (no payment method) and is tested on an
-  iPhone with TestFlight.
+- Works in Claude Code cloud sessions on GitHub, with no build tools on a PC.
+  Android builds and tests run on GitHub Actions (`.github/workflows/`); the
+  developer installs the APK on an Android phone. iOS builds run on Expo's
+  free plan, started from GitHub Actions, and are tested with TestFlight.
+- Start workflows with the GitHub tools (`actions_run_trigger`), and read the
+  results with `actions_get` and `get_job_logs`.
 - Personal Google Play account, so a 12-tester, 14-day closed test comes
   before the first public release.
 
@@ -26,8 +29,10 @@ the Anthropic API or SDK, an API key, a paid service or SDK, or anything that
 needs a payment method. The one cloud service allowed is **Expo's free plan,
 for iOS builds and uploads only** (`eas build`/`eas submit`/`eas credentials`
 with `--platform ios`, run from `/release-app`), because iOS needs macOS to
-build: never add a payment method, upgrade, or use priority builds; Android
-builds stay local. The only accepted costs are the Apple Developer Program and
+build: never add a payment method, upgrade, or use priority builds.
+**GitHub Actions** is allowed on its free minutes, on standard `ubuntu-latest`
+runners only (never larger, billed runners); keep workflows started by hand
+(`workflow_dispatch`), not on every push. The only accepted costs are the Apple Developer Program and
 Google Play developer accounts, which the developer pays for themselves to
 publish.
 
@@ -57,13 +62,19 @@ publish.
   builds, updates, workflows, priority builds), force-pushes, destructive
   deletes and reading signing keys, Apple API keys and passwords; `permissions.deny` blocks reading them too.
   Change the rules in the hook (and its tests), not by weakening the deny list.
+- `.github/workflows/` — `android.yml` (type check, unit tests, signed APK
+  and AAB, target API check, Maestro on an emulator), `android-upload-key.yml`
+  (creates the upload key once; private repos only), `ios.yml` (queues an iOS
+  build and TestFlight upload on Expo's free plan). Check changes with
+  `npm test` (the workflow tests parse them and `bash -n` their scripts).
 - `apps/<slug>/` — generated apps (Expo project, `spec.md`, `store/`,
   `REPORT.md`, `PROGRESS.md` for resuming a run, `RELEASES.md`).
 - `scripts/` — free local tools: `check-listing.mjs` (listing limits),
   `screenshots.mjs` (store screenshots from the web build, via Playwright),
   `render-graphic.mjs` (HTML → exact-size PNG), `publish-pages.mjs` (privacy
   and support pages into `docs/` for GitHub Pages), `bump-version.mjs`,
-  `app-status.mjs` (SDK and release status of every app), `store-lookup.mjs`
+  `app-status.mjs` (SDK and release status of every app), `android-signing.mjs`
+  (release builds sign with the upload key from env vars), `store-lookup.mjs`
   (real ratings, prices and low-star reviews from both stores, for research).
 - `ideas/` — research shortlists from `/find-ideas`.
 - `docs/` — generated GitHub Pages site; don't edit by hand.
@@ -81,6 +92,8 @@ publish.
 | Check a store listing | `node scripts/check-listing.mjs apps/<slug>/store/listing.md` |
 | Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
 | Change an app | `/update-app <slug> "<change>"` |
+| Android test build | `android.yml` workflow, `app: <slug>`, `build: test` |
+| iOS build + TestFlight | `ios.yml` workflow, `app: <slug>` |
 | Release an app | `/release-app <slug> [android\|ios\|both]` |
 | Find app ideas | `/find-ideas [topic]` |
 | Ideas close to yours | `/similar-ideas ["<idea>" \| <slug>]` |

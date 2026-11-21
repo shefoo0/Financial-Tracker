@@ -35,6 +35,7 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 | --- | --- |
 | Building and testing apps with this team | Included in your Claude subscription. Large apps use more of your plan's usage limits, and if you hit a limit, wait for it to reset and type "continue". |
 | Expo, Jest, local builds, Expo Go on your phone | Free |
+| Android builds, tests and emulator runs on GitHub Actions | Free: 2,000 minutes a month on this private repository, on standard machines only |
 | iOS builds without a Mac | Expo's free cloud plan: a free account with **no payment method**. Limited builds a month; if you hit the limit it waits for next month, it never charges. |
 | Testing on your iPhone | TestFlight, free with the Apple developer account |
 | Publishing on the App Store | Apple Developer Program, $99/year |
@@ -42,7 +43,33 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 
 The agents are told never to sign up for anything, add a payment method or API key, or use a paid service. The one cloud service allowed is Expo's free plan for iOS builds, and the safety hook enforces that it's iOS-only and free.
 
-## Setup on your PC
+## Working only on GitHub (no tools on your PC)
+
+You can do everything from a browser: Claude Code cloud sessions (claude.ai/code) for the work, and **GitHub Actions** for building and testing. Claude starts the workflows itself, and you can also start them from the repository's **Actions** tab.
+
+| Workflow | What it does | Takes |
+| --- | --- | --- |
+| **Android build** (`android.yml`) | Type check and unit tests, a signed **APK** to install on your phone, an **AAB** for Google Play (when `build: release`), a check that the target API level meets Google Play's minimum, and the Maestro end-to-end flows on an Android emulator | About 15–25 minutes |
+| **Android upload key** (`android-upload-key.yml`) | Creates your Android upload key once, for all your apps. It refuses to run on a public repository or to replace an existing key by accident. | 1 minute |
+| **iOS build** (`ios.yml`) | Queues an iOS build on Expo's free plan and uploads it to App Store Connect for TestFlight | A few minutes on GitHub, then Expo's free queue |
+
+**Testing on your phones:**
+- **Android:** open the workflow run, download the `<app>-<version>-android` artifact on your phone, and install the `.apk` (allow installs from your browser or files app once).
+- **iPhone:** install the **TestFlight** app and open the build once Apple has processed it.
+
+**One-time setup, all in the browser:**
+1. **Android upload key:** run *Actions → Android upload key → Run workflow*, typing `create`. Download the `android-upload-key` artifact and save `upload.jks` and `SECRETS.txt` in your password manager. Add the four secrets it lists under *Settings → Secrets and variables → Actions*, then delete the run and the downloaded files. Until then, test APKs are signed with a debug key, which is fine for your phone but not for Google Play.
+2. **Expo** (iOS): create a free account at expo.dev with **no payment method**. Create an access token under *Account settings → Access tokens*, and add it as the secret `EXPO_TOKEN`.
+3. **Apple** (iOS, recommended): in App Store Connect, under *Users and Access → Integrations → App Store Connect API*, create a key with the App Manager role. Add these secrets:
+   - `ASC_API_KEY_P8_BASE64`: the downloaded `.p8` file in base64
+   - `ASC_KEY_ID` and `ASC_ISSUER_ID`: from the same page
+   - `APPLE_TEAM_ID`: from your Apple developer membership details
+
+   Expo then creates the iOS signing certificate without you signing in interactively. If the first iOS build still asks for it, `/release-app` explains a one-time fallback that needs only Node.js on any computer.
+
+**Free limits:** this repository is private, so GitHub gives 2,000 free Actions minutes a month, enough for roughly 60–100 Android builds. The workflows only run when started (never on every push), and only on GitHub's free standard machines. Expo's free plan has a monthly limit on iOS builds; when it runs out, Expo waits for the next month and never charges.
+
+## Setup on your PC (optional)
 
 You need:
 - [Claude Code](https://claude.com/claude-code), signed in with your Claude subscription

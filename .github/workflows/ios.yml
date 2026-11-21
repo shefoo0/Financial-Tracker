@@ -1,0 +1,118 @@
+# Builds an app in apps/<slug> for iOS on Expo's FREE plan and, optionally,
+# uploads it to App Store Connect for TestFlight. The GitHub job only starts
+# the build (a few minutes of free runner time); Expo builds and submits on
+# its own servers, so this works without a Mac.
+#
+# Free only: iOS only, the free build queue, and an Expo account with no
+# payment method. When the free monthly builds run out, Expo waits for the
+# next month; it never charges.
+#
+# Secrets (Settings -> Secrets and variables -> Actions):
+#   EXPO_TOKEN           required: expo.dev -> Account settings -> Access tokens
+#   ASC_API_KEY_P8_BASE64, ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID
+#                        optional App Store Connect API key, so Expo can create
+#                        the iOS signing certificate and upload without an
+#                        interactive Apple sign-in (see README).
+
+name: iOS build
+run-name: iOS ${{ inputs.app }}${{ inputs.submit && ' + TestFlight upload' || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App folder in apps/ (its slug)
+        required: true
+        type: string
+      submit:
+        description: Upload to App Store Connect (TestFlight) when the build finishes
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP: ${{ inputs.app }}
+      SUBMIT: ${{ inputs.submit }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the app name and the Expo token
+        env:
+          HAS_TOKEN: ${{ secrets.EXPO_TOKEN != '' }}
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::App name must be lowercase letters, digits and dashes."; exit 1; }
+          [ -f "apps/$APP/package.json" ] || { echo "::error::apps/$APP/package.json not found."; exit 1; }
+          [ "$HAS_TOKEN" = "true" ] || { echo "::error::Add the EXPO_TOKEN secret first (free Expo account, no payment method)."; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/${{ inputs.app }}/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        working-directory: apps/${{ inputs.app }}
+        run: npm ci
+
+      - name: Make sure the project is set up for Expo builds
+        working-directory: apps/${{ inputs.app }}
+        run: |
+          if [ ! -f eas.json ]; then
+            echo '{ "cli": { "appVersionSource": "local" }, "build": { "production": {} }, "submit": { "production": {} } }' > eas.json
+            echo "::warning::Created a default eas.json for this run. Commit one to apps/$APP to keep it."
+          fi
+          if ! node -e "process.exit(require('./app.json').expo?.extra?.eas?.projectId ? 0 : 1)"; then
+            eas init --non-interactive --force
+            id="$(node -p "require('./app.json').expo.extra.eas.projectId")"
+            echo "::warning::Linked this app to Expo project $id for this run. Add \"extra\": { \"eas\": { \"projectId\": \"$id\" } } to apps/$APP/app.json and commit it."
+          fi
+
+      - name: Load the App Store Connect API key (optional)
+        env:
+          ASC_P8: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$ASC_P8" ]; then
+            echo "$ASC_P8" | base64 -d > "$RUNNER_TEMP/asc_api_key.p8"
+            {
+              echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc_api_key.p8"
+              echo "EXPO_ASC_KEY_ID=$ASC_KEY_ID"
+              echo "EXPO_ASC_ISSUER_ID=$ASC_ISSUER_ID"
+              echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+            echo "Using the App Store Connect API key."
+          else
+            echo "::notice::No App Store Connect API key secrets. This works once Expo already has the iOS signing certificate (see README)."
+          fi
+
+      - name: Start the iOS build on Expo's free plan
+        working-directory: apps/${{ inputs.app }}
+        run: |
+          args=(build --platform ios --profile production --non-interactive --no-wait)
+          if [ "$SUBMIT" = "true" ]; then args+=(--auto-submit); fi
+          eas "${args[@]}" | tee eas-output.txt
+          url="$(grep -Eo 'https://expo.dev/[^ ]+/builds/[a-z0-9-]+' eas-output.txt | head -1)"
+          {
+            echo "### iOS build queued for $APP"
+            echo
+            [ -n "$url" ] && echo "Follow it on Expo: $url"
+            echo
+            echo "The free queue can take a while. When it finishes, Expo $( [ "$SUBMIT" = "true" ] && echo "uploads it to App Store Connect. It shows up in TestFlight after Apple processes it (usually 5-30 minutes)." || echo "keeps the build on expo.dev.")"
+          } >> "$GITHUB_STEP_SUMMARY"

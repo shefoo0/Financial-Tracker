@@ -20,7 +20,7 @@ Then run, from the project folder, and record each result:
 3. `npx expo-doctor`
 4. `npx jest --ci`
 5. `npx expo export --platform android` and `npx expo export --platform ios`
-6. **End-to-end flows with Maestro** (free, open source). Write `.maestro/` flows for the app's core journeys (first launch, each main feature's happy path, and the empty state), using `testID`s. If a device or emulator is available (`adb devices` shows one, or `xcrun simctl list devices booted` on a Mac) and `maestro` is installed, build and install a debug build and run `maestro test .maestro/`. Otherwise, report the flows as written but not run, and how to run them. Apple's most common rejection is an app that crashes or doesn't work when the reviewer opens it, so these flows matter.
+6. **End-to-end flows with Maestro** (free, open source). Write `.maestro/` flows for the app's core journeys (first launch, each main feature's happy path, and the empty state), using `testID`s. If a device or emulator is available (`adb devices` shows one, or `xcrun simctl list devices booted` on a Mac) and `maestro` is installed, build and install a debug build and run `maestro test .maestro/`. Otherwise (for example in a cloud session), report the flows as written but not run: the lead runs them on an emulator with the `android.yml` GitHub Actions workflow (`e2e: true`). Every flow needs `appId:` set to the app's `android.package`, and must work on a fresh install. Apple's most common rejection is an app that crashes or doesn't work when the reviewer opens it, so these flows matter.
 
 Native modules can't run in Jest: test them through their JavaScript mocks, and list them as needing a check on a real device.
 

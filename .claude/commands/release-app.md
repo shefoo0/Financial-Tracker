@@ -13,7 +13,7 @@ You do the steps that can be done on this computer, and you guide the developer 
 
 ## Rules
 
-- **Free only.** The only costs are the developer's Apple Developer Program ($99/year) and Google Play developer account ($25 once). Don't use paid services or paid upload tools. Android builds happen on this computer and upload through the Play Console website. iOS builds happen in Xcode on a Mac, or, without a Mac, on **Expo's free cloud plan (iOS only, no payment method)** as described in step 6.
+- **Free only.** The only costs are the developer's Apple Developer Program ($99/year) and Google Play developer account ($25 once). Don't use paid services or paid upload tools. Android builds run on **GitHub Actions' free standard runners** (never larger, billed runners) and upload through the Play Console website. iOS builds run on **Expo's free plan (iOS only, no payment method)** started from GitHub Actions, or in Xcode on a Mac.
 - **Secrets never touch the chat or the repo.** Never ask for, type, print or store passwords, and never commit signing keys. When a command needs a password, give the developer the command to run in their own terminal. Signing keys live outside the repository, in `~/.app-signing/`.
 - **Ask before you push to git or change anything outside the repository**, other than files the developer asked you to create.
 - Check the facts in this guide against the current store help pages when something doesn't match what the developer sees. The store websites change.
@@ -60,51 +60,40 @@ Show them to the developer.
 
 ### 5. Android build (signed .aab)
 
-Needs Android Studio, which includes the Android SDK and a JDK. Check with `java -version` and that `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) is set; if not, tell the developer how to install and set them for their OS.
+Android builds run on **GitHub Actions** (free minutes on GitHub's standard Linux machines), so the developer needs no Android tools. Start workflows with the GitHub tools (`actions_run_trigger` with the workflow file name and its inputs, on the branch the app is on), and follow them with `actions_get` and `get_job_logs`. If those tools aren't available, give the developer the exact clicks: **Actions → <workflow> → Run workflow**.
 
-1. **Upload key (once per app).** If `~/.app-signing/<slug>-upload.jks` doesn't exist, ask the developer to run this in their own terminal and choose a strong password when asked:
+1. **Upload key (once, shared by all the developer's apps).** If the repository has no `ANDROID_KEYSTORE_BASE64` secret yet (the build's "Load the upload key" step says so), ask the developer to:
+   1. run **Actions → Android upload key → Run workflow**, typing `create`;
+   2. download the `android-upload-key` artifact from that run;
+   3. save `upload.jks` and `SECRETS.txt` in their password manager as the backup;
+   4. add the four secrets it lists under **Settings → Secrets and variables → Actions**;
+   5. delete the run and the downloaded files.
 
-   ```sh
-   mkdir -p ~/.app-signing
-   keytool -genkeypair -v -storetype PKCS12 -keystore ~/.app-signing/<slug>-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
-   ```
+   The key and its password never pass through the chat. Google Play App Signing holds the real app signing key, so a lost upload key can be reset through Google support.
+2. **Build:** trigger `android.yml` with `app: <slug>`, `build: release`, `e2e: true`. It type-checks and runs the unit tests, builds a signed APK and AAB, checks the target API level against Google Play's minimum (in the workflow's `MIN_TARGET_SDK`), and runs the Maestro flows on an emulator. Report each failed step from the logs, fix it (through `/update-app` for app code), and run it again.
+3. **Smoke test on a real phone:** give the developer the run's link. They download the `<slug>-<version>-<code>-android` artifact, install the `.apk` on their Android phone, and try the main journeys. A crash on launch is the most common reason for rejection, so wait for their OK.
+4. **For Google Play:** the `.aab` in the same artifact is the file to upload (step 7). Record the run link, version and versionCode in `RELEASES.md`.
 
-   Tell them to back up the `.jks` file and its password somewhere safe outside this computer (a password manager is good). Google Play App Signing holds the real app signing key, so a lost upload key can be reset, but only by contacting Google support.
-2. **Gradle properties.** Ask the developer to add these lines to `~/.gradle/gradle.properties` (outside the repo) with their own password. Use the slug in upper case, with dashes turned into underscores, as the prefix:
-
-   ```properties
-   <SLUG>_UPLOAD_STORE_FILE=/full/path/to/.app-signing/<slug>-upload.jks
-   <SLUG>_UPLOAD_KEY_ALIAS=upload
-   <SLUG>_UPLOAD_STORE_PASSWORD=...
-   <SLUG>_UPLOAD_KEY_PASSWORD=...
-   ```
-3. **Signing config plugin (once per app).** Write `apps/<slug>/plugins/with-android-release-signing.js`, an Expo config plugin using `withAppBuildGradle` from `expo/config-plugins`. It adds a `release` signing config that reads those four properties, and points `buildTypes.release.signingConfig` at it. Then register it under `plugins` in `app.json`. Doing this in a plugin means `prebuild --clean` can't wipe it.
-4. **Build:**
-
-   ```sh
-   cd apps/<slug>
-   npx expo prebuild --platform android --clean
-   cd android && ./gradlew bundleRelease        # Windows: gradlew.bat bundleRelease
-   ```
-
-   Check the target API level the build uses (`grep -rn "targetSdk" android/build.gradle android/app/build.gradle android/gradle.properties`) meets the Google Play requirement from step 1.
-
-   **Smoke test the release build** before uploading: if an emulator or phone is connected, run `./gradlew assembleRelease`, install `android/app/build/outputs/apk/release/app-release.apk` with `adb install -r`, open the app, and run the Maestro flows (`maestro test .maestro/`) if they exist. A crash on launch is the most common reason for rejection.
-
-   The output is `android/app/build/outputs/bundle/release/app-release.aab`. Confirm it's signed with the upload key (`jarsigner -verify -verbose -certs <aab>` should name the upload certificate; it never needs the password). Copy it to `apps/<slug>/release/<version>-<versionCode>/` and make sure `release/`, `android/` and `ios/` are in the app's `.gitignore`.
+**Building on the developer's own computer instead** (only if they ask; it needs Android Studio): `npx expo prebuild --platform android --clean`, then `node ../../scripts/android-signing.mjs android/app/build.gradle` from the app folder, then `./gradlew bundleRelease` in `android/` with the same four `ANDROID_*` environment variables set in their own terminal (never in chat).
 
 ### 6. iOS build
 
-#### Without a Mac: Expo's free cloud plan
+#### Without a Mac: Expo's free cloud plan, started from GitHub Actions
 
-If `uname` isn't `Darwin`, build iOS on Expo's servers with the **free plan**. This is the one cloud service allowed, and only for iOS, because iOS apps can only be built on macOS. Rules:
-- The developer's Expo account must **never have a payment method**. Never upgrade, buy build credits, or pick a priority build. The safety hook blocks paid options and non-iOS cloud builds.
-- The free plan gives a limited number of builds a month in a slower queue. If the limit is reached, Expo stops building until the next month; it doesn't charge. So try changes on Android or in Expo Go first, and only build iOS for release candidates. Note each build in `RELEASES.md` so you can see how many are left.
-- Anything that asks for a password or Apple sign-in, the **developer runs in their own terminal**. Never ask for, type or print passwords.
+If `uname` isn't `Darwin` (and in cloud sessions), iOS builds run on Expo's servers on the **free plan**. This is the one cloud build service allowed, and only for iOS, because iOS apps can only be built on macOS. Rules:
+- The developer's Expo account must **never have a payment method**. Never upgrade, buy build credits or pick a priority build. The safety hook and the workflow allow iOS only.
+- The free plan gives a limited number of builds a month in a slower queue. If they run out, Expo waits until next month; it doesn't charge. So test changes on Android first, and only build iOS for release candidates. Log each build in `RELEASES.md` so you can see how many are left.
+- Anything that needs a password or an Apple sign-in, the developer does in the browser or in their own terminal, never in chat.
 
 Steps:
-1. The developer creates a free account at expo.dev (no card), then runs `npx eas-cli@latest login` in their own terminal.
-2. In the app folder, run `npx eas-cli@latest init` (it links the project and adds its ID to `app.json`). Create `eas.json` if it doesn't exist:
+1. **Once:** the developer creates a free account at expo.dev (no card), creates an access token (expo.dev → Account settings → Access tokens), and adds it as the repository secret `EXPO_TOKEN`.
+2. **Once, for automatic iOS signing (recommended):** in App Store Connect → Users and Access → Integrations → App Store Connect API, the developer creates a key with the **App Manager** role and downloads the `.p8` file (only once). They add these secrets:
+   - `ASC_API_KEY_P8_BASE64`: the `.p8` file in base64 (on Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXX.p8"))`);
+   - `ASC_KEY_ID` and `ASC_ISSUER_ID`: shown on that page;
+   - `APPLE_TEAM_ID`: from developer.apple.com → Account → Membership details.
+
+   With this key, Expo can create the iOS signing certificate and upload builds without an interactive Apple sign-in. If the first build still says the certificate is missing, the fallback is one interactive run on any computer with Node.js: `npx eas-cli@latest build --platform ios --profile production` in the app folder, signing in to Apple there. After that, Expo stores the certificate (the developer can download a backup any time with `npx eas-cli@latest credentials --platform ios`).
+3. **Project files:** make sure `apps/<slug>/eas.json` exists and is committed:
 
    ```json
    {
@@ -114,17 +103,12 @@ Steps:
    }
    ```
 
-   `appVersionSource: local` means the build numbers come from `app.json`, so `scripts/bump-version.mjs` stays in charge of them.
-3. The App Store Connect app record must exist first (do step 8.1 if it doesn't).
-4. **First build (interactive, in the developer's terminal):** `npx eas-cli@latest build --platform ios --profile production`. Tell them how to answer:
-   - sign in to their Apple Developer account (Apple ID and two-factor code, entered only in the terminal): **yes**;
-   - generate a distribution certificate and provisioning profile: **yes**;
-   - set up push notifications: **no**, unless the app uses remote push (local notifications don't need it).
+   `appVersionSource: local` keeps build numbers in `app.json`, under `scripts/bump-version.mjs`. After the first run, add the Expo project ID that the run's warning prints to `app.json` (`expo.extra.eas.projectId`) and commit it.
+4. The App Store Connect app record must exist first (step 8.1).
+5. **Build and upload:** trigger `ios.yml` with `app: <slug>` and `submit: true`. The GitHub job only queues the build, so it uses a few minutes. Expo builds on its servers, then uploads to App Store Connect. Give the developer the Expo build link from the run summary.
+6. **Test on the iPhone with TestFlight (free):** once Apple has processed the upload (usually 5-30 minutes after the build), the developer adds themselves as an internal tester in App Store Connect → TestFlight, installs the TestFlight app, and tests the build fully, especially native features such as OCR, notifications and Shortcuts. Record what was tested in `RELEASES.md`.
 
-   Expo stores these signing files for future builds. The developer can download a backup any time with `npx eas-cli@latest credentials --platform ios`.
-5. **Later builds:** you can run `npx eas-cli@latest build --platform ios --profile production --non-interactive` yourself. Check the build log says Xcode 26 or later (Apple's minimum from step 1).
-6. **Upload to App Store Connect:** the first time, the developer runs `npx eas-cli@latest submit --platform ios --latest` in their own terminal. It signs in to Apple and stores an App Store Connect API key with Expo for later uploads. After that, you can run it with `--non-interactive`.
-7. **Test on the iPhone with TestFlight (free):** in App Store Connect → TestFlight, add the developer as an internal tester (no review needed), install the TestFlight app on the iPhone, and test the build fully, especially native features such as OCR, notifications and Shortcuts. Record what was tested in `RELEASES.md`.
+**From the developer's own terminal instead** (on any computer with Node.js): `npx eas-cli@latest login`, then `npx eas-cli@latest build --platform ios --profile production --auto-submit` in the app folder.
 
 #### On a Mac
 

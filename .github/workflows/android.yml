@@ -1,0 +1,213 @@
+# Builds an app in apps/<slug> for Android on GitHub's free Linux runners:
+# type check, unit tests, a signed APK to install on a phone, an AAB for
+# Google Play (release), and optional Maestro end-to-end flows on an emulator.
+#
+# Run it from GitHub: Actions -> "Android build" -> Run workflow, or let Claude
+# start it. The APK and AAB are attached to the run as artifacts.
+#
+# Free only: standard ubuntu-latest runners (free minutes). Never switch to
+# larger runners, which are billed.
+
+name: Android build
+run-name: Android ${{ inputs.app }} (${{ inputs.build }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App folder in apps/ (its slug)
+        required: true
+        type: string
+      build:
+        description: "test = APK to install on a phone; release = APK + AAB for Google Play"
+        type: choice
+        options: [test, release]
+        default: test
+      e2e:
+        description: Run the Maestro end-to-end flows on an Android emulator
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ inputs.app }}
+  cancel-in-progress: true
+
+env:
+  # Google Play's minimum target API level for new apps and updates
+  # (Android 16 / API 36 from 31 August 2026). /maintain-apps keeps it current.
+  MIN_TARGET_SDK: "36"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP: ${{ inputs.app }}
+      BUILD: ${{ inputs.build }}
+    outputs:
+      artifact: ${{ steps.collect.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the app name
+        run: |
+          [[ "$APP" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::App name must be lowercase letters, digits and dashes."; exit 1; }
+          [ -f "apps/$APP/package.json" ] || { echo "::error::apps/$APP/package.json not found."; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/${{ inputs.app }}/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install
+        working-directory: apps/${{ inputs.app }}
+        run: npm ci
+
+      - name: Type check and unit tests
+        working-directory: apps/${{ inputs.app }}
+        run: |
+          npx tsc --noEmit
+          npx jest --ci
+
+      - name: Generate the Android project
+        working-directory: apps/${{ inputs.app }}
+        run: |
+          npx expo prebuild --platform android --clean --no-install
+          node ../../scripts/android-signing.mjs android/app/build.gradle
+
+      - name: Load the upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+            echo "Signing with the upload key."
+          elif [ "$BUILD" = "release" ]; then
+            echo "::error::Release builds need the upload key. Run the 'Android upload key' workflow once, then add its four secrets."
+            exit 1
+          else
+            echo "::warning::No upload key secrets yet, so this test APK is signed with Expo's debug key. Fine for testing on a phone; Google Play needs the upload key."
+          fi
+
+      - name: Build
+        working-directory: apps/${{ inputs.app }}/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          tasks="assembleRelease"
+          [ "$BUILD" = "release" ] && tasks="assembleRelease bundleRelease"
+          ./gradlew $tasks --no-daemon
+
+      - name: Check the target API level
+        working-directory: apps/${{ inputs.app }}/android
+        run: |
+          aapt2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
+          target="$("$aapt2" dump badging app/build/outputs/apk/release/app-release.apk | sed -n "s/.*targetSdkVersion:'\([0-9]*\)'.*/\1/p")"
+          echo "targetSdkVersion: $target (Google Play minimum: $MIN_TARGET_SDK)"
+          if [ -z "$target" ] || [ "$target" -lt "$MIN_TARGET_SDK" ]; then
+            echo "::error::targetSdkVersion $target is below Google Play's minimum $MIN_TARGET_SDK. Run /maintain-apps $APP to upgrade the Expo SDK."
+            [ "$BUILD" = "release" ] && exit 1
+          fi
+
+      - name: Collect the files
+        id: collect
+        run: |
+          version="$(node -p "require('./apps/$APP/app.json').expo.version")"
+          code="$(node -p "require('./apps/$APP/app.json').expo.android?.versionCode ?? 1")"
+          name="$APP-$version-$code"
+          mkdir -p out
+          cp "apps/$APP/android/app/build/outputs/apk/release/app-release.apk" "out/$name.apk"
+          if [ "$BUILD" = "release" ]; then
+            cp "apps/$APP/android/app/build/outputs/bundle/release/app-release.aab" "out/$name.aab"
+          fi
+          echo "artifact=$name-android" >> "$GITHUB_OUTPUT"
+          {
+            echo "### $APP $version (versionCode $code)"
+            echo
+            echo "Download **$name-android** below this run's summary:"
+            echo "- \`$name.apk\`: install on an Android phone to test (allow installs from your browser or files app once)."
+            if [ "$BUILD" = "release" ]; then echo "- \`$name.aab\`: upload to Google Play Console."; fi
+            if [ -z "$ANDROID_KEYSTORE_PATH" ]; then echo "- Signed with the debug key (testing only)."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.collect.outputs.artifact }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
+
+  e2e:
+    needs: build
+    if: inputs.e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      APP: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the flows
+        id: flows
+        run: |
+          if [ -d "apps/$APP/.maestro" ] && ls apps/$APP/.maestro/*.yaml >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No Maestro flows in apps/$APP/.maestro, so there's nothing to run."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.flows.outputs.found == 'true'
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: out
+
+      - name: Enable hardware acceleration for the emulator
+        if: steps.flows.outputs.found == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        if: steps.flows.outputs.found == 'true'
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the flows on an emulator
+        if: steps.flows.outputs.found == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r out/*.apk
+            maestro test "apps/$APP/.maestro/" --format junit --output maestro-report.xml --debug-output maestro-debug
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.flows.outputs.found == 'true'
+        with:
+          name: ${{ inputs.app }}-e2e-results
+          path: |
+            maestro-report.xml
+            maestro-debug/
+          retention-days: 14
+          if-no-files-found: ignore
