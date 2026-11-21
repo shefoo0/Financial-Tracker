@@ -3,7 +3,7 @@
 // the lead. Everything below <ProfileProvider> sees only the active profile's
 // data: <DataProvider> is keyed by the profile id, so switching remounts the
 // screens with fresh data.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Appearance as RNAppearance, Platform } from 'react-native';
 
 import { createProfileStore } from '@/data/create-repository';
@@ -47,6 +47,102 @@ type Status =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; state: DeviceState; repo: Repository };
 
+/**
+ * Owns the store, the open repository and a queue so profile changes run one
+ * at a time. Created once per provider; it pushes each new status to React.
+ */
+class ProfileController {
+  private status: Status = { kind: 'loading' };
+  private queue: Promise<unknown> = Promise.resolve();
+  private disposed = false;
+
+  constructor(
+    private readonly store: ProfileStore,
+    private readonly publish: (status: Status) => void,
+  ) {}
+
+  private set(status: Status) {
+    this.status = status;
+    if (!this.disposed) this.publish(status);
+  }
+
+  private run<T>(task: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(task);
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  private ready() {
+    if (this.status.kind !== 'ready') throw new Error('Profiles are not loaded yet');
+    return this.status;
+  }
+
+  private async refresh() {
+    const state = await this.store.init();
+    this.set({ ...this.ready(), state });
+  }
+
+  private async open(id: string) {
+    const s = this.ready();
+    if (s.state.activeProfileId === id) return;
+    const profile = s.state.profiles.find((p) => p.id === id);
+    if (!profile) throw new Error('That profile no longer exists');
+    const repo = this.store.openRepository(profile);
+    await repo.init();
+    await this.store.setActiveProfile(id);
+    const state = await this.store.init();
+    this.set({ kind: 'ready', state, repo });
+    await s.repo.close().catch(() => undefined);
+  }
+
+  load() {
+    this.set({ kind: 'loading' });
+    return this.run(async () => {
+      try {
+        const state = await this.store.init();
+        applyNativeAppearance(state.appearance);
+        const profile = state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0];
+        const repo = this.store.openRepository(profile);
+        await repo.init();
+        this.set({ kind: 'ready', state: { ...state, activeProfileId: profile.id }, repo });
+      } catch (e) {
+        this.set({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  }
+
+  dispose() {
+    this.disposed = true;
+    if (this.status.kind === 'ready') this.status.repo.close().catch(() => undefined);
+  }
+
+  switchProfile = (id: string) => this.run(() => this.open(id));
+  addProfile = (name: string, color: number) =>
+    this.run(async () => {
+      const p = await this.store.addProfile(name, color);
+      await this.refresh();
+      await this.open(p.id);
+      return p;
+    });
+  updateProfile = (id: string, patch: { name?: string; color?: number }) =>
+    this.run(async () => {
+      await this.store.updateProfile(id, patch);
+      await this.refresh();
+    });
+  /** Only profiles that aren't open are deleted, so their database is already closed. */
+  deleteProfile = (id: string) =>
+    this.run(async () => {
+      await this.store.deleteProfile(id);
+      await this.refresh();
+    });
+  setAppearance = (appearance: Appearance) =>
+    this.run(async () => {
+      await this.store.setAppearance(appearance);
+      applyNativeAppearance(appearance);
+      await this.refresh();
+    });
+}
+
 export function ProfileProvider({
   children,
   renderError,
@@ -59,110 +155,28 @@ export function ProfileProvider({
   /** Tests pass a memory store. */
   storeFactory?: () => ProfileStore;
 }) {
-  const [store] = useState(storeFactory);
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
-  const [attempt, setAttempt] = useState(0);
-  // Profile changes run one at a time.
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
-  const statusRef = useRef(status);
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
+  const [controller] = useState(() => new ProfileController(storeFactory(), setStatus));
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const state = await store.init();
-        applyNativeAppearance(state.appearance);
-        const profile = state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0];
-        const repo = store.openRepository(profile);
-        await repo.init();
-        if (!cancelled) setStatus({ kind: 'ready', state: { ...state, activeProfileId: profile.id }, repo });
-        else await repo.close();
-      } catch (e) {
-        if (!cancelled) setStatus({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [store, attempt]);
+    controller.load();
+    return () => controller.dispose();
+  }, [controller]);
 
-  const run = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
-    const next = queue.current.then(task);
-    queue.current = next.catch(() => undefined);
-    return next;
-  }, []);
+  if (status.kind === 'error') return renderError(status.message, () => controller.load());
+  if (status.kind === 'loading') return renderLoading();
 
-  const ready = () => {
-    const s = statusRef.current;
-    if (s.kind !== 'ready') throw new Error('Profiles are not loaded yet');
-    return s;
+  const { state } = status;
+  const value: ProfilesContextValue = {
+    profiles: state.profiles,
+    active: state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0],
+    appearance: state.appearance,
+    switchProfile: controller.switchProfile,
+    addProfile: controller.addProfile,
+    updateProfile: controller.updateProfile,
+    deleteProfile: controller.deleteProfile,
+    setAppearance: controller.setAppearance,
   };
-
-  const openProfile = useCallback(
-    async (id: string) => {
-      const s = ready();
-      if (s.state.activeProfileId === id) return;
-      const profile = s.state.profiles.find((p) => p.id === id);
-      if (!profile) throw new Error('That profile no longer exists');
-      const repo = store.openRepository(profile);
-      await repo.init();
-      await store.setActiveProfile(id);
-      const state = await store.init();
-      const old = s.repo;
-      setStatus({ kind: 'ready', state, repo });
-      await old.close().catch(() => undefined);
-    },
-    [store],
-  );
-
-  const value = useMemo<ProfilesContextValue | null>(() => {
-    if (status.kind !== 'ready') return null;
-    const { state } = status;
-    const refresh = async () => {
-      const next = await store.init();
-      setStatus((cur) => (cur.kind === 'ready' ? { ...cur, state: next } : cur));
-    };
-    return {
-      profiles: state.profiles,
-      active: state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0],
-      appearance: state.appearance,
-      switchProfile: (id) => run(() => openProfile(id)),
-      addProfile: (name, color) =>
-        run(async () => {
-          const p = await store.addProfile(name, color);
-          await refresh();
-          await openProfile(p.id);
-          return p;
-        }),
-      updateProfile: (id, patch) =>
-        run(async () => {
-          await store.updateProfile(id, patch);
-          await refresh();
-        }),
-      deleteProfile: (id) =>
-        run(async () => {
-          await store.deleteProfile(id);
-          await refresh();
-        }),
-      setAppearance: (appearance) =>
-        run(async () => {
-          await store.setAppearance(appearance);
-          applyNativeAppearance(appearance);
-          await refresh();
-        }),
-    };
-  }, [status, store, run, openProfile]);
-
-  if (status.kind === 'error') {
-    return renderError(status.message, () => {
-      setStatus({ kind: 'loading' });
-      setAttempt((a) => a + 1);
-    });
-  }
-  if (status.kind === 'loading' || !value) return renderLoading();
   return (
     <AppearanceContext.Provider value={value.appearance}>
       <ProfilesContext.Provider value={value}>
