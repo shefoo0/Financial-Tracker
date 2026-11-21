@@ -12,9 +12,14 @@ name: First launch and setup wizard
 - tapOn:
     id: onboarding-salary
 - inputText: "18000"
-- hideKeyboard
+- runFlow: common/dismiss-keyboard.yaml
 - tapOn:
     id: onboarding-payday
+# The payday list is a scrolling modal: day 25 is off-screen at first.
+- scrollUntilVisible:
+    element:
+      id: onboarding-payday-option-25
+    direction: DOWN
 - tapOn:
     id: onboarding-payday-option-25
 - tapOn:
@@ -22,13 +27,15 @@ name: First launch and setup wizard
 - tapOn:
     id: onboarding-balance
 - inputText: "6500"
-- hideKeyboard
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: onboarding-buffer
 - tapOn:
     id: onboarding-buffer
 - inputText: "2000"
-- hideKeyboard
-- tapOn:
-    id: onboarding-next
+- runFlow: common/dismiss-keyboard.yaml
+# The number of wizard steps can vary, so go on until Start is shown.
 - repeat:
     while:
       notVisible:

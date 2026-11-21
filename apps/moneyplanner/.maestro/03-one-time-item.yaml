@@ -26,13 +26,26 @@ name: Add a one-time item
     id: transaction-description
 - inputText: "Taxi"
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: transaction-amount
+    direction: DOWN
 - tapOn:
     id: transaction-amount
 - inputText: "45"
-- hideKeyboard
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: transaction-save-bottom
+    direction: DOWN
 - tapOn:
     id: transaction-save-bottom
+# The form closes and the new item is listed in Month.
+- assertNotVisible:
+    id: transaction-screen
 - assertVisible:
     id: month-screen
+- assertVisible:
+    id: month-item-0
 - assertVisible: "Taxi"
 - assertNotVisible: "Nothing in this month"

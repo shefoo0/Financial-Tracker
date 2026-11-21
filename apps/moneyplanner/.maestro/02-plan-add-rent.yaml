@@ -31,14 +31,16 @@ name: Add a recurring cost
 - tapOn:
     id: recurring-amount
 - inputText: "9500"
-- hideKeyboard
-- tapOn:
-    id: recurring-day
-- eraseText: 2
-- inputText: "1"
-- hideKeyboard
+- runFlow: common/dismiss-keyboard.yaml
+# Keep the default schedule (monthly, starting today): the day field is far down the form.
+- scrollUntilVisible:
+    element:
+      id: recurring-save-bottom
+    direction: DOWN
 - tapOn:
     id: recurring-save-bottom
+- assertNotVisible:
+    id: recurring-screen
 - assertVisible:
     id: plan-screen
 - assertVisible: "Rent"

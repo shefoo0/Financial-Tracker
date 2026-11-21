@@ -1,0 +1,17 @@
+# Closes the keyboard after typing into a NUMERIC field (decimal-pad / number-pad).
+# iPhone number pads have no Return key, so the app shows a "Done" bar (testID keyboard-done).
+# Android: the normal hideKeyboard works. For text fields use plain `hideKeyboard` on both.
+# This file lives in a subfolder so `maestro test .maestro/` does not run it as a flow.
+appId: com.shefoo.moneyplanner
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: keyboard-done

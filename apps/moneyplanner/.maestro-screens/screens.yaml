@@ -10,9 +10,13 @@ name: Screenshots of the main screens
 - tapOn:
     id: onboarding-salary
 - inputText: "18000"
-- hideKeyboard
+- runFlow: ../.maestro/common/dismiss-keyboard.yaml
 - tapOn:
     id: onboarding-payday
+- scrollUntilVisible:
+    element:
+      id: onboarding-payday-option-25
+    direction: DOWN
 - tapOn:
     id: onboarding-payday-option-25
 - takeScreenshot: shots/01-setup
@@ -21,11 +25,15 @@ name: Screenshots of the main screens
 - tapOn:
     id: onboarding-balance
 - inputText: "6500"
-- hideKeyboard
+- runFlow: ../.maestro/common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: onboarding-buffer
+    direction: DOWN
 - tapOn:
     id: onboarding-buffer
 - inputText: "2000"
-- hideKeyboard
+- runFlow: ../.maestro/common/dismiss-keyboard.yaml
 - repeat:
     while:
       notVisible:
@@ -47,9 +55,13 @@ name: Screenshots of the main screens
 - tapOn:
     id: recurring-amount
 - inputText: "9500"
-- hideKeyboard
+- runFlow: ../.maestro/common/dismiss-keyboard.yaml
 - tapOn:
     id: recurring-category
+- scrollUntilVisible:
+    element:
+      id: recurring-category-option-housing
+    direction: DOWN
 - tapOn:
     id: recurring-category-option-housing
 - takeScreenshot: shots/02-recurring-form
