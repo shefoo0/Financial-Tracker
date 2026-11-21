@@ -154,7 +154,8 @@ jobs:
             echo "::notice::No Maestro flows in apps/$APP/.maestro."
             exit 0
           fi
-          maestro --device "$UDID" test "apps/$APP/.maestro/" --format junit --output maestro-report.xml --debug-output maestro-debug
+          mkdir -p maestro-debug
+          scripts/run-maestro.sh "apps/$APP/.maestro" maestro-debug --device "$UDID"
 
       - name: Take screenshots of the main screens
         if: always() && env.UDID != ''
@@ -182,7 +183,6 @@ jobs:
           name: ${{ inputs.app }}-ios-simulator
           path: |
             shots/
-            maestro-report.xml
             maestro-debug/
             maestro-screens-debug/
           retention-days: 14

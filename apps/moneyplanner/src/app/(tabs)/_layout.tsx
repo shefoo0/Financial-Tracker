@@ -31,9 +31,12 @@ export default function TabLayout() {
       </Screen>
     );
   }
-  // Wait for fresh settings before deciding: right after the setup wizard
-  // finishes, the cached value still says onboarded = false.
-  if (!settings || loading) {
+  // Never unmount the tabs while settings reload: every save reloads them, and
+  // swapping the tab bar for a spinner reset it to Home (after saving an item
+  // the app jumped back to Home — found by the emulator flows). Only wait for
+  // fresh settings before sending someone to the setup wizard: right after the
+  // wizard finishes, the cached value still says onboarded = false.
+  if (!settings || (!settings.onboarded && loading)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator accessibilityLabel="Loading" color={colors.accent} />

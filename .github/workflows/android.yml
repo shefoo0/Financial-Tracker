@@ -213,14 +213,13 @@ jobs:
           disable-animations: true
           script: |
             adb install -r out/*.apk
-            maestro test "apps/$APP/.maestro/" --format junit --output maestro-report.xml --debug-output maestro-debug
+            mkdir -p maestro-debug && scripts/run-maestro.sh "apps/$APP/.maestro" maestro-debug
 
       - uses: actions/upload-artifact@v4
         if: always() && steps.flows.outputs.found == 'true'
         with:
           name: ${{ inputs.app }}-e2e-results
           path: |
-            maestro-report.xml
             maestro-debug/
           retention-days: 14
           if-no-files-found: ignore
