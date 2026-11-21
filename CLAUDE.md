@@ -4,22 +4,28 @@ Guidance for Claude Code when working in this repository.
 
 ## Project status
 
-This repository is currently empty — there is no source code, build
-configuration, or dependency manifest yet. Update the sections below as the
-project takes shape.
+App Factory: a Claude Managed Agent (TypeScript runner, `@anthropic-ai/sdk`)
+that builds Expo apps for the App Store and Google Play. See README.md.
 
 ## Repository layout
 
-_To be filled in once the project structure exists._
+- `agents/app-builder/` — Managed Agents resources synced with `ant apply`
+  (`agent.md` = config + system prompt, `environment.yaml`, `vault.yaml`).
+  `claude-lock.json` (written by `ant apply`) holds their IDs; commit it.
+- `src/` — CLI that starts a session per app idea (`new-app.ts`), the
+  outcome/rubric (`outcome.ts`), arg parsing, lock-file lookup.
+- `test/` — `node:test` unit tests, run through tsx.
 
 ## Commands
 
 | Task | Command |
 | --- | --- |
-| Install dependencies | _TBD_ |
-| Build | _TBD_ |
-| Run tests | _TBD_ |
-| Lint / format | _TBD_ |
+| Install dependencies | `npm install` |
+| Build / typecheck | `npm run typecheck` |
+| Run tests | `npm test` |
+| Lint / format | _none configured_ |
+| Sync agent config | `ant apply --dry-run -v agents/app-builder`, then `ant apply agents/app-builder` |
+| Build an app | `npm run new-app -- "<idea>" [--bundle-id ...]` |
 
 ## Conventions
 

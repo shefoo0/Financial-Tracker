@@ -1,0 +1,21 @@
+# Sandbox the App Builder agent runs in. Deny-by-default networking:
+# package registries (npm) plus the hosts listed below.
+name: app-builder-env
+config:
+  type: cloud
+  networking:
+    type: limited
+    allow_package_managers: true
+    allowed_hosts:
+      # Store pages and platform docs (also used by web_search / web_fetch).
+      - apps.apple.com
+      - play.google.com
+      - developer.apple.com
+      - developer.android.com
+      - docs.expo.dev
+      # Expo / EAS: CLI API, project init, build queue, archive upload.
+      - expo.dev
+      - "*.expo.dev"
+      - exp.host
+      - "*.exp.host"
+      - storage.googleapis.com

@@ -1,0 +1,23 @@
+{
+  "name": "app-factory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Claude Managed Agent that researches, builds and packages Expo apps for the App Store and Google Play.",
+  "type": "module",
+  "scripts": {
+    "new-app": "tsx src/new-app.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
