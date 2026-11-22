@@ -1,0 +1,10 @@
+export const SMS_PURCHASE = 'Purchase of AED 45.00 at CAREEM on 21-11-2026 12:30 using card ending 1234. Avl Bal AED 2,345.10.';
+export const SMS_DEBITED = 'Your a/c XXX123 was debited with AED 1,500.00 on 21-11-2026 towards rent. Available balance is AED 3,000.00.';
+export const SMS_CREDITED = 'Your a/c XXX123 was credited with AED 18,000.00 on 25-Nov-2026. Salary ACME TRADING. Avl balance AED 20,100.00';
+export const SMS_CARD_SPENT = 'AED 120.50 spent on your Credit Card ending 5678 at TALABAT on 21/11/2026. Available limit AED 9,000.00';
+export const SMS_ATM = 'Cash withdrawal of AED 500 at ATM DUBAI MARINA on 02 Dec 2026 with card ending 4321.';
+export const SMS_REFUND = 'Refund of AED 75.50 from NOON received in your account ending 9999 on 03/12/26.';
+export const SMS_OTP = 'Your OTP is 482913 for the AED 45.00 online payment. Do not share it with anyone.';
+export const SMS_BALANCE_ONLY = 'Your available balance is AED 3,000.00 as of 21-11-2026.';
+export const SMS_NO_DATE = 'Purchase of AED 10.00 at KFC.';
+export const SMS_NOT_BANK = 'Hello, see you at 6 tomorrow!';

@@ -93,7 +93,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   const lines = text
     .replace(/\t/g, '  ')
     .split(/\r?\n/)
-    .map((l) => l.replace(/^[^\w(\-+]+/, '').replace(/\s+/g, ' ').trim());
+    .map((l) => l.replace(/^[^\w(]+/, '').replace(/\s+/g, ' ').trim());
 
   const whole = lines.join('\n');
   const isCard = /credit card|card statement|minimum (payment|amount) due|total amount due|card number|card no/i.test(whole);
@@ -276,7 +276,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   });
 
   result.rows = rows;
-  if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? '' : 's'} start with a date but no amount could be read, so they were skipped.`);
+  if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? ' starts' : 's start'} with a date but no amount could be read, so they were skipped.`);
   if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date.`);
   if (ambiguousDirection > 0) {
     result.problems.push(`${ambiguousDirection} row${ambiguousDirection === 1 ? '' : 's'} could not be told apart as money in or out; check the direction.`);
@@ -361,7 +361,7 @@ function resolveYear(
       if (d && d >= period.from && d <= period.to) return { date: d, cap: 1 };
     }
     // Outside the period: take the closest valid year and say so.
-    const candidates = [y0 - 1, y0, y1, y1 + 1]
+    const candidates = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
       .map((y) => partsToISO(day, month, y))
       .filter((d): d is ISODate => !!d);
     if (!candidates.length) return { date: null, cap: 0 };

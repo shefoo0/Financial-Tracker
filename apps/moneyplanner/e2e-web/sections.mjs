@@ -146,16 +146,24 @@ add('3 One-time items and Month', async (d, step) => {
     await d.tap('Taxi'); await d.alertPick('Delete'); await d.tap('#transaction-delete');
     await d.see('#month-screen'); await d.notSee('Taxi', { exact: true }); await d.clearAlerts(); await d.shot('month-after-delete');
   });
+  await step('add one-time spend Coffee 12 (history for the chip)', async () => {
+    await d.tap('#month-add-item'); await d.see('#transaction-screen');
+    await d.type('#transaction-description', 'Coffee'); await d.type('#transaction-amount', '12');
+    await d.tap('#transaction-save-bottom'); await d.see('#month-screen'); await d.see('Coffee');
+  });
   await step('add via a recent chip (timed, target under 10 s)', async () => {
     const t0 = Date.now();
     await d.tap('#month-add-item'); await d.see('#transaction-screen');
     await d.tap('#recent-chip-0');
-    if (!(await d.page.locator('#transaction-description').inputValue())) throw new Error('chip did not fill the description');
+    if (!(await d.page.locator('[data-testid="transaction-description"]').inputValue())) throw new Error('chip did not fill the description');
     await d.type('#transaction-amount', '52');
     await d.tap('#transaction-save-bottom'); await d.see('#month-screen'); await d.notSee('#transaction-screen');
     const secs = (Date.now() - t0) / 1000;
     console.log(`    chip entry took ${secs.toFixed(1)} s`);
     if (secs > 10) throw new Error(`chip entry took ${secs.toFixed(1)} s (target under 10)`);
+    await d.see('Coffee'); if ((await d.count('#month-item-')) < 2) throw new Error('second Coffee not listed');
+    for (let i = 0; i < 2; i++) { await d.clearAlerts(); await d.tap('Coffee'); await d.alertPick('Delete'); await d.tap('#transaction-delete'); await d.see('#month-screen'); }
+    await d.notSee('Coffee', { exact: true }); await d.clearAlerts();
   });
   await step('month stepper: next, next, previous, Today', async () => {
     await d.tap('#month-next'); await d.see('Dec 2026'); await d.see('Rent'); await d.see('Paid', { exact: true }); await d.see('Moved', { exact: true }); await d.shot('month-dec');
