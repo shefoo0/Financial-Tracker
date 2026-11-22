@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { defaultSettings } from '@/data/defaults';
@@ -166,11 +166,81 @@ describe('Review screen', () => {
     open();
     const { repo } = await renderWithRepo(<ReviewScreen />, { settings });
     await screen.findByTestId('review-row-0');
-    jest.spyOn(repo, 'upsertTransactions').mockRejectedValueOnce(new Error('disk full'));
+    jest.spyOn(repo, 'saveImportBatch').mockRejectedValueOnce(new Error('disk full'));
     await fireEvent.press(screen.getByTestId('review-import'));
     expect(await screen.findByTestId('review-error')).toBeTruthy();
     expect(await repo.listImports()).toEqual([]);
     await act(async () => {});
     expect(screen.getByTestId('review-import').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('retrying after a failed save writes the same ids, so nothing is added twice', async () => {
+    open();
+    const { repo } = await renderWithRepo(<ReviewScreen />, { settings });
+    await screen.findByTestId('review-row-0');
+    const real = repo.saveImportBatch.bind(repo);
+    const calls: any[] = [];
+    jest.spyOn(repo, 'saveImportBatch').mockImplementation(async (b) => {
+      calls.push(b);
+      if (calls.length === 1) throw new Error('disk full');
+      return real(b);
+    });
+    await fireEvent.press(screen.getByTestId('review-import'));
+    expect(await screen.findByTestId('review-error')).toBeTruthy();
+    expect(await repo.listTransactions()).toEqual([]);
+    await fireEvent.press(screen.getByTestId('review-import'));
+    expect(await screen.findByTestId('import-done')).toBeTruthy();
+    expect(calls[1].importRecord.id).toBe(calls[0].importRecord.id);
+    expect(calls[1].transactions.map((t: Transaction) => t.id)).toEqual(calls[0].transactions.map((t: Transaction) => t.id));
+    expect(await repo.listTransactions()).toHaveLength(5);
+    expect(await repo.listImports()).toHaveLength(1);
+  });
+
+  it('shows 500 rows without timing out', async () => {
+    const many = Array.from({ length: 500 }, (_, i) => row({ date: `2026-10-${String((i % 28) + 1).padStart(2, '0')}`, description: `SHOP ${i % 40} BRANCH ${i}`, amount: 100 + i }));
+    open(many);
+    const t0 = Date.now();
+    await renderWithRepo(<ReviewScreen />, { settings });
+    // Newest day first: 28 Oct holds row 27.
+    expect(await screen.findByTestId('review-row-27')).toBeTruthy();
+    expect(Date.now() - t0).toBeLessThan(5000);
+    // Only a window of the list is mounted, but the total covers every row.
+    expect(screen.queryByTestId('review-row-499')).toBeNull();
+    expect(summary()).toMatch(/^Import 500 items/);
+  });
+
+  it('"apply to similar" leaves rows the user set by hand', async () => {
+    open();
+    await renderWithRepo(<ReviewScreen />, { settings });
+    await fireEvent.press(await screen.findByTestId('review-category-1'));
+    await fireEvent.press(screen.getByTestId('review-category-option-groceries'));
+    await fireEvent.press(screen.getByTestId('rule-confirm-no'));
+    await fireEvent.press(screen.getByTestId('review-category-0'));
+    await fireEvent.press(screen.getByTestId('review-category-option-dining'));
+    await fireEvent.press(screen.getByTestId('rule-confirm-yes'));
+    expect(label('review-category-0')).toContain('Dining');
+    expect(label('review-category-1')).toContain('Groceries');
+  });
+
+  it('flips all signs, with a hint for card exports', async () => {
+    const card = [row({ description: 'A SHOP', amount: 100 }), row({ description: 'B SHOP', amount: 200 }), row({ description: 'C SHOP', amount: 300, kind: 'income' })];
+    open(card, { sourceName: 'Visa card march.csv' });
+    await renderWithRepo(<ReviewScreen />, { settings });
+    expect(await screen.findByTestId('review-card-hint')).toBeTruthy();
+    expect(summary()).toBe('Import 3 items · AED 3 spending · AED 3 income');
+    await fireEvent.press(screen.getByTestId('review-flip-all'));
+    expect(summary()).toBe('Import 3 items · AED 3 spending · AED 3 income');
+    expect(screen.getByTestId('review-amount-0').props.children).toBe('+AED 1.00');
+    expect(screen.getByTestId('review-amount-2').props.children).toBe('-AED 3.00');
+  });
+
+  it('has no card hint for an ordinary account file, and tick boxes are at least 44pt', async () => {
+    open();
+    await renderWithRepo(<ReviewScreen />, { settings });
+    await screen.findByTestId('review-row-0');
+    expect(screen.queryByTestId('review-card-hint')).toBeNull();
+    const style = StyleSheet.flatten(screen.getByTestId('review-toggle-0').props.style);
+    expect(style.width).toBeGreaterThanOrEqual(44);
+    expect(style.height).toBeGreaterThanOrEqual(44);
   });
 });

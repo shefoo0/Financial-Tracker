@@ -34,7 +34,7 @@ jest.mock('@/import/read', () => {
 });
 jest.mock('@/import/ocr/native', () => ({ ocrNative: {} }));
 jest.mock('@/import/pdf/native', () => ({ pdfNative: { isAvailable: jest.fn(), extractText: jest.fn(), getPageCount: jest.fn() } }));
-jest.mock('@/import/read/files', () => ({ readBytes: jest.fn() }));
+jest.mock('@/import/read/files', () => ({ readBytes: jest.fn(), fileSize: jest.fn(async () => null) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: false })),
@@ -132,7 +132,7 @@ async function readIt(input: ImportInput, next: '/import/review' | '/import/colu
   router.push.mockClear();
   setSession({ incoming: input });
   await goTo('import');
-  try { await waitFor(() => expect(router.push).toHaveBeenCalledWith(next)); } catch (e) { console.log('DBG', (readImport as jest.Mock).mock.calls.length, JSON.stringify(await Promise.all((readImport as jest.Mock).mock.results.map((r) => r.value))).slice(0, 600)); throw e; }
+  await waitFor(() => expect(router.push).toHaveBeenCalledWith(next));
   await goTo(next === '/import/review' ? 'review' : 'columns');
 }
 
@@ -140,6 +140,10 @@ const summary = () => screen.getByTestId('review-summary').props.children as str
 const importAll = async () => {
   await fireEvent.press(await screen.findByTestId('review-import'));
   await screen.findByTestId('import-done');
+  // "Go to Month" ends the import (and forgets the session), as a user would before the next one.
+  await fireEvent.press(screen.getByTestId('review-done'));
+  expect(router.navigate).toHaveBeenCalledWith('/month');
+  expect(getSession().result).toBeNull();
 };
 
 beforeEach(() => {
@@ -401,33 +405,30 @@ describe('a statement that overlaps what is already saved', () => {
 });
 
 describe('learned rule and remembered columns', () => {
-  const ODD = 'ref;when;what;amt\nk1;03/11/2026;CAREEM RIDE 1;-45.00\nk2;04/11/2026;CAREEM RIDE 2;-30.00\nk3;05/11/2026;SALARY ACME;1000.00\n';
-  const ODD_2 = 'ref;when;what;amt\nk9;12/11/2026;CAREEM RIDE 9;-20.00\nk8;13/11/2026;MYSTERY SHOP;-10.00\n';
-  const mapByHand = async () => {
-    for (const [id, value] of [['columns-date', '1'], ['columns-description', '2'], ['columns-amount', '3']]) {
-      await fireEvent.press(screen.getByTestId(id));
-      await fireEvent.press(screen.getByTestId(`${id}-option-${value}`));
-    }
-    await fireEvent.press(screen.getByTestId('columns-apply'));
-  };
+  // A "fee" column sits before the amount, so the guess takes the fee as the amount.
+  const ODD = 'ref;when;what;fee;amt\nk1;03/11/2026;CAREEM RIDE 1;1.00;-45.00\nk2;04/11/2026;CAREEM RIDE 2;1.00;-30.00\nk3;05/11/2026;SALARY ACME;1.00;1000.00\n';
+  const ODD_2 = 'ref;when;what;fee;amt\nk9;12/11/2026;CAREEM RIDE 9;1.00;-20.00\nk8;13/11/2026;MYSTERY SHOP;1.00;-10.00\n';
 
-  it('the first import saves the rule and the columns; the second file from the same source needs neither the columns step nor a category tap', async () => {
+  it('the first import saves the rule and the fixed columns; the second file from the same source gets both with no taps', async () => {
     const { repo } = await open();
     const nov0 = await month();
 
     bytes.mockResolvedValue(strToU8(ODD));
-    router.push.mockClear();
-    setSession({ incoming: file('mybank.csv', 'text/csv') });
-    await goTo('import');
-    // Columns this odd layout can't be guessed: the user maps them by hand.
-    await waitFor(() => expect(router.push).toHaveBeenCalled());
+    await readIt(file('mybank.csv', 'text/csv'));
+    expect(await screen.findByTestId('review-row-0')).toBeTruthy();
+    // The guess took the fee column: every row is AED 1 of spending.
+    expect(summary()).toBe('Import 3 items · AED 3 spending · AED 0 income');
+    await fireEvent.press(screen.getByTestId('review-fix-columns'));
     expect(router.push).toHaveBeenCalledWith('/import/columns');
     await goTo('columns');
-    await mapByHand();
+    await fireEvent.press(await screen.findByTestId('columns-amount'));
+    await fireEvent.press(screen.getByTestId('columns-amount-option-4'));
+    await fireEvent.press(screen.getByTestId('columns-apply'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/import/review'));
     await goTo('review');
     expect(await screen.findByTestId('review-row-0')).toBeTruthy();
     expect(summary()).toBe('Import 3 items · AED 75 spending · AED 1,000 income');
+
     // Teach CAREEM: Always put CAREEM RIDE in Entertainment & Travel.
     const idx = getSession().result!.rows.findIndex((r) => r.description === 'CAREEM RIDE 1');
     await fireEvent.press(screen.getByTestId(`review-category-${idx}`));
@@ -436,17 +437,16 @@ describe('learned rule and remembered columns', () => {
     await waitFor(async () => expect(await repo.listCategoryRules()).toMatchObject([{ pattern: 'CAREEM RIDE', categoryId: 'entertainment' }]));
     await importAll();
     expect(delta(await month(), nov0)).toEqual({ income: 100000, spent: 7500, closing: 100000 - 7500 });
-    const template = await repo.getImportTemplate('mybank.csv');
-    expect(template?.mapping).toMatchObject({ date: 1, description: 2, amount: 3 });
+    expect((await repo.getImportTemplate('mybank.csv'))?.mapping).toMatchObject({ date: 1, description: 2, amount: 4 });
     const afterFirst = await month();
 
-    // Second file from the same source: straight to the review, with the rule applied.
+    // Second file from the same source: straight to the review (no columns step), right amounts, rule applied.
     bytes.mockResolvedValue(strToU8(ODD_2));
+    router.replace.mockClear();
     await readIt(file('mybank.csv', 'text/csv'), '/import/review');
-    expect(router.replace).not.toHaveBeenCalledWith('/import/columns');
+    expect(router.push).not.toHaveBeenCalledWith('/import/columns');
     expect(await screen.findByTestId('review-row-0')).toBeTruthy();
-    const rows = getSession().result!.rows;
-    expect(rows.map((r) => [r.description, r.amount])).toEqual([['CAREEM RIDE 9', 2000], ['MYSTERY SHOP', 1000]]);
+    expect(getSession().result!.rows.map((r) => [r.description, r.amount])).toEqual([['CAREEM RIDE 9', 2000], ['MYSTERY SHOP', 1000]]);
     expect(labelOf('review-category-0')).toContain('Entertainment');
     expect(labelOf('review-category-1')).toContain('none');
     expect(summary()).toBe('Import 2 items · AED 30 spending · AED 0 income');

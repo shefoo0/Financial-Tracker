@@ -25,7 +25,7 @@ jest.mock('@/import/read', () => {
 });
 jest.mock('@/import/ocr/native', () => ({ ocrNative: {} }));
 jest.mock('@/import/pdf/native', () => ({ pdfNative: {} }));
-jest.mock('@/import/read/files', () => ({ readBytes: jest.fn() }));
+jest.mock('@/import/read/files', () => ({ readBytes: jest.fn(), fileSize: jest.fn(async () => null) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: false })),

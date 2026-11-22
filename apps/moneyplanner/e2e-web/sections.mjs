@@ -566,3 +566,61 @@ add('12 Delete profile', async (d, step) => {
     await d.tab('Plan'); await d.tap('#plan-open-debts'); await d.see('Track what you owe'); await d.shot('empty-debts');
   });
 });
+
+// Runs only on a Pro-preview web build (EXPO_PUBLIC_PRO_PREVIEW=1 npm run walkthrough); on the normal free build it checks
+// that the Pro screen shows (section 8b covers it in detail) and passes without importing. Runs last, on the fresh empty profile.
+add('13 Import (Pro preview build only)', async (d, step) => {
+  let pro = false;
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const SMS = `Purchase of AED 45.00 at CAREEM on ${dd}-${mm}-${today.getFullYear()} 12:30 using card ending 1234. Avl Bal AED 2,345.10.`;
+  const CSV = `Date,Description,Debit,Credit,Balance\n${dd}/${mm}/${today.getFullYear()},SALARY ACME,,"1,000.00","1,000.00"\n${dd}/${mm}/${today.getFullYear()},COFFEE BEAN DUBAI,12.50,,987.50\n`;
+  const aria = async (id) => (await d.loc(id).getAttribute('aria-label')) ?? '';
+  const openImport = async () => { await d.tab('Plan'); await d.tap('#plan-open-import'); await d.see('#import-screen'); };
+  /** Imports the open review and goes to Month. */
+  const finish = async () => { await d.tap('#review-import'); await d.see('#import-done'); await d.shot('import-done'); await d.tap('#review-done'); await d.see('#month-screen'); };
+  const pickCsv = async (name, text) => {
+    const [chooser] = await Promise.all([d.page.waitForEvent('filechooser', { timeout: 5000 }), d.tap('#import-choose-file')]);
+    await chooser.setFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(text) });
+    await d.see('#review-screen');
+  };
+
+  await step('Plan > Import statements opens; a free build shows the Pro screen, a Pro build the import actions', async () => {
+    await openImport();
+    pro = await d.has('#import-choose-file');
+    if (!pro) { await d.see('#import-unlock'); console.log('  (free build: the Pro import steps are skipped; run with EXPO_PUBLIC_PRO_PREVIEW=1 to cover them)'); await d.back(); return; }
+    for (const id of ['import-take-photo', 'import-choose-photo', 'import-paste-sms']) await d.see('#' + id);
+    if (await d.has('#import-unlock')) throw new Error('a Pro user must not see Unlock Pro');
+    await d.shot('import-pro-actions');
+  });
+  await step('Month starts empty', async () => {
+    if (!pro) return;
+    await d.back(); await d.tab('Month'); await d.see('Nothing in this month');
+  });
+  await step('paste a bank SMS: review lists it, import it, Month shows it', async () => {
+    if (!pro) return;
+    await openImport(); await d.tap('#import-paste-sms'); await d.type('#import-sms-input', SMS); await d.tap('#import-read');
+    await d.see('#review-screen'); await d.see('#review-row-0'); await d.seeText('#review-summary', /Import 1 item · AED 45 spending · AED 0 income/); await d.shot('import-review-sms');
+    await finish();
+    await d.see('CAREEM');
+    if (!/AED 45\.00/.test(await aria('#month-spent'))) throw new Error(`Month spent is "${await aria('#month-spent')}", expected AED 45.00`);
+  });
+  await step('choose a CSV file (debit and credit columns): Month moves by exactly its rows', async () => {
+    if (!pro) return;
+    await openImport(); await pickCsv('bank.csv', CSV);
+    await d.seeText('#review-summary', /Import 2 items · AED 12\.50 spending · AED 1,000 income/); await d.shot('import-review-csv');
+    await finish();
+    await d.see('COFFEE BEAN');
+    const spent = await aria('#month-spent'); const income = await aria('#month-income');
+    if (!/AED 57\.50/.test(spent)) throw new Error(`Month spent is "${spent}", expected AED 57.50`);
+    if (!/AED 1,000\.00/.test(income)) throw new Error(`Month income is "${income}", expected AED 1,000.00`);
+  });
+  await step('the same CSV again: its rows are unticked as duplicates and nothing can be imported', async () => {
+    if (!pro) return;
+    await openImport(); await pickCsv('bank.csv', CSV);
+    await d.see('Duplicate?'); await d.seeText('#review-summary', /Import 0 items/);
+    if ((await d.loc('#review-import').getAttribute('aria-disabled')) !== 'true') throw new Error('Import selected must be disabled when every row is a duplicate');
+    await d.shot('import-duplicates');
+  });
+});

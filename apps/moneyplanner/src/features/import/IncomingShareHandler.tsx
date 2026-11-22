@@ -2,9 +2,10 @@
 // Free users land on the Pro screen; the shared item is never read for them.
 import { useIncomingShare, type ResolvedSharePayload, type SharePayload } from 'expo-sharing';
 import { router, useRootNavigationState } from 'expo-router';
-import { Component, useEffect, useRef, type ReactNode } from 'react';
+import { Component, useEffect, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 
+import { useRepoQuery } from '@/data/DataProvider';
 import type { ImportInput } from '@/import/read';
 
 import { setSession } from './session';
@@ -20,28 +21,36 @@ export function shareToInput(shared: SharePayload[], resolved: ResolvedSharePayl
   return null;
 }
 
+/** The share already opened, kept outside the component so a re-lock or remount does not open it again. Forgotten once the share is cleared. */
+let seen = '';
+
+export function resetSeenShare() {
+  seen = '';
+}
+
 function Receiver() {
   const { sharedPayloads, resolvedSharedPayloads, isResolving, clearSharedPayloads } = useIncomingShare();
   const nav = useRootNavigationState();
-  const seen = useRef<string>('');
+  const { data: settings } = useRepoQuery((r) => r.getSettings());
 
   useEffect(() => {
     if (sharedPayloads.length === 0) {
-      seen.current = '';
+      seen = '';
       return;
     }
-    if (!nav?.key || isResolving) return;
+    // Wait for the wizard to finish: the share opens afterwards.
+    if (!nav?.key || isResolving || !settings?.onboarded) return;
     const key = sharedPayloads.map((p) => `${p.shareType}|${p.value}`).join('\n');
-    if (seen.current === key) return;
+    if (seen === key) return;
     const input = shareToInput(sharedPayloads, resolvedSharedPayloads);
     // A file is still being resolved: wait for it.
     if (!input && resolvedSharedPayloads.length === 0 && sharedPayloads.some((p) => p.shareType !== 'text')) return;
-    seen.current = key;
+    seen = key;
     setSession({ incoming: input });
     router.navigate('/import');
-    // The shared copy of a file is deleted by clear: text can go now, a file stays until the app has read it.
+    // The shared copy of a file is deleted by clear: text can go now, a file is cleared by the import screen once it has been read or dropped.
     if (input?.kind === 'text') clearSharedPayloads();
-  }, [nav?.key, isResolving, sharedPayloads, resolvedSharedPayloads, clearSharedPayloads]);
+  }, [nav?.key, isResolving, settings?.onboarded, sharedPayloads, resolvedSharedPayloads, clearSharedPayloads]);
   return null;
 }
 
