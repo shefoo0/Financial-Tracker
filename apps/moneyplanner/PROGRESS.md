@@ -25,6 +25,20 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
+## Release bar: beat the competition (developer, 2026-11-22)
+Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finance-forecast.md (competitor complaints).
+- [x] No paywall to try it: free core works fully; Pro is one-time (M4) — never block first use.
+- [x] Flexible schedules (every N weeks/months, last day, move/skip/change one payment, partial and extra payments).
+- [x] Cards with limit/available/usage, 0% instalment plans with editable dates, UAE cheques.
+- [x] Works offline, no account, per-profile lock.
+- [ ] **"Safe to spend until payday"** on Home (the loved Rocket Money "Payday view": what's left after bills until the next salary) — the clearest everyday reason to open the app.
+- [ ] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
+- [ ] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
+- [ ] First use in under 60 seconds to a useful forecast (time the wizard in the walkthrough).
+- [ ] UX audit of every screen from the walkthrough screenshots (light + dark, one-handed reach, empty states, wording, tap targets, numbers readable at a glance) — fix every major item.
+- [ ] Statement import with good OCR (M3) — competitors' OCR is "garbage" and paywalled; ours must read totals correctly and be free to try.
+- [ ] Accessibility pass (VoiceOver/TalkBack labels, large text, contrast) and store-quality QC (M4).
+
 ## Decisions
 - Bundle ID `com.shefoo.moneyplanner`, read from `com.<Shefoo>.moneyplanner` (IDs are lowercase, no `<>`); needs the developer's confirmation, because it's permanent after the first upload.
 - The developer chose the full scope (OCR in v1) over the research's recommended forward-planner-first option; OCR is milestone 3, so milestones 1-2 ship a usable app first.
