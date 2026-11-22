@@ -118,6 +118,15 @@ Company-style reports for a person, so they can track how they're doing and see 
 - **One export:** "Export to spreadsheet (CSV)" saves one CSV file with sections (one-time items, recurring items, debts, payments, cheques). Why: one action instead of three.
 - **Setup wizard: 3 steps** — salary (optional), payday, today's balance — then Start. The buffer defaults to AED 1,000 (changeable in Settings). No modules step. Goal: useful in under 60 seconds.
 
+### 14. Edit in place, Edit Home and short Settings (developer, 2026-11-22; research/customisation-ux.md, design mock in the chat)
+- **✎ on cards:** each Home card has a small ✎ (44pt) opening one bottom sheet that saves instantly (no Save buttons): Balance card (balance today, safety buffer, chart range, card style), Safe to spend (payday), Coming up (bill reminders on/off + lead time), Alerts (phone notifications + alert levels), Spending by category (period). Tapping the big balance number opens the same sheet (shortcut, never the only way).
+- **Edit Home** (link at the bottom of Home): show/hide each card (switch) and move up/down (↑/↓ buttons; drag optional), "Reset to default"; layout saved per profile; app updates never rearrange a saved layout (new cards are added hidden at the end).
+- **Add a chart** gallery in Edit Home, built on one shared chart card: **Income vs spending** (free), **Debt payoff** (Pro), **Savings rate** (Pro; free users see a labelled sample, like reports). Each can be added once.
+- **Short Settings:** Profile · Appearance (Mode System/Light/Dark + card style, live preview) · Lock · Notifications · Money (currency label, payday, balance, buffer) · Categories · Backups & export · About. Each row shows its current value and opens the same sheet as the matching card ✎ — one editor per setting.
+- **One-time tips:** "Tap ✎ to edit" on the balance card the first time; "Edit Home" later.
+- **Not doing:** per-chart colours, chart-type switching, resizable widgets, gesture-only controls.
+- **Code:** one settings schema (key, default, validate, merge, deviceLocal) driving defaults, repositories, backup and the settings rows; one colour token layer (no hex outside src/constants); a shared chart frame (axes, scrub, legend, range chips) + chart registry; plan input loaded once in DataProvider and shared; split the largest screens.
+
 ## Data model (SQLite via `expo-sqlite`, money in integer fils)
 
 - `settings` (key/value): currency, payday, buffer, thresholds, enabled modules, onboarding done, lock enabled
