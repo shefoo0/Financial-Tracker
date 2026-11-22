@@ -70,6 +70,13 @@ jobs:
           cache: npm
           cache-dependency-path: apps/${{ inputs.app }}/package-lock.json
 
+      - name: Check the Maestro flows against the app (seconds, before the long build)
+        run: |
+          if ls apps/"$APP"/.maestro/*.yaml >/dev/null 2>&1; then
+            npm install --no-save --ignore-scripts --no-audit --no-fund yaml@2 >/dev/null
+            node scripts/check-maestro.mjs "apps/$APP"
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
