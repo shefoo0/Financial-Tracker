@@ -163,7 +163,7 @@ The commands use these, and you can run them yourself too. All are free and run 
 | `node scripts/publish-pages.mjs [slug]` | Privacy and support pages into `docs/` for GitHub Pages |
 | `node scripts/bump-version.mjs apps/<slug> patch\|minor\|major\|build` | Version and build numbers |
 | `node scripts/app-status.mjs [--latest <sdk>]` | Every app's version, Expo SDK, last release and upgrade status |
-| `node scripts/store-lookup.mjs search "<term>" --country ae` / `reviews ios\|android <id> --max-stars 3` | Real ratings, rating counts, installs, prices and low-star reviews from both stores, for research |
+| `node scripts/store-lookup.mjs search "<term>" --country ae` / `reviews ios\|android <id> --max-stars 3` (or `--min-stars 5`) | Real ratings, rating counts, installs, prices, and low-star (gaps) and 5-star (what people love) reviews from both stores, for research |
 
 The screenshot and graphics scripts need one-time setup: `npm install`, then `npx playwright install chromium`.
 

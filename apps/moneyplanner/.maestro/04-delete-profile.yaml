@@ -1,0 +1,36 @@
+# Settings -> Manage profiles -> delete the only profile (typed name) -> a fresh profile starts at the wizard.
+appId: com.shefoo.moneyplanner
+name: Delete profile returns to the wizard
+---
+- launchApp:
+    clearState: true
+# Wizard: go on until Start is shown.
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- tapOn: "Settings"
+- assertVisible:
+    id: settings-screen
+- tapOn:
+    id: settings-manage-profiles
+- assertVisible:
+    id: profiles-screen
+- tapOn:
+    id: profile-delete-0
+- assertVisible:
+    id: profile-delete-sheet
+- tapOn:
+    id: profile-delete-input
+- inputText: "Me"
+- runFlow: common/dismiss-text-keyboard.yaml
+- tapOn:
+    id: profile-delete-confirm
+- assertVisible:
+    id: onboarding-screen
+- assertVisible: "Welcome"

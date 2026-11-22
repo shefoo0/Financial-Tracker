@@ -14,15 +14,15 @@ Use Bash only to run `scripts/store-lookup.mjs`; never change files.
 
 Run `node scripts/store-lookup.mjs` (free, read-only) for numbers you can trust. Use the developer's store country from CLAUDE.md (for example `--country ae`), plus `--country us` when you want the global picture:
 - `node scripts/store-lookup.mjs search "<term>" --country ae --limit 10` gives each app's rating, rating count, installs (Android), price, in-app purchases and last update, on both stores.
-- `node scripts/store-lookup.mjs reviews ios <id> --country ae --max-stars 3` and `... reviews android <package> --country ae --max-stars 3` give recent low-star reviews to quote.
+- `node scripts/store-lookup.mjs reviews ios <id> --country ae --max-stars 3` and `... reviews android <package> --country ae --max-stars 3` give recent low-star reviews to quote (gaps); the same with `--min-stars 5` gives 5-star reviews (what people love, praise most and still ask for — "would be perfect if…").
 
 Use web search for lists, articles and context, and to find app IDs.
 
-**Minimum evidence:** at least 8 searches, store data for at least 6 apps, and at least 30 low-star reviews read across the top apps. Mark every number as **verified** (from the script or a store page) or **estimate**. If the script and store pages are unreachable, say so at the top of your report, and keep going with clearly marked estimates rather than stopping.
+**Minimum evidence:** at least 8 searches, store data for at least 6 apps, at least 30 low-star reviews AND at least 30 five-star reviews read across the top apps. Mark every number as **verified** (from the script or a store page) or **estimate**. If the script and store pages are unreachable, say so at the top of your report, and keep going with clearly marked estimates rather than stopping.
 
 For the niche you're given:
 1. Find the top apps (search apps.apple.com and play.google.com, and lists or articles about the category). For the leading 5-10, note the name, rating, rating count or install band, price model, and last update date where shown.
-2. Read their low and middle reviews (1-3 stars) for repeated complaints: missing features, aggressive paywalls or ads, privacy worries, bugs, abandoned apps, poor offline support, accessibility, a confusing UI.
+2. Read their low and middle reviews (1-3 stars) for repeated complaints: missing features, aggressive paywalls or ads, privacy worries, bugs, abandoned apps, poor offline support, accessibility, a confusing UI. Then read their 5-star reviews for what people love (must-have features and qualities to match) and what happy users still ask for.
 3. Turn the strongest complaints into 2-4 app ideas that fit the constraints. Each idea must solve one specific problem for one specific audience, and be clearly different from the leaders.
 
 Drop ideas that:

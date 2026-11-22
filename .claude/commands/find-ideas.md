@@ -18,7 +18,8 @@ Use the developer's store country from the **Developer profile** in `CLAUDE.md`,
 3. **Research in parallel.** Send one **market-researcher** per niche, all at once. Each brief must be self-contained: the niche, the constraints above, the existing app ideas to avoid (one line each), and the report format from the agent's description.
 4. **Check and score.** Check the strongest evidence yourself (open a couple of the linked store pages). Then score each idea from 1 to 5 on:
    - **Demand:** are people clearly using and paying for apps like this?
-   - **Gap:** is there a specific, repeated complaint this app fixes?
+   - **Gap:** is there a specific, repeated complaint this app fixes (from 1-3 star reviews)?
+   - **Love:** do we know what users love in the leaders (from 5-star reviews), and can this app match it?
    - **Buildability:** can it be built well within the constraints?
    - **Differentiation:** is it clearly different from the leaders and from the developer's own apps?
    - **Monetization fit:** will this audience pay in the chosen way?

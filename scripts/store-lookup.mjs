@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Free store data for research: real ratings, rating counts, prices, update
-// dates and low-star reviews from the App Store (Apple's public iTunes Search
+// dates and reviews (low-star for gaps, 5-star for what people love) from the App Store (Apple's public iTunes Search
 // API and reviews feed, no key needed) and Google Play (the open-source
 // google-play-scraper package). Read-only; use it lightly, for research.
 //
 //   node scripts/store-lookup.mjs search "debt planner" [--country ae] [--limit 10] [--store ios|android|both]
 //   node scripts/store-lookup.mjs reviews ios 1009323715 [--country ae] [--max-stars 3]
 //   node scripts/store-lookup.mjs reviews android com.example.app [--country ae] [--max-stars 3]
+//   node scripts/store-lookup.mjs reviews ios 1009323715 --min-stars 5     (what people love and want more of)
 //
 // Add --json for machine-readable output.
 
@@ -79,6 +80,8 @@ export function normalizePlayReviews(list) {
 }
 
 export const lowStars = (reviews, maxStars) => reviews.filter((r) => r.stars <= maxStars);
+/** Reviews with minStars ≤ stars ≤ maxStars. */
+export const byStars = (reviews, minStars = 1, maxStars = 5) => reviews.filter((r) => r.stars >= minStars && r.stars <= maxStars);
 
 async function getJson(url, fetchImpl) {
   const res = await fetchImpl(url, { headers: { accept: "application/json" } });
@@ -157,6 +160,7 @@ async function main(argv) {
       limit: { type: "string", default: "10" },
       store: { type: "string", default: "both" },
       "max-stars": { type: "string", default: "5" },
+      "min-stars": { type: "string", default: "1" },
       json: { type: "boolean", default: false },
     },
   });
@@ -180,14 +184,17 @@ async function main(argv) {
   }
   if (cmd === "reviews" && (a === "ios" || a === "android") && b) {
     const all = a === "ios" ? await reviewsIos(b, { country }) : await reviewsAndroid(b, { country });
-    const picked = lowStars(all, Number(values["max-stars"]));
-    out(picked, `${picked.length} of ${all.length} recent reviews (≤${values["max-stars"]}★)\n\n${reviewsText(picked)}`);
+    const min = Number(values["min-stars"]);
+    const max = Number(values["max-stars"]);
+    const picked = byStars(all, min, max);
+    out(picked, `${picked.length} of ${all.length} recent reviews (${min}–${max}★)\n\n${reviewsText(picked)}`);
     return 0;
   }
   console.error(`Usage:
   node scripts/store-lookup.mjs search "<term>" [--country ae] [--limit 10] [--store ios|android|both] [--json]
   node scripts/store-lookup.mjs reviews ios <app id> [--country ae] [--max-stars 3] [--json]
-  node scripts/store-lookup.mjs reviews android <package> [--country ae] [--max-stars 3] [--json]`);
+  node scripts/store-lookup.mjs reviews android <package> [--country ae] [--max-stars 3] [--json]
+  Add --min-stars 5 for the reviews of happy users (what they love and ask for).`);
   return 2;
 }
 

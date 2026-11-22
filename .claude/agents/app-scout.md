@@ -18,16 +18,17 @@ Use Bash only to run `scripts/store-lookup.mjs`; never change files.
 
 Run `node scripts/store-lookup.mjs` (free, read-only) for numbers you can trust. Use the developer's store country from CLAUDE.md (for example `--country ae`), plus `--country us` when you want the global picture:
 - `node scripts/store-lookup.mjs search "<term>" --country ae --limit 10` gives each app's rating, rating count, installs (Android), price, in-app purchases and last update, on both stores.
-- `node scripts/store-lookup.mjs reviews ios <id> --country ae --max-stars 3` and `... reviews android <package> --country ae --max-stars 3` give recent low-star reviews to quote.
+- `node scripts/store-lookup.mjs reviews ios <id> --country ae --max-stars 3` and `... reviews android <package> --country ae --max-stars 3` give recent low-star reviews to quote (gaps); the same with `--min-stars 5` gives 5-star reviews (what people love, praise most and still ask for — "would be perfect if…").
 
 Use web search for lists, articles and context, and to find app IDs.
 
-**Minimum evidence:** at least 8 searches, store data for at least 6 apps, and at least 30 low-star reviews read across the top apps. Mark every number as **verified** (from the script or a store page) or **estimate**. If the script and store pages are unreachable, say so at the top of your report, and keep going with clearly marked estimates rather than stopping.
+**Minimum evidence:** at least 8 searches, store data for at least 6 apps, at least 30 low-star reviews AND at least 30 five-star reviews read across the top apps. Mark every number as **verified** (from the script or a store page) or **estimate**. If the script and store pages are unreachable, say so at the top of your report, and keep going with clearly marked estimates rather than stopping.
 
 Work from evidence you can link to: store pages, chart pages, and reviews. For the 5-10 most relevant apps in your angle, record:
 - name, store(s), rating, rating count or install band, price model and price, and last update date;
 - their 3-5 main features;
 - what users love: repeated praise in 4-5 star reviews;
+- what users love: what 5-star reviews praise again and again (the features and qualities a new app must match), and what happy users still ask for, with 2-3 short quotes and links;
 - what users hate: repeated complaints in 1-3 star reviews, with 2-3 short quotes and links.
 
 Then propose **2-4 variations** of the seed idea, informed by what you found. Each variation should keep the seed's core but change one thing that matters, such as:

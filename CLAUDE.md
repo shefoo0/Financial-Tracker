@@ -84,7 +84,7 @@ publish.
   and support pages into `docs/` for GitHub Pages), `bump-version.mjs`,
   `app-status.mjs` (SDK and release status of every app), `android-signing.mjs`
   (release builds sign with the upload key from env vars), `store-lookup.mjs`
-  (real ratings, prices and low-star reviews from both stores, for research),
+  (real ratings, prices, and low-star and 5-star reviews from both stores, for research),
   `run-maestro.sh` (runs each Maestro flow in CI and prints the screen on a failure).
 - `ideas/` — research shortlists from `/find-ideas`.
 - `docs/` — generated GitHub Pages site; don't edit by hand.

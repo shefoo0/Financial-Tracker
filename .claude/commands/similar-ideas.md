@@ -26,7 +26,7 @@ Use the developer's store country from the **Developer profile** in `CLAUDE.md`,
 4. **Write it up.** Save `ideas/<YYYY-MM-DD>-similar-<seed-slug>.md` containing:
    - the seed as you understood it;
    - the competitor map and feature matrix;
-   - what users love and hate in this space, with quotes and links;
+   - what users love (from 5-star reviews: what they praise and still ask for) and hate (from 1-3 star reviews) in this space, with quotes and links;
    - every variation in a ranked table with its scores;
    - for the top 3: the full write-up, and a ready-to-copy `/new-app "<idea>" com.<developer>.<slug> "<monetization>"` line;
    - for a seed from `apps/`: a short list of features worth adding to that app, as ready-to-copy `/update-app <slug> "<change>"` lines.

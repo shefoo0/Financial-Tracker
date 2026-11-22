@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  appsTable, lowStars, normalizeItunesApps, normalizeItunesReviews, normalizePlayApp, normalizePlayReviews,
+  appsTable, byStars, lowStars, normalizeItunesApps, normalizeItunesReviews, normalizePlayApp, normalizePlayReviews,
   reviewsIos, reviewsText, searchIos,
 } from "../scripts/store-lookup.mjs";
 
@@ -79,4 +79,11 @@ test("prints a readable table", () => {
   const t = appsTable(normalizeItunesApps(itunesSearch));
   assert.match(t.split("\n")[0], /^STORE\s+NAME\s+ID\s+RATING/);
   assert.match(t, /ios\s+Debt Planner\s+1009323715\s+4\.7\s+5120/);
+});
+
+test("byStars picks a star range: low for gaps, 5 for what people love", () => {
+  const r = [{ stars: 1 }, { stars: 3 }, { stars: 4 }, { stars: 5 }, { stars: 5 }];
+  assert.deepEqual(byStars(r, 5, 5).map((x) => x.stars), [5, 5]);
+  assert.deepEqual(byStars(r, 1, 3).map((x) => x.stars), [1, 3]);
+  assert.equal(byStars(r).length, 5);
 });
