@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Card, HeroCard, IconBadge, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 const WHAT = [
   { glyph: '📄', title: 'PDF statements', text: 'Including password-protected ones' },
@@ -15,6 +16,7 @@ export const PRO_ALERT_TITLE = 'Pro comes with the next update';
 export const PRO_ALERT_MESSAGE = 'Importing statements and reports will be part of Money Planner Pro, a one-time purchase. Everything else stays free.';
 
 export function ImportIntro({ pro }: { pro: boolean }) {
+  const c = useTheme();
   return (
     <>
       <HeroCard testID="import-hero">
@@ -31,7 +33,7 @@ export function ImportIntro({ pro }: { pro: boolean }) {
         </T>
         {WHAT.map((w) => (
           <View key={w.title} style={styles.what}>
-            <IconBadge glyph={w.glyph} color="#5A4DFF" size={40} />
+            <IconBadge glyph={w.glyph} color={c.accent} size={40} />
             <View style={{ flex: 1 }}>
               <T variant="label">{w.title}</T>
               <T variant="caption" tone="secondary">

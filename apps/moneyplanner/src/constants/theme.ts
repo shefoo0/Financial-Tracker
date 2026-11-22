@@ -7,7 +7,7 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-// 2026 redesign ("Bold cards + Glass fintech", design/redesign-2026.png):
+// 2026 redesign ("Bold cards + Glass fintech", design/redesign-2026.png), main colour emerald (developer's choice):
 // an aurora background, frosted glass cards and a gradient hero card.
 // Contrast: text, textSecondary, accent, positive, negative and warning meet
 // WCAG AA (4.5:1) on `background` and on `glass` over the aurora in both
@@ -19,10 +19,10 @@ export const Colors = {
     background: '#F4F5FB',
     /** Solid surface for inputs, sheets and pressed rows. */
     backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E6E4FF',
+    backgroundSelected: '#DCF2E9',
     textSecondary: '#555A75',
     border: '#DCDDEB',
-    accent: '#5A4DFF',
+    accent: '#0B7A5E',
     onAccent: '#FFFFFF',
     positive: '#087A48',
     negative: '#D02A64',
@@ -32,24 +32,24 @@ export const Colors = {
     glass: 'rgba(255,255,255,0.66)',
     glassBorder: 'rgba(255,255,255,0.95)',
     /** Soft shadow under glass cards (light mode only; dark uses the border). */
-    shadow: 'rgba(60,50,140,0.10)',
+    shadow: 'rgba(14,80,60,0.10)',
     /** Three aurora blobs behind every screen: top-left, right, bottom-left. */
-    aurora: ['#D9D6FF', '#FFD6EC', '#CCF5EA'],
-    /** The gradient hero card (balance) and primary buttons; white text on top. */
-    hero: ['#5B4DFF', '#8B45F0', '#D8458F'],
+    aurora: ['#CDEFE2', '#D7E8FF', '#E3F6D8'],
+    /** Main gradient (emerald): primary buttons, selected options, the + button; white text on top (AA). */
+    hero: ['#0A6B53', '#0B7A5E', '#11866A'],
     /** Glow colour for chart lines and the selected tab. */
-    glow: '#5A4DFF',
+    glow: '#0B7A5E',
     tabBar: 'rgba(255,255,255,0.80)',
   },
   dark: {
     text: '#EEF2FF',
     background: '#070914',
     backgroundElement: '#151831',
-    backgroundSelected: '#262A4D',
+    backgroundSelected: '#17342C',
     textSecondary: '#A9B0CC',
     border: '#2C3152',
-    accent: '#5EF0FF',
-    onAccent: '#04202A',
+    accent: '#34D399',
+    onAccent: '#052E22',
     positive: '#3EE39A',
     negative: '#FF6B9A',
     onNegative: '#2A0A14',
@@ -57,9 +57,9 @@ export const Colors = {
     glass: 'rgba(255,255,255,0.07)',
     glassBorder: 'rgba(255,255,255,0.14)',
     shadow: 'rgba(0,0,0,0)',
-    aurora: ['#2A2A8A', '#6A1FB0', '#0B6B62'],
-    hero: ['#5B4DFF', '#8B45F0', '#D8458F'],
-    glow: '#5EF0FF',
+    aurora: ['#0B4D3E', '#123A66', '#0B5A52'],
+    hero: ['#0A6B53', '#0B7A5E', '#11866A'],
+    glow: '#34D399',
     tabBar: 'rgba(10,12,24,0.85)',
   },
 } as const;
@@ -71,12 +71,28 @@ export type ChartStyleName = (typeof CHART_STYLE_NAMES)[number];
  * Backgrounds for the dashboard balance card. 'plain' is solid white (light) or near-black (dark) with the normal text
  * colours; the others are gradients with white text (every stop has at least 4.5:1 contrast with white).
  */
-export const ChartStyles: Record<ChartStyleName, { label: string; gradient: readonly string[] | null }> = {
-  plain: { label: 'Plain', gradient: null },
-  violet: { label: 'Violet', gradient: ['#5B4DFF', '#8B45F0', '#C93A82'] },
-  ocean: { label: 'Ocean', gradient: ['#1F4FD8', '#1670C7', '#0B7F8F'] },
-  emerald: { label: 'Emerald', gradient: ['#0E7A4F', '#0A7F62', '#0A7E86'] },
-  sunset: { label: 'Sunset', gradient: ['#C2410C', '#CC3A4B', '#C42A78'] },
+/** Line colours of the balance chart: the recorded (actual, solid) and the forecast (dashed) parts. */
+export interface ChartLineColors {
+  actual: string;
+  forecast: string;
+}
+const onGradient: ChartLineColors = { actual: '#FFFFFF', forecast: '#FFE45C' };
+const onGradientBoth = { light: onGradient, dark: onGradient };
+
+/**
+ * Two clearly different hues per card style (plus solid vs dashed, so colour-blind users can tell them apart).
+ * Plain light: deep ink blue vs the emerald accent; plain dark: white vs the emerald accent; gradients: white vs a warm yellow.
+ * Every colour is at least 3:1 against its card (graphics), checked in ChartStyleSetting.test.
+ */
+export const ChartStyles: Record<
+  ChartStyleName,
+  { label: string; gradient: readonly string[] | null; lines: { light: ChartLineColors; dark: ChartLineColors } }
+> = {
+  plain: { label: 'Plain', gradient: null, lines: { light: { actual: '#1E3A8A', forecast: '#0B7A5E' }, dark: { actual: '#FFFFFF', forecast: '#34D399' } } },
+  violet: { label: 'Violet', gradient: ['#5B4DFF', '#8B45F0', '#C93A82'], lines: onGradientBoth },
+  ocean: { label: 'Ocean', gradient: ['#1F4FD8', '#1670C7', '#0B7F8F'], lines: onGradientBoth },
+  emerald: { label: 'Emerald', gradient: ['#0E7A4F', '#0A7F62', '#0A7E86'], lines: onGradientBoth },
+  sunset: { label: 'Sunset', gradient: ['#C2410C', '#CC3A4B', '#C42A78'], lines: onGradientBoth },
 };
 
 /** Solid card colours for the 'plain' style. */

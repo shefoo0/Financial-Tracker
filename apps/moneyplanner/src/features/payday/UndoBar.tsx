@@ -29,7 +29,7 @@ export function UndoBar({ message, onUndo, onDismiss, testID = 'undo-bar' }: { m
           accessibilityLabel="Undo"
           testID="undo-button"
           style={{ minHeight: 44, minWidth: 56, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two }}>
-          <T variant="label" style={{ color: '#5EF0FF', fontWeight: '800' }}>
+          <T variant="label" style={{ color: '#34D399', fontWeight: '800' }}>
             Undo
           </T>
         </Pressable>
