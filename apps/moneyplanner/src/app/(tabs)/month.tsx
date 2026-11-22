@@ -33,7 +33,7 @@ function MonthBody({ input }: { input: PlanInput }) {
 
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const items = useMemo(
-    () => buildMonthItems(occurrencesInRange(input.recurring, input.overrides, monthStart(month), monthEnd(month)), input.transactions, monthStart(month), monthEnd(month)),
+    () => buildMonthItems(occurrencesInRange(input.recurring, input.overrides, monthStart(month), monthEnd(month)), input.transactions, monthStart(month), monthEnd(month), input),
     [month, input],
   );
 

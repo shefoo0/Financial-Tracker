@@ -217,6 +217,24 @@ export function allDebtPayments(input: PlanInput, from: ISODate, to: ISODate): D
   return out.sort(byDate);
 }
 
+/**
+ * Everything that leaves the bank for debts between from and to: scheduled payments plus logged
+ * payments dated after the starting balance date (earlier ones are already in the balance).
+ * A logged 'regular' payment has already replaced its month's scheduled one, so nothing is counted twice.
+ */
+export function debtOutflows(input: PlanInput, from: ISODate, to: ISODate): DebtScheduledPayment[] {
+  const out = allDebtPayments(input, from, to);
+  const sbd = input.settings?.startingBalanceDate;
+  for (const d of activeDebts(input)) {
+    for (const p of paymentsOf(input, d.id)) {
+      if (compareDates(p.date, from) < 0 || compareDates(p.date, to) > 0) continue;
+      if (sbd && compareDates(p.date, sbd) <= 0) continue;
+      out.push({ debtId: d.id, date: p.date, originalDate: p.date, amount: p.amount, kind: d.type, label: `${d.name} payment (logged)` });
+    }
+  }
+  return out.sort(byDate);
+}
+
 /** What is left to pay today: balance minus logged payments (loans, cards) or total minus logged payments (plans). */
 export function remainingOf(debt: Debt, input: PlanInput): Fils {
   if (debt.type === 'plan') return Math.max(0, debt.total - sum(paymentsOf(input, debt.id)));

@@ -375,3 +375,36 @@ describe('debtStats', () => {
     expect(debtStats(input({ debts: [loan({ archived: true })] }), today).perDebt).toEqual([]);
   });
 });
+
+describe('logged payments as outflows', () => {
+  const s = settings({ startingBalance: 1000000, startingBalanceDate: '2026-02-01' });
+  const l = loan({ balanceDate: '2026-01-01' });
+  const logs = [
+    pay({ id: 'a', date: '2026-01-20', amount: 10000, kind: 'extra' }), // before the balance date: history
+    pay({ id: 'b', date: '2026-02-10', amount: 30000, kind: 'regular' }),
+    pay({ id: 'c', date: '2026-02-12', amount: 5000, kind: 'extra' }),
+    pay({ id: 'd', date: '2026-02-13', amount: 2000, kind: 'partial' }),
+  ];
+  const i = input({ settings: s, debts: [l], debtPayments: logs });
+
+  it('count after the starting balance date, once, and replace the month regular payment', () => {
+    const f = forecast(i, { today: '2026-02-01', days: 30, months: 1 });
+    const ev = f.days.flatMap((d) => d.events).filter((e) => e.source === 'debt');
+    expect(ev.map((e) => [e.date, e.amount, e.label])).toEqual([
+      ['2026-02-10', 30000, 'Car loan payment (logged)'],
+      ['2026-02-12', 5000, 'Car loan payment (logged)'],
+      ['2026-02-13', 2000, 'Car loan payment (logged)'],
+      ['2026-03-15', 30000, 'Car loan payment'],
+    ]);
+    expect(monthSummary('2026-02', i).debtPayments).toBe(37000);
+    expect(yearSummary(2026, i).months[1].debtPayments).toBe(37000);
+  });
+
+  it('a logged payment of a card-linked plan is one outflow, not also in the card', () => {
+    const c = card({ balance: 0, balanceDate: '2026-01-01' });
+    const p = plan({ cardId: 'C1', firstPaymentDate: '2026-02-10' });
+    const j = input({ settings: s, debts: [c, p], debtPayments: [pay({ debtId: 'P1', date: '2026-02-10', amount: 40000, kind: 'regular' })] });
+    expect(monthSummary('2026-02', j).debtPayments).toBe(40000);
+    expect(monthSummary('2026-03', j).debtPayments).toBe(40000);
+  });
+});

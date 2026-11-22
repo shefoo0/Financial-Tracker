@@ -10,9 +10,7 @@ import type {
   MonthKey,
   MonthSummary,
   Occurrence,
-  OccurrenceOverride,
   PlanInput,
-  RecurringItem,
   Transaction,
   YearSummary,
 } from '@/types';
@@ -20,17 +18,14 @@ import {
   addDays,
   addMonthKey,
   compareDates,
-  daysInMonth,
   diffDays,
   monthEnd,
   monthKey,
   monthStart,
-  parseISODate,
-  toISODate,
 } from '@/lib/dates';
 
 import { occurrencesInRange } from './recurring';
-import { allDebtPayments } from './debts/schedule';
+import { debtOutflows } from './debts/schedule';
 import { chequesInRange } from './debts/cheques';
 
 // ---- Summaries ----
@@ -86,7 +81,7 @@ export function monthSummary(month: MonthKey, input: PlanInput): MonthSummary {
   const to = monthEnd(month);
   const occs = occurrencesInRange(input.recurring, input.overrides, from, to);
   const txs = input.transactions.filter((t) => monthKey(t.date) === month);
-  const debt = allDebtPayments(input, from, to).reduce((t, p) => t + p.amount, 0);
+  const debt = debtOutflows(input, from, to).reduce((t, p) => t + p.amount, 0);
   const chq = chequesInRange(input, from, to).reduce((t, c) => t + c.amount, 0);
   return summarize(month, occs, txs, debt, chq);
 }
@@ -102,7 +97,7 @@ export function yearSummary(year: number, input: PlanInput): YearSummary {
   for (const t of input.transactions) push(txBy, monthKey(t.date), t);
 
   const debtBy = new Map<MonthKey, Fils>();
-  for (const p of allDebtPayments(input, monthStart(keys[0]), monthEnd(keys[11]))) debtBy.set(monthKey(p.date), (debtBy.get(monthKey(p.date)) ?? 0) + p.amount);
+  for (const p of debtOutflows(input, monthStart(keys[0]), monthEnd(keys[11]))) debtBy.set(monthKey(p.date), (debtBy.get(monthKey(p.date)) ?? 0) + p.amount);
   const chqBy = new Map<MonthKey, Fils>();
   for (const c of chequesInRange(input, monthStart(keys[0]), monthEnd(keys[11]))) chqBy.set(monthKey(c.date), (chqBy.get(monthKey(c.date)) ?? 0) + c.amount);
   const months = keys.map((k) => summarize(k, occBy.get(k) ?? [], txBy.get(k) ?? [], debtBy.get(k) ?? 0, chqBy.get(k) ?? 0));
@@ -182,7 +177,7 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
   }
 
   if (compareDates(flowFrom, flowTo) <= 0) {
-    for (const p of allDebtPayments(input, flowFrom, flowTo)) {
+    for (const p of debtOutflows(input, flowFrom, flowTo)) {
       add({ date: p.date, label: p.label, kind: 'cost', amount: p.amount, source: 'debt', refId: p.debtId });
     }
     for (const c of chequesInRange(input, flowFrom, flowTo)) {

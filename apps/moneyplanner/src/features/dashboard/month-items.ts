@@ -1,4 +1,4 @@
-import { allDebtPayments, chequesInRange } from '@/engine';
+import { debtOutflows, chequesInRange } from '@/engine';
 import type { Fils, ISODate, Kind, Occurrence, PlanInput, Transaction } from '@/types';
 
 export interface MonthItem {
@@ -44,8 +44,8 @@ export function buildMonthItems(
         href: `/transaction/${t.id}`,
       })),
     ...(input
-      ? allDebtPayments(input, from, to).map((p) => ({
-          key: `d-${p.debtId}-${p.originalDate}`,
+      ? debtOutflows(input, from, to).map((p) => ({
+          key: `d-${p.debtId}-${p.originalDate}-${p.label.endsWith('(logged)') ? 'l' : 's'}`,
           date: p.date,
           title: p.label,
           kind: 'cost' as Kind,

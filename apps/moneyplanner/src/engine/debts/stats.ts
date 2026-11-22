@@ -8,7 +8,6 @@ import {
   cardPaymentFor,
   debtLifetime,
   debtProgress,
-  debtSchedule,
   interestFor,
   remainingOf,
 } from './schedule';
