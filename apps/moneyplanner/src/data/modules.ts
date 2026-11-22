@@ -10,5 +10,5 @@ export const MODULE_INFO: Record<ModuleId, { title: string; description: string 
   import: { title: 'Statement import', description: 'Read bank and card statements' },
 };
 
-/** Modules built so far (milestone 1: none; the planner core is always on). */
-export const AVAILABLE_MODULES: ModuleId[] = [];
+/** Modules built so far (the planner core is always on). Statement import comes in milestone 3. */
+export const AVAILABLE_MODULES: ModuleId[] = ['debts', 'cheques', 'alerts'];

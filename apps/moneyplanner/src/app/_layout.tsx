@@ -10,6 +10,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { Button, EmptyState, Screen } from '@/components/ui';
 import { Colors } from '@/constants/theme';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
+import { AlertScheduler } from '@/features/alerts/AlertScheduler';
+import { LockGate } from '@/features/lock/LockGate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 SplashScreen.preventAutoHideAsync();
@@ -62,18 +64,21 @@ export default function RootLayout() {
       )}>
       <Themed>
         <HideSplash />
-        <Stack screenOptions={{ headerBackTitle: 'Back', headerShadowVisible: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="recurring/[id]" options={{ presentation: 'modal', title: 'Recurring item' }} />
-          <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'One-time item' }} />
-          <Stack.Screen name="categories" options={{ title: 'Categories' }} />
-          <Stack.Screen name="profiles" options={{ title: 'Profiles' }} />
-          <Stack.Screen name="debts/index" options={{ title: '', headerBackTitle: 'Plan' }} />
-          <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
-          <Stack.Screen name="cheques/index" options={{ title: '', headerBackTitle: 'Plan' }} />
-          <Stack.Screen name="cheques/[id]" options={{ presentation: 'modal', title: 'Cheque' }} />
-        </Stack>
+        <AlertScheduler />
+        <LockGate>
+          <Stack screenOptions={{ headerBackTitle: 'Back', headerShadowVisible: false }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="recurring/[id]" options={{ presentation: 'modal', title: 'Recurring item' }} />
+            <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'One-time item' }} />
+            <Stack.Screen name="categories" options={{ title: 'Categories' }} />
+            <Stack.Screen name="profiles" options={{ title: 'Profiles' }} />
+            <Stack.Screen name="debts/index" options={{ title: '', headerBackTitle: 'Plan' }} />
+            <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
+            <Stack.Screen name="cheques/index" options={{ title: '', headerBackTitle: 'Plan' }} />
+            <Stack.Screen name="cheques/[id]" options={{ presentation: 'modal', title: 'Cheque' }} />
+          </Stack>
+        </LockGate>
       </Themed>
     </ProfileProvider>
   );

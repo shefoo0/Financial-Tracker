@@ -8,7 +8,7 @@ import { Avatar, Button, Card, EmptyState, ListRow, MoneyField, Screen, ScreenHe
 import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { exportBackup, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { exportBackup, exportChequesCsv, exportDebtsCsv, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
 import { AlertsSettings } from '@/features/alerts/AlertsSettings';
 import { LockSettings } from '@/features/lock/LockSettings';
 import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
@@ -281,6 +281,12 @@ export default function SettingsScreen() {
           onPress={() => run('Export failed', () => exportTransactionsCsv(repo))}
           testID="settings-export-csv"
         />
+        {settings.enabledModules.debts ? (
+          <Button label="Export debts as CSV" variant="secondary" disabled={busy} onPress={() => run('Export failed', () => exportDebtsCsv(repo))} testID="settings-export-debts-csv" />
+        ) : null}
+        {settings.enabledModules.cheques ? (
+          <Button label="Export cheques as CSV" variant="secondary" disabled={busy} onPress={() => run('Export failed', () => exportChequesCsv(repo))} testID="settings-export-cheques-csv" />
+        ) : null}
         <Button label={`Delete all data in ${active.name}`} variant="destructive" disabled={busy} onPress={deleteAll} testID="settings-delete-all" />
       </Card>
 

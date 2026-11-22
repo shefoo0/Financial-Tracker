@@ -44,13 +44,23 @@ describe('Dashboard', () => {
     expect(month.getByText('52.8%')).toBeTruthy();
   });
 
-  it('shows a warning when the forecast dips below the buffer', async () => {
+  it('shows a warning when the forecast dips below the buffer (Alerts module off)', async () => {
     await renderWithRepo(<DashboardScreen />, {
-      settings: { ...settings, startingBalance: 100000, buffer: 500000 },
+      settings: { ...settings, startingBalance: 100000, buffer: 500000, enabledModules: { ...settings.enabledModules, alerts: false } },
       transactions: [transaction({ id: 't', description: 'x', kind: 'income', amount: 100, date: today() })],
       recurring: [recurring({ id: 'r', name: 'Rent', kind: 'cost', amount: 950000, schedule: { type: 'weekly', everyWeeks: 1 } })],
     });
     expect(await screen.findByTestId('dashboard-forecast-warning')).toBeTruthy();
+  });
+
+  it('lists the shortfall in the alerts card when the Alerts module is on', async () => {
+    await renderWithRepo(<DashboardScreen />, {
+      settings: { ...settings, startingBalance: 100000, buffer: 500000, enabledModules: { ...settings.enabledModules, alerts: true } },
+      transactions: [transaction({ id: 't', description: 'x', kind: 'income', amount: 100, date: today() })],
+      recurring: [recurring({ id: 'r', name: 'Rent', kind: 'cost', amount: 950000, schedule: { type: 'weekly', everyWeeks: 1 } })],
+    });
+    expect(await screen.findByTestId('alerts-card')).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-forecast-warning')).toBeNull();
   });
 
   it('lists what is coming up and links to the Month tab', async () => {

@@ -27,6 +27,7 @@ import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, shortDate
 import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
 import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
 import { useToday } from '@/features/dashboard/useToday';
+import { AlertsCard } from '@/features/alerts/AlertsCard';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
 import { formatCompact, formatMoney, formatMoneyTrim } from '@/lib/money';
@@ -154,7 +155,9 @@ function DashboardBody({ input }: { input: PlanInput }) {
         <StatTile label="Free" value={formatCompact(ms.freeMoney)} accessibilityLabel={`Free: ${money(ms.freeMoney)}`} tone={ms.freeMoney < 0 ? 'negative' : 'accent'} icon="✦" testID="dashboard-tile-free" />
       </View>
 
-      {showWarning && (
+      {/* With the Alerts module on, its list covers the shortfall too (and more); otherwise the simple warning. */}
+      {input.settings.enabledModules.alerts ? <AlertsCard limit={4} /> : null}
+      {showWarning && !input.settings.enabledModules.alerts && (
         <Card>
           <View
             accessible
