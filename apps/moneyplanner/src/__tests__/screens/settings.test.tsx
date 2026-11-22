@@ -36,6 +36,17 @@ describe('Settings', () => {
     expect(router.push).toHaveBeenCalledWith('/profiles');
   });
 
+  it('picks the chart card style with swatches (Plain by default) and saves it', async () => {
+    await renderWithRepo(<SettingsScreen />, { settings });
+    const plain = await screen.findByTestId('chart-style-plain');
+    expect(plain.props.accessibilityLabel).toBe('Plain');
+    expect(plain.props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('chart-style-ocean').props.accessibilityLabel).toBe('Ocean');
+    await fireEvent.press(screen.getByTestId('chart-style-ocean'));
+    await waitFor(() => expect(screen.getByTestId('chart-style-ocean').props.accessibilityState.selected).toBe(true));
+    expect(screen.getByTestId('chart-style-plain').props.accessibilityState.selected).toBe(false);
+  });
+
   it('changes the appearance', async () => {
     await renderWithRepo(<SettingsScreen />, { settings });
     await fireEvent.press(await screen.findByTestId('settings-appearance-dark'));

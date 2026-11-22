@@ -58,6 +58,20 @@ export function niceTicks(min: Fils, max: Fils): Fils[] {
   return out.length > 5 ? out.filter((_, i) => i % 2 === 0) : out;
 }
 
+/** Extra values to include in the scale so the top (and bottom, when negative) lands on a round tick past the data. */
+export function headroom(values: Fils[], buffer: Fils = 0): Fils[] {
+  if (values.length === 0) return [];
+  const max = Math.max(...values, buffer, 0);
+  const min = Math.min(...values, 0);
+  const ticks = niceTicks(min, max);
+  if (ticks.length < 2) return [];
+  const step = ticks[1] - ticks[0];
+  const top = Math.ceil(max / step) * step;
+  const out = [top === max ? top + step / 2 : top];
+  if (min < 0) out.push(Math.floor(min / step) * step);
+  return out;
+}
+
 /** Index of the point nearest to pixel x, for `n` points spread between padding and width - padding. */
 export function nearestIndex(x: number, n: number, width: number, padding = 8): number {
   if (n <= 1) return 0;

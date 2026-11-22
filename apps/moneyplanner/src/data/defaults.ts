@@ -37,5 +37,6 @@ export function defaultSettings(now: Date = new Date()): Settings {
     billReminders: { on: true, leadDays: 1, muted: [] },
     onboarded: false,
     lockEnabled: false,
+    chartStyle: 'plain',
   };
 }

@@ -7,7 +7,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { scaleSeries } from '@/features/dashboard/helpers';
 import type { Fils } from '@/types';
-import { axisDateLabels, compactAmount, limitLines, lowestIndex, nearestIndex, niceTicks, signed, speakPoint, type SeriesPoint } from './chartMath';
+import { axisDateLabels, compactAmount, headroom, limitLines, lowestIndex, nearestIndex, niceTicks, signed, speakPoint, type SeriesPoint } from './chartMath';
 import { formatMoneyTrim } from '@/lib/money';
 
 type Pt = { x: number; y: number };
@@ -69,7 +69,9 @@ export function BalanceChart({
   const plotW = Math.max(1, width - GUTTER);
   const plotH = height - XAXIS;
   const values = points.map((p) => p.balance);
-  const s = scaleSeries(values, plotW, plotH, [0, buffer]);
+  // Headroom: scale up to the next round tick above the highest balance, so the
+  // line never runs into the top edge (a 33k peak was drawn above the 30k label).
+  const s = scaleSeries(values, plotW, plotH, [0, buffer, ...headroom(values, buffer)]);
   const lowIdx = lowestIndex(points);
   const low = s.points[lowIdx];
   const baseY = s.y(s.min);

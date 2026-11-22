@@ -2,7 +2,8 @@ import { useId, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { Palette, Radius, Spacing } from '@/constants/theme';
+import { ChartStyles, Palette, PlainCard, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { Glass, GradientFill, hiddenFromA11y, withAlpha } from './internal';
 import { T, type Tone } from './text';
@@ -50,22 +51,29 @@ export function HeroCard({
   testID,
   accessibilityLabel,
   style,
+  chartStyle = 'violet',
 }: {
   children: ReactNode;
   testID?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  /** 'plain' is a solid white / near-black card (use normal text colours); the rest are gradients (white text). */
+  chartStyle?: ChartStyleName;
 }) {
   const c = useTheme();
+  const dark = useColorScheme() === 'dark';
+  const gradient = chartStyle === 'plain' ? null : ChartStyles[chartStyle].gradient ?? c.hero;
+  const plain = PlainCard[dark ? 'dark' : 'light'];
+  const shadow = gradient ? withAlpha(gradient[0], 0.35) : dark ? 'rgba(0,0,0,0)' : c.shadow;
   return (
     <View
-      style={[{ borderRadius: Radius.xl, boxShadow: `0 14px 30px ${withAlpha(c.hero[0], 0.35)}` }, style]}
+      style={[{ borderRadius: Radius.xl, boxShadow: `0 14px 30px ${shadow}` }, style]}
       testID={testID}
       accessible={accessibilityLabel ? true : undefined}
       accessibilityLabel={accessibilityLabel}>
-      <View style={styles.hero}>
-        <GradientFill colors={c.hero} />
-        <View style={styles.sheen} {...hiddenFromA11y} pointerEvents="none" />
+      <View style={[styles.hero, gradient ? null : { backgroundColor: plain.bg, borderWidth: 1, borderColor: plain.border }]}>
+        {gradient && <GradientFill colors={gradient} />}
+        {gradient && <View style={styles.sheen} {...hiddenFromA11y} pointerEvents="none" />}
         <View style={styles.heroContent}>{children}</View>
       </View>
     </View>

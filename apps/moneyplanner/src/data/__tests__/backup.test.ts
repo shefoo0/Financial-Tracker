@@ -171,6 +171,14 @@ describe('parseBackup validation', () => {
     expect(parsed.settings.enabledModules).not.toHaveProperty('hack');
     expect(parsed.settings.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 70 });
   });
+  it('reads the chart card style; a backup without it, or with an unknown one, gets plain', () => {
+    expect(parseBackup(text({ settings: { ...data.settings, chartStyle: 'ocean' } })).settings.chartStyle).toBe('ocean');
+    const old: any = { ...data.settings };
+    delete old.chartStyle;
+    expect(parseBackup(text({ settings: old })).settings.chartStyle).toBe('plain');
+    expect(parseBackup(text({ settings: { ...data.settings, chartStyle: 'neon' } })).settings.chartStyle).toBe('plain');
+  });
+
   it('forces lockEnabled off', () => {
     const parsed = parseBackup(text({ settings: { ...data.settings, lockEnabled: true } }));
     expect(parsed.settings.lockEnabled).toBe(false);

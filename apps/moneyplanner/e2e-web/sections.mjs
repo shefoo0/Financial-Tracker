@@ -447,6 +447,18 @@ add('7 Profiles and appearance', async (d, step) => {
     await d.tab('Plan'); await d.settle(300); await d.shot('plan-dark');
     await d.tab('Settings'); await d.tap('#settings-appearance-light'); await d.tab('Home'); await d.settle(300); await d.shot('home-light');
   });
+  await step('Chart card: Plain by default (dark text), Ocean turns Home white-on-gradient, back to Plain', async () => {
+    const ink = async () => d.page.evaluate(() => { const e = [...document.querySelectorAll('[data-testid="dashboard-balance-caption"]')].find((x) => x.offsetParent !== null && !x.closest('[inert]')); return e ? getComputedStyle(e).color : ''; });
+    await d.tab('Home'); await d.settle(300);
+    if (!/^rgb\(\s*(85|18),/.test(await ink())) throw new Error('plain card should use dark text, got ' + await ink());
+    await d.tab('Settings'); await d.see('#chart-style-ocean'); await d.tap('#chart-style-ocean'); await d.tab('Home'); await d.settle(400);
+    if (await ink() !== 'rgb(255, 255, 255)') throw new Error('ocean card should use white text, got ' + await ink());
+    await d.shot('home-ocean');
+    if (process.env.CHART_SHOT_DIR) await d.page.screenshot({ path: `${process.env.CHART_SHOT_DIR}/chart-ocean.png` });
+    await d.tab('Settings'); await d.tap('#chart-style-plain'); await d.tab('Home'); await d.settle(300);
+    if (await ink() === 'rgb(255, 255, 255)') throw new Error('plain card should not use white text');
+    await d.shot('home-plain');
+  });
 });
 
 add('8 Quick add', async (d, step) => {

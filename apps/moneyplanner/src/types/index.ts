@@ -110,6 +110,9 @@ export interface BillReminders {
   muted: string[];
 }
 
+/** Look of the dashboard balance card: solid white/black, or one of four gradients. */
+export type ChartStyle = 'plain' | 'violet' | 'ocean' | 'emerald' | 'sunset';
+
 export interface Settings {
   /** Label shown next to amounts. No conversion is done. */
   currency: string;
@@ -126,6 +129,8 @@ export interface Settings {
   billReminders: BillReminders;
   onboarded: boolean;
   lockEnabled: boolean;
+  /** Background of the dashboard balance card. */
+  chartStyle?: ChartStyle;
 }
 
 // ---- Debts (milestone 2) ----

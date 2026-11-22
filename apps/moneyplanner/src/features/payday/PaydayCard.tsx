@@ -19,7 +19,7 @@ export function PaydayCard({ input, today }: { input: PlanInput; today: ISODate 
   const money = (n: number) => formatMoney(n, currency);
   const days = `${v.daysLeft} ${v.daysLeft === 1 ? 'day' : 'days'}`;
   const until = v.nextPayday ? `until payday on ${shortDate(v.nextPayday)}` : 'until the end of the month (no payday set)';
-  const perDay = v.safeToSpend > 0 ? ` · about ${money(v.perDay)} a day` : '';
+  const perDay = v.safeToSpend > 0 ? ` · about ${formatMoneyTrim(Math.floor(v.perDay / 100) * 100, currency)} a day` : '';
   const negative = v.safeToSpend < 0;
 
   return (

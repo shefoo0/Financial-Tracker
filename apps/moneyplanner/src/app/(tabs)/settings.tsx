@@ -25,6 +25,7 @@ import {
   signedBalance,
   validateCurrency,
 } from '@/features/settings/helpers';
+import { ChartStyleSetting } from '@/features/settings/ChartStyleSetting';
 import { PRIVACY_POLICY_URL } from '@/features/settings/links';
 import { formatDate, today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
@@ -172,6 +173,9 @@ export default function SettingsScreen() {
         <Button label="Manage profiles" variant="secondary" onPress={() => router.push('/profiles')} testID="settings-manage-profiles" />
         <T variant="label">Appearance</T>
         <AppearanceSetting testID="settings-appearance" />
+        <ChartStyleSetting value={settings.chartStyle} onChange={async (v) => {
+            await update({ chartStyle: v });
+          }} />
       </Card>
 
       <SectionHeader title="Money" />

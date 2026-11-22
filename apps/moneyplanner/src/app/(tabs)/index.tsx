@@ -149,8 +149,8 @@ function DashboardBody({ input }: { input: PlanInput }) {
       <Screen testID="dashboard-screen">
       {header}
 
-      <HeroCard testID="dashboard-forecast">
-        <ForecastHero fc={fc} todayStr={todayStr} currency={currency} buffer={buffer} />
+      <HeroCard testID="dashboard-forecast" chartStyle={input.settings.chartStyle ?? 'plain'}>
+        <ForecastHero fc={fc} todayStr={todayStr} currency={currency} buffer={buffer} chartStyle={input.settings.chartStyle ?? 'plain'} />
       </HeroCard>
 
       <PaydayCard input={input} today={todayStr} />

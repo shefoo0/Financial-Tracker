@@ -64,6 +64,24 @@ export const Colors = {
   },
 } as const;
 
+export const CHART_STYLE_NAMES = ['plain', 'violet', 'ocean', 'emerald', 'sunset'] as const;
+export type ChartStyleName = (typeof CHART_STYLE_NAMES)[number];
+
+/**
+ * Backgrounds for the dashboard balance card. 'plain' is solid white (light) or near-black (dark) with the normal text
+ * colours; the others are gradients with white text (every stop has at least 4.5:1 contrast with white).
+ */
+export const ChartStyles: Record<ChartStyleName, { label: string; gradient: readonly string[] | null }> = {
+  plain: { label: 'Plain', gradient: null },
+  violet: { label: 'Violet', gradient: ['#5B4DFF', '#8B45F0', '#C93A82'] },
+  ocean: { label: 'Ocean', gradient: ['#1F4FD8', '#1670C7', '#0B7F8F'] },
+  emerald: { label: 'Emerald', gradient: ['#0E7A4F', '#0A7F62', '#0A7E86'] },
+  sunset: { label: 'Sunset', gradient: ['#C2410C', '#CC3A4B', '#C42A78'] },
+};
+
+/** Solid card colours for the 'plain' style. */
+export const PlainCard = { light: { bg: '#FFFFFF', border: '#DCDDEB' }, dark: { bg: '#0B0D14', border: '#2C3152' } } as const;
+
 /** Category and profile colours (icon tiles and avatars). Each meets AA (4.5:1) with white text on top. */
 export const Palette = ['#B85A1E', '#5B4DFF', '#14855A', '#C93A6E', '#17739C', '#9A6A00', '#8B45F0', '#5E6B85'] as const;
 

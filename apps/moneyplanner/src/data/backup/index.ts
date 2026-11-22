@@ -3,9 +3,11 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
+import { CHART_STYLE_NAMES } from '@/constants/theme';
 import { defaultSettings } from '@/data/defaults';
 import { isValidISODate } from '@/lib/dates';
 import type {
+  ChartStyle,
   Category,
   CategoryRuleRecord,
   Cheque,
@@ -228,6 +230,7 @@ function readSettings(v: unknown): Settings | null {
     onboarded: v.onboarded,
     // A backup from another phone must not lock the user out of this one.
     lockEnabled: false,
+    chartStyle: isStr(v.chartStyle) && (CHART_STYLE_NAMES as readonly string[]).includes(v.chartStyle) ? (v.chartStyle as ChartStyle) : 'plain',
   };
 }
 
