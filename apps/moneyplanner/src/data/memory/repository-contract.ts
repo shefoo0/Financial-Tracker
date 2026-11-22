@@ -241,6 +241,16 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       expect((await repo.listCategories()).some((c) => c.id === 'x')).toBe(true);
     });
 
+    it('importAll keeps this phone\'s lockEnabled, whatever the backup says', async () => {
+      const backup = await repo.exportAll();
+      await repo.updateSettings({ lockEnabled: true });
+      await repo.importAll({ ...backup, settings: { ...backup.settings, lockEnabled: false } });
+      expect((await repo.getSettings()).lockEnabled).toBe(true);
+      await repo.updateSettings({ lockEnabled: false });
+      await repo.importAll({ ...backup, settings: { ...backup.settings, lockEnabled: true } });
+      expect((await repo.getSettings()).lockEnabled).toBe(false);
+    });
+
     it('deleteAll resets to defaults', async () => {
       await repo.updateSettings({ onboarded: true, currency: 'USD' });
       await repo.upsertRecurring(rec());

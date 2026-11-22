@@ -198,7 +198,10 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       };
     },
     async importAll(data) {
+      // The lock belongs to this phone, so a backup never changes it.
+      const { lockEnabled } = settings;
       replaceAll(data);
+      settings = { ...settings, lockEnabled };
     },
     async deleteAll() {
       reset();

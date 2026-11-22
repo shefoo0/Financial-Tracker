@@ -2,7 +2,9 @@
 // replaced by an adapter over Node's built-in node:sqlite (in-memory databases).
 import { createSqliteRepository } from '@/data/sqlite/sqlite-repository';
 import { MIGRATIONS, migrate } from '@/data/sqlite/schema';
-import { chq, loan, runRepositoryContract } from '@/data/memory/repository-contract';
+import { parseBackup, serializeBackup } from '@/data/backup';
+import { BACKUP_FORMAT } from '@/data/repository';
+import { card, chq, dpay, loan, ovr, plan, rec, runRepositoryContract, txn } from '@/data/memory/repository-contract';
 
 jest.mock('expo-sqlite', () => {
   const { DatabaseSync } = require('node:sqlite');
@@ -174,5 +176,75 @@ describe('sqlite close()', () => {
     const repo = createSqliteRepository();
     await repo.close();
     await expect(repo.init()).rejects.toThrow(/closed/);
+  });
+});
+
+describe('a full v1 database and a v1 backup in the v2 app', () => {
+  const v1Database = () => {
+    const expo = require('expo-sqlite');
+    const db = expo.__make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\nPRAGMA user_version = 1;\nCOMMIT;`);
+    const set = (k: string, v: unknown) => db.raw.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(k, JSON.stringify(v));
+    set('onboarded', true);
+    set('startingBalance', 650000);
+    set('buffer', 200000);
+    set('enabledModules', { debts: true, cheques: false, alerts: false, import: true });
+    db.raw
+      .prepare("INSERT INTO recurring_items (id, kind, name, category_id, amount, schedule, start_date, end_date, count, note) VALUES ('r1', 'cost', 'Rent', 'housing', 500000, ?, '2026-01-01', NULL, NULL, '')")
+      .run(JSON.stringify({ type: 'monthly', day: 'last' }));
+    db.raw
+      .prepare("INSERT INTO occurrence_overrides (id, recurring_id, original_date, skip, new_date, new_amount, paid) VALUES ('o1', 'r1', '2026-02-28', 0, '2026-03-02', 123, 1)")
+      .run();
+    db.raw
+      .prepare("INSERT INTO transactions (id, kind, date, description, category_id, amount, note, source, import_id, planned) VALUES ('t1', 'cost', '2026-03-05', 'Lunch', 'dining', 4550, '', 'manual', NULL, 0)")
+      .run();
+    return db;
+  };
+
+  it('keeps every v1 row readable through the repository, then stores v2 data next to it', async () => {
+    (globalThis as any).__nextDb = v1Database();
+    const repo = createSqliteRepository('v1-full.db');
+    await repo.init();
+    expect(await repo.listRecurring()).toMatchObject([{ id: 'r1', name: 'Rent', amount: 500000, schedule: { type: 'monthly', day: 'last' } }]);
+    expect(await repo.listOverrides()).toMatchObject([{ id: 'o1', newDate: '2026-03-02', newAmount: 123, paid: true }]);
+    expect(await repo.listTransactions()).toMatchObject([{ id: 't1', amount: 4550 }]);
+    const s = await repo.getSettings();
+    expect(s).toMatchObject({ onboarded: true, startingBalance: 650000, buffer: 200000 });
+    // Settings the v1 app never wrote come from the defaults.
+    expect(s.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 });
+    expect(s.enabledModules).toMatchObject({ debts: true, alerts: false });
+
+    await repo.upsertDebt(loan());
+    await repo.upsertDebt(card());
+    await repo.upsertDebt(plan());
+    await repo.upsertDebtPayment(dpay());
+    await repo.upsertCheques([chq()]);
+    const out = await repo.exportAll();
+    expect(out.version).toBe(2);
+    expect(out.debts).toHaveLength(3);
+    expect(out.recurring).toHaveLength(1);
+    // The v2 export restores into a fresh v2 database unchanged.
+    const other = createSqliteRepository('other.db');
+    await other.init();
+    await other.importAll(parseBackup(serializeBackup(out)));
+    expect({ ...(await other.exportAll()), exportedAt: '' }).toEqual({ ...out, exportedAt: '' });
+  });
+
+  it('restores a v1 backup file into SQLite, replacing debts and cheques, and exports v2', async () => {
+    const repo = createSqliteRepository('restore-v1.db');
+    await repo.init();
+    await repo.upsertDebt(loan());
+    await repo.upsertCheques([chq()]);
+    const current = await repo.exportAll();
+    const v1: any = { ...current, version: 1, recurring: [rec()], overrides: [ovr()], transactions: [txn()] };
+    for (const k of ['debts', 'debtPayments', 'debtOverrides', 'cheques']) delete v1[k];
+    expect(v1.format).toBe(BACKUP_FORMAT);
+    await repo.importAll(parseBackup(JSON.stringify(v1)));
+    expect(await repo.listDebts()).toEqual([]);
+    expect(await repo.listCheques()).toEqual([]);
+    expect(await repo.listRecurring()).toHaveLength(1);
+    const out = await repo.exportAll();
+    expect(out.version).toBe(2);
+    expect(out).toMatchObject({ debts: [], debtPayments: [], debtOverrides: [], cheques: [] });
   });
 });

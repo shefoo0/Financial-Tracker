@@ -469,8 +469,16 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
     async importAll(data) {
       await write((db) =>
         transaction(db, async (txn) => {
+          // The lock belongs to this phone (its PIN is in secure storage), so a backup never changes it.
+          const row = await txn.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'lockEnabled'");
+          let lockEnabled = defaultSettings().lockEnabled;
+          try {
+            if (row) lockEnabled = JSON.parse(row.value) === true;
+          } catch {
+            // a corrupt value means off
+          }
           await clearAll(txn);
-          await writeSettings(txn, { ...defaultSettings(), ...data.settings });
+          await writeSettings(txn, { ...defaultSettings(), ...data.settings, lockEnabled });
           for (const c of data.categories) await writeCategory(txn, c);
           for (const r of data.recurring) await writeRecurring(txn, r);
           for (const o of data.overrides) await writeOverride(txn, o);
