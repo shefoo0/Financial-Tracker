@@ -90,6 +90,17 @@ name: Add a loan
 - assertVisible: "AED 20,000.00"
 - assertVisible: "AED 1,500.00"
 # Home: the payment is under "Coming up".
+# Debts is a screen above the tabs: go back to the tabs first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Plan"
 - tapOn: "Home"
 - assertVisible:
     id: dashboard-screen

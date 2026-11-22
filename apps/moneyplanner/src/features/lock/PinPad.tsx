@@ -101,6 +101,18 @@ export function PinPad({
           />
         ))}
       </Animated.View>
+      {/* The confirm button sits right under the dots, above the keys, so it is
+          on screen even on small phones (below the keypad it scrolled out of view). */}
+      {!auto ? (
+        <View style={{ alignSelf: 'stretch' }}>
+          <Button label={submitLabel} onPress={() => submit(pin)} disabled={disabled || pin.length < minLength} testID={`${prefix}-submit`} />
+        </View>
+      ) : null}
+      {!auto && pin.length < minLength ? (
+        <T variant="caption" tone="secondary">
+          {`Use ${minLength} to ${maxLength} digits.`}
+        </T>
+      ) : null}
       <View style={{ gap: Spacing.three }}>
         {rows.map((row) => (
           <View key={row[0]} style={{ flexDirection: 'row', gap: Spacing.four }}>
@@ -113,16 +125,7 @@ export function PinPad({
           {key('⌫', () => setPin((p) => p.slice(0, -1)), 'Delete last digit', `${prefix}-delete`, pin.length > 0)}
         </View>
       </View>
-      {!auto ? (
-        <View style={{ alignSelf: 'stretch' }}>
-          <Button label={submitLabel} onPress={() => submit(pin)} disabled={disabled || pin.length < minLength} testID={`${prefix}-submit`} />
-        </View>
-      ) : null}
-      {!auto && pin.length < minLength ? (
-        <T variant="caption" tone="secondary">
-          {`Use ${minLength} to ${maxLength} digits.`}
-        </T>
-      ) : null}
+
     </View>
   );
 }

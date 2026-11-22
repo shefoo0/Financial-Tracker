@@ -610,7 +610,8 @@ export function Stat({ label, value, tone, testID }: { label: string; value: str
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: Spacing.six },
+  // Room to scroll the last item clear of the tab bar (it covered Settings' last button on Android).
+  scrollContent: { flexGrow: 1, paddingBottom: 120 },
   screenInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.three },
   screenHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.two },
