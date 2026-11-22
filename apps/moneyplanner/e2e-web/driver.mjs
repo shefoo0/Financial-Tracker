@@ -13,6 +13,7 @@ export class Driver {
     this.page.on('pageerror', (e) => this.problems.push({ at: this.current, kind: 'pageerror', text: String(e.stack || e).split('\n').slice(0, 4).join(' | ') }));
     this.page.on('console', (m) => { if (m.type() === 'error') this.problems.push({ at: this.current, kind: 'console.error', text: m.text().slice(0, 400) + (m.location()?.url ? ` @ ${m.location().url.split('/').pop()}:${m.location().lineNumber}` : '') }); });
     await this.page.goto(url);
+    await this.page.waitForSelector('[data-testid="onboarding-screen"]', { timeout: 20000 });
   }
   async close() { await this.browser?.close(); }
 
@@ -23,7 +24,8 @@ export class Driver {
     let l;
     if (typeof target === 'string' && target.startsWith('#')) l = p.locator(`[data-testid="${target.slice(1)}"]`);
     else l = p.getByText(target, { exact: !!opts.exact });
-    l = l.locator('visible=true');
+    // Screens below the open one stay in the page but are marked inert: ignore anything inside them.
+    l = l.and(p.locator(':not([inert] *):not([inert])')).filter({ visible: true });
     return opts.nth != null ? l.nth(opts.nth) : opts.last ? l.last() : l.first();
   }
   async tap(target, opts = {}) {
@@ -34,7 +36,7 @@ export class Driver {
     await this.settle();
   }
   async tapLabel(label, opts = {}) { // accessibility label (buttons in this app carry their label)
-    const l = this.page.getByLabel(label, { exact: opts.exact ?? true }).locator('visible=true').first();
+    const l = this.page.getByLabel(label, { exact: opts.exact ?? true }).filter({ visible: true }).first();
     await l.waitFor({ state: 'visible', timeout: 5000 }).catch(() => { throw new Error(`no control labelled "${label}" within 5s`); });
     await l.scrollIntoViewIfNeeded().catch(() => {});
     await l.click();
@@ -79,17 +81,27 @@ export class Driver {
   }
 }
 
-// Get back to a tab screen before a new section (a failed section may have left a form open).
+// Get back to a tab screen before a new section (a failed section may have left a form or sheet open).
 Driver.prototype.recover = async function () {
   for (let i = 0; i < 4; i++) {
-    if (await this.page.locator('[role=tablist] , [role=tab]').locator('visible=true').count()) {
-      const home = this.page.getByRole('tab', { name: /Home/ }).first();
-      if (await home.count()) { await home.click().catch(() => {}); await this.settle(); }
-      return;
-    }
+    if (await this.page.locator('[data-testid="onboarding-screen"], [data-testid="lock-screen"]').filter({ visible: true }).count()) return;
+    const tab = this.page.getByRole('tab', { name: /Home/ }).filter({ visible: true }).first();
+    if (await tab.count()) { await tab.click().catch(() => {}); await this.settle(); return; }
     await this.page.keyboard.press('Escape').catch(() => {});
-    const back = this.page.locator('[role=button]:visible', { hasText: /^(Back|Plan|Home)?$/ }).first();
-    await this.page.goBack().catch(() => {});
+    await this.page.evaluate(() => history.back());
     await this.settle(300);
   }
+};
+
+Driver.prototype.tab = async function (name) {
+  const t = this.page.getByRole('tab', { name }).filter({ visible: true }).first();
+  await t.waitFor({ state: 'visible', timeout: 5000 }).catch(() => { throw new Error(`tab "${name}" not found within 5s`); });
+  await t.click();
+  await this.settle(200);
+};
+/** Press the stack header's back control (or the browser back if the header has none). */
+Driver.prototype.back = async function () {
+  const b = this.page.getByRole('button', { name: /^(Back|Plan|Home|Settings|Month)$/ }).filter({ visible: true }).first();
+  if (await b.count()) await b.click(); else await this.page.evaluate(() => history.back());
+  await this.settle(300);
 };

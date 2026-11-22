@@ -17,8 +17,65 @@ add('1 Wizard', async (d, step) => {
   await step('start -> Home with balance', async () => {
     await d.tap('#onboarding-start');
     await d.see('#dashboard-screen');
-    await d.see('Balance today: AED 6,500.00');
+    await d.see('AED 6,500', { exact: true }); await d.see('Coming up'); await d.see('Salary', { exact: true });
     await d.shot('home-after-wizard');
-    await d.dump('home');
+  });
+});
+
+add('2 Plan: recurring items', async (d, step) => {
+  await step('Plan tab lists salary with totals', async () => {
+    await d.tab('Plan'); await d.see('Income and costs that repeat'); await d.see('Salary');
+    await d.seeText('#plan-total-income', /18,000\.00/); await d.shot('plan-with-salary');
+  });
+  await step('add cost Rent 9500 on day 1', async () => {
+    await d.tap('#plan-add-cost'); await d.see('#recurring-screen');
+    await d.type('#recurring-name', 'Rent'); await d.type('#recurring-amount', '9500'); await d.type('#recurring-day', '1');
+    await d.shot('rent-form'); await d.tap('#recurring-save-bottom');
+    await d.see('#plan-screen'); await d.notSee('#recurring-screen');
+  });
+  await step('Rent and cost total shown on Plan', async () => {
+    await d.see('Rent'); await d.seeText('#plan-total-cost', /9,500\.00/); await d.shot('plan-with-rent');
+  });
+  await step('Home Coming up shows Rent', async () => {
+    await d.tab('Home'); await d.see('#dashboard-upcoming'); await d.see('Rent', { exact: true }); await d.shot('home-with-rent');
+  });
+  await step('edit Rent amount to 9600', async () => {
+    await d.tab('Plan'); await d.tap('Rent'); await d.see('#recurring-screen');
+    await d.type('#recurring-amount', '9600'); await d.tap('#recurring-save-bottom');
+    await d.see('#plan-screen'); await d.seeText('#plan-total-cost', /9,600\.00/);
+  });
+  await step('Discard changes? prompt: keep editing, then discard', async () => {
+    await d.clearAlerts();
+    await d.tap('Rent'); await d.see('#recurring-screen');
+    await d.type('#recurring-amount', '1111'); await d.back();
+    const a = await d.alerts();
+    if (!a.some((x) => x.title === 'Discard changes?')) throw new Error('leaving a changed form did not ask "Discard changes?" (alerts: ' + JSON.stringify(a) + ')');
+    await d.see('#recurring-screen');
+    await d.alertPick('Discard'); await d.back();
+    await d.see('#plan-screen'); await d.notSee('#recurring-screen');
+    await d.seeText('#plan-total-cost', /9,600\.00/);
+    await d.clearAlerts();
+  });
+  await step('add and delete a cost (Gym 200)', async () => {
+    await d.tap('#plan-add-cost'); await d.type('#recurring-name', 'Gym'); await d.type('#recurring-amount', '200');
+    await d.tap('#recurring-save-bottom'); await d.see('Gym');
+    await d.seeText('#plan-total-cost', /9,800\.00/);
+    await d.tap('Gym'); await d.see('#recurring-screen');
+    await d.alertPick('Delete'); await d.tap('#recurring-delete');
+    await d.see('#plan-screen'); await d.notSee('Gym', { exact: true }); await d.seeText('#plan-total-cost', /9,600\.00/);
+    await d.clearAlerts(); await d.shot('plan-after-delete');
+  });
+  await step('weekly and yearly schedule types save', async () => {
+    await d.tap('#plan-add-cost'); await d.type('#recurring-name', 'Groceries'); await d.type('#recurring-amount', '300');
+    await d.tap('#recurring-schedule-weekly'); await d.see('Weekly items happen'); await d.tap('#recurring-save-bottom');
+    await d.see('Groceries');
+    await d.tap('#plan-add-cost'); await d.type('#recurring-name', 'Insurance'); await d.type('#recurring-amount', '1200');
+    await d.tap('#recurring-schedule-yearly'); await d.tap('#recurring-save-bottom'); await d.see('Insurance');
+  });
+  await step('skip and move one payment of Rent', async () => {
+    await d.tap('Rent'); await d.see('#recurring-screen'); await d.see('Upcoming', { exact: true });
+    await d.tap('#occurrence-skip-0'); await d.see('#occurrence-unskip-0'); await d.shot('rent-skipped');
+    await d.tap('#occurrence-unskip-0'); await d.see('#occurrence-skip-0');
+    await d.tap('#occurrence-move-0');
   });
 });

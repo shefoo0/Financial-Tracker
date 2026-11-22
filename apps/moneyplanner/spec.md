@@ -96,6 +96,20 @@ Currency label (AED), salary amount and payday, current bank balance, a "buffer"
 - **Profiles on one phone:** for a partner or a shared household budget. The profile button (avatar + name ▾) on the dashboard opens the **profile switcher** sheet: the list of profiles (avatar, name, tick on the open one), **Add profile**, **Manage profiles**, and the Appearance switch. Each profile has completely separate data (its own plan, one-time items, categories and settings, and its own backup, export and "delete all data"), stored in its own database. A new profile starts with the setup wizard. Profiles: up to 6, names 1-24 characters, a colour for the avatar; rename, recolour and delete (with a typed confirmation; the open profile and the last profile can't be deleted). Existing data becomes the first profile, "Me". No sign-in and no sync: everything stays on the phone. A per-profile PIN or Face ID lock comes with the lock in milestone 2.
 - **No money accounts** (bank, card, cash balances): the developer decided against them; the forecast keeps a single starting balance per profile.
 
+### 13. Reports (quarterly and yearly, Pro)
+Company-style reports for a person, so they can track how they're doing and see where to improve (facts only, never advice).
+- **Periods:** each calendar quarter (Q1-Q4) and each year; the current period is "so far".
+- **Summary:** income, spending, saved (income − spending) and savings rate, each vs the previous quarter and the same quarter last year (▲/▼ %).
+- **Income statement:** income by source and spending by category, with the change vs the previous period.
+- **Cash flow:** balance at the start and end, and what moved it (salary, recurring costs, one-time items, debt payments, cheques).
+- **Debts:** owed at the start and end, paid off, estimated interest, debt-to-income % trend, debt-free date then vs now.
+- **Key figures:** savings rate, debt-to-income, spending as % of income, biggest category, fixed vs flexible costs, months of buffer.
+- **Highlights:** up to 5 factual lines, e.g. "Dining rose 32% vs Q2 (+AED 840)", "Car loan: 9 payments left".
+- **Year in review** (yearly report): the 4 quarters side by side and the best and worst month.
+- **Where:** a Reports card on Home → list of periods → report screen; **PDF** save/share with `expo-print` + `expo-sharing` (free).
+- **Pro only** (developer's decision): everything in Reports needs the one-time Pro unlock. Free users see a Reports card that opens a **sample report** built from demo numbers (clearly labelled "Sample"), so they can see what they get before buying — never their own figures.
+- Reports use the data in the app (plan + recorded items); after statement import (milestone 3) they reflect real transactions.
+
 ## Data model (SQLite via `expo-sqlite`, money in integer fils)
 
 - `settings` (key/value): currency, payday, buffer, thresholds, enabled modules, onboarding done, lock enabled

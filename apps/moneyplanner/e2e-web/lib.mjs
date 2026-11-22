@@ -35,11 +35,12 @@ export async function patchAlert(dir) {
   let patched = 0;
   for (const f of await readdir(js)) {
     if (!f.startsWith('entry-')) continue;
-    const p = join(js, f);
+    const p = join(js, f); const p2 = () => p;
     let t = await readFile(p, 'utf8');
     const needle = 'class{static alert(){}}';
+    if (t.includes('__alertPick')) { if (t.includes('y.text===p')) { t = t.replace('y.text===p', '[].concat(p).indexOf(y.text)>=0'); await writeFile(p2(f), t); } patched++; continue; }
     if (t.includes(needle)) {
-      t = t.replace(needle, 'class{static alert(t,m,b){var w=window;(w.__alerts=w.__alerts||[]).push({title:t,message:m,buttons:(b||[]).map(function(x){return x.text})});var p=w.__alertPick;if(p){var x=(b||[]).find(function(y){return y.text===p});if(x&&x.onPress){setTimeout(function(){x.onPress()},0)}}}}');
+      t = t.replace(needle, 'class{static alert(t,m,b){var w=window;(w.__alerts=w.__alerts||[]).push({title:t,message:m,buttons:(b||[]).map(function(x){return x.text})});var p=w.__alertPick;if(p){var x=(b||[]).find(function(y){return [].concat(p).indexOf(y.text)>=0});if(x&&x.onPress){setTimeout(function(){x.onPress()},0)}}}}');
       await writeFile(p, t); patched++;
     }
   }

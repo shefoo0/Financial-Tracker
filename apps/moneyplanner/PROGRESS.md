@@ -34,6 +34,7 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - [ ] **"Safe to spend until payday"** on Home (the loved Rocket Money "Payday view": what's left after bills until the next salary) — the clearest everyday reason to open the app.
 - [ ] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
 - [ ] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
+- [ ] **Quarterly and yearly reports** (spec §13, Pro; free users see a labelled sample report) with PDF export — no competitor offers company-style personal reports.
 - [ ] First use in under 60 seconds to a useful forecast (time the wizard in the walkthrough).
 - [ ] UX audit of every screen from the walkthrough screenshots (light + dark, one-handed reach, empty states, wording, tap targets, numbers readable at a glance) — fix every major item.
 - [ ] Statement import with good OCR (M3) — competitors' OCR is "garbage" and paywalled; ours must read totals correctly and be free to try.
@@ -50,6 +51,8 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - Routes live in `src/app/` (SDK 58 template), not `app/` as the spec's task table says.
 
 - Redesign: Bold cards + Glass fintech, light and dark with an Appearance setting; profiles on one phone, one database per profile (the first keeps moneyplanner.db, so no data migration); no money accounts; no version bump (1.0.0 isn't released yet).
+
+- Reports are Pro only (developer's choice); a sample report with demo numbers shows free users what they get.
 
 ## Open findings
 - Privacy policy URL (`src/features/settings/links.ts`) is filled at release; the repo is private, so GitHub Pages needs a public repo for the pages.
