@@ -116,6 +116,139 @@ export interface Settings {
   lockEnabled: boolean;
 }
 
+// ---- Debts (milestone 2) ----
+
+export type DebtType = 'loan' | 'card' | 'plan';
+
+interface DebtBase {
+  id: string;
+  type: DebtType;
+  /** Free text: "Car loan", "Visa card". No bank names or logos are suggested. */
+  name: string;
+  note: string;
+  /** Hidden from lists and the forecast once paid off or closed; kept for history. */
+  archived: boolean;
+  createdAt: ISODate;
+}
+
+/** A loan paid in equal monthly payments. */
+export interface Loan extends DebtBase {
+  type: 'loan';
+  /** Remaining balance on `balanceDate` (after any payment on that day). */
+  balance: Fils;
+  balanceDate: ISODate;
+  monthlyPayment: Fils;
+  /** Day of the month the payment is taken (1-31; short months use their last day). */
+  paymentDay: number;
+  /** Yearly interest rate in %, informational only (e.g. 4.99). */
+  annualRatePct: number | null;
+  /** Last payment date if known; otherwise payments run until the balance is paid. */
+  endDate: ISODate | null;
+}
+
+export type CardPlan = 'full' | 'minimum' | 'fixed';
+
+export interface CreditCard extends DebtBase {
+  type: 'card';
+  limit: Fils;
+  /** Balance owed on `balanceDate`. */
+  balance: Fils;
+  balanceDate: ISODate;
+  /** Day the statement is issued (1-31) and day the payment is due (1-31). */
+  statementDay: number;
+  dueDay: number;
+  /** Minimum payment rule set by the user: max(balance x minPct%, minFloor), never more than the balance. */
+  minPct: number;
+  minFloor: Fils;
+  /** Monthly interest rate in % as printed by the bank (e.g. 3.25), used for estimates only. */
+  monthlyRatePct: number;
+  /** What the user plans to pay each due date; drives the forecast. */
+  plan: CardPlan;
+  /** Amount for plan 'fixed'. */
+  fixedAmount: Fils | null;
+}
+
+/** A 0% card instalment plan or buy-now-pay-later: equal monthly payments. */
+export interface InstalmentPlan extends DebtBase {
+  type: 'plan';
+  total: Fils;
+  monthlyAmount: Fils;
+  firstPaymentDate: ISODate;
+  /** Number of monthly payments in total. */
+  payments: number;
+  /** Optional card the plan sits on (its payments add to that card's due amount). */
+  cardId: string | null;
+}
+
+export type Debt = Loan | CreditCard | InstalmentPlan;
+
+/** A payment that really happened (the log), including partial and extra payments. */
+export interface DebtPayment {
+  id: string;
+  debtId: string;
+  date: ISODate;
+  amount: Fils;
+  kind: 'regular' | 'extra' | 'partial';
+  note: string;
+}
+
+/** Changes one scheduled payment of a loan or plan: move it, change its amount, or skip it. */
+export interface DebtOverride {
+  id: string;
+  debtId: string;
+  /** The scheduled date being changed. One override per (debtId, originalDate). */
+  originalDate: ISODate;
+  newDate: ISODate | null;
+  newAmount: Fils | null;
+  skip: boolean;
+}
+
+// ---- Cheques (milestone 2) ----
+
+export type ChequeStatus = 'upcoming' | 'cleared' | 'cancelled';
+
+export interface Cheque {
+  id: string;
+  payee: string;
+  amount: Fils;
+  /** The date on the cheque (when it can be cashed). */
+  date: ISODate;
+  /** Free text, e.g. "Rent". */
+  purpose: string;
+  status: ChequeStatus;
+  /** Cheques made with the series helper share an id, so they can be edited together. */
+  seriesId: string | null;
+  note: string;
+}
+
+// ---- Alerts (milestone 2) ----
+
+export type AlertKind =
+  | 'shortfall-zero'
+  | 'shortfall-buffer'
+  | 'debt-ratio-caution'
+  | 'debt-ratio-high'
+  | 'card-near-limit'
+  | 'cheque-uncovered'
+  | 'card-minimum-interest'
+  | 'debt-ends';
+
+export interface AppAlert {
+  /** Stable for the same situation (kind + subject + date), so notifications aren't duplicated. */
+  id: string;
+  kind: AlertKind;
+  severity: 'good' | 'info' | 'caution' | 'high';
+  /** Short, factual. Never advice ("you should..."). */
+  title: string;
+  message: string;
+  /** The date the situation happens (e.g. the shortfall day), or null for an ongoing state. */
+  date: ISODate | null;
+  /** When to send a notification for it (a day or so before `date`), or null for in-app only. */
+  notifyOn: ISODate | null;
+  /** The debt or cheque it's about, if any. */
+  refId: string | null;
+}
+
 // ---- Engine outputs ----
 
 export interface MonthSummary {
@@ -154,7 +287,7 @@ export interface ForecastEvent {
   label: string;
   kind: Kind;
   amount: Fils;
-  source: 'recurring' | 'transaction';
+  source: 'recurring' | 'transaction' | 'debt' | 'cheque';
   refId: string;
 }
 
@@ -200,4 +333,9 @@ export interface PlanInput {
   recurring: RecurringItem[];
   overrides: OccurrenceOverride[];
   transactions: Transaction[];
+  /** Milestone 2. Empty when the module is off. */
+  debts: Debt[];
+  debtPayments: DebtPayment[];
+  debtOverrides: DebtOverride[];
+  cheques: Cheque[];
 }

@@ -1,10 +1,11 @@
 // The storage contract. Owned by the lead. Implementations:
 //   src/data/sqlite/sqlite-repository.ts  (on the phone)
 //   src/data/memory/memory-repository.ts  (tests and the web preview)
-import type { Category, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type { Category, Cheque, Debt, DebtOverride, DebtPayment, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
 
 export const BACKUP_FORMAT = 'moneyplanner-backup';
-export const BACKUP_VERSION = 1;
+/** 2 adds debts, debt payments, debt overrides and cheques. Version 1 files still restore (those lists empty). */
+export const BACKUP_VERSION = 2;
 
 /** Everything the user has entered. Written to and read from backup files. */
 export interface BackupData {
@@ -16,6 +17,10 @@ export interface BackupData {
   recurring: RecurringItem[];
   overrides: OccurrenceOverride[];
   transactions: Transaction[];
+  debts: Debt[];
+  debtPayments: DebtPayment[];
+  debtOverrides: DebtOverride[];
+  cheques: Cheque[];
 }
 
 export interface Repository {
@@ -45,6 +50,26 @@ export interface Repository {
   listTransactions(range?: { from?: ISODate; to?: ISODate }): Promise<Transaction[]>;
   upsertTransaction(t: Transaction): Promise<void>;
   deleteTransaction(id: string): Promise<void>;
+
+  /** Archived debts included; screens filter. */
+  listDebts(): Promise<Debt[]>;
+  upsertDebt(debt: Debt): Promise<void>;
+  /** Also deletes the debt's payments and overrides, and unlinks plans that point at a deleted card. */
+  deleteDebt(id: string): Promise<void>;
+  /** Sorted by date, then id. */
+  listDebtPayments(debtId?: string): Promise<DebtPayment[]>;
+  upsertDebtPayment(payment: DebtPayment): Promise<void>;
+  deleteDebtPayment(id: string): Promise<void>;
+  listDebtOverrides(debtId?: string): Promise<DebtOverride[]>;
+  /** One override per (debtId, originalDate): upserting replaces it. */
+  upsertDebtOverride(override: DebtOverride): Promise<void>;
+  deleteDebtOverride(id: string): Promise<void>;
+
+  /** Sorted by date, then id. */
+  listCheques(): Promise<Cheque[]>;
+  /** Saves one or more cheques in one transaction (the series helper saves several). */
+  upsertCheques(cheques: Cheque[]): Promise<void>;
+  deleteCheque(id: string): Promise<void>;
 
   exportAll(): Promise<BackupData>;
   /** Replaces ALL data with the backup, in one transaction (all or nothing). */

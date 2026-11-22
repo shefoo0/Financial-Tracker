@@ -53,6 +53,46 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX idx_transactions_date ON transactions (date);
   CREATE INDEX idx_overrides_recurring ON occurrence_overrides (recurring_id);
   `,
+  // v2 (M2): debts (loans, cards, instalment plans), their payment log and schedule changes, cheques
+  `
+  CREATE TABLE debts (
+    id TEXT PRIMARY KEY NOT NULL,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    fields TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE debt_payments (
+    id TEXT PRIMARY KEY NOT NULL,
+    debt_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT ''
+  );
+  CREATE TABLE debt_overrides (
+    id TEXT PRIMARY KEY NOT NULL,
+    debt_id TEXT NOT NULL,
+    original_date TEXT NOT NULL,
+    new_date TEXT,
+    new_amount INTEGER,
+    skip INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (debt_id, original_date)
+  );
+  CREATE TABLE cheques (
+    id TEXT PRIMARY KEY NOT NULL,
+    payee TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    series_id TEXT,
+    note TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX idx_debt_payments_debt ON debt_payments (debt_id, date);
+  CREATE INDEX idx_cheques_date ON cheques (date);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

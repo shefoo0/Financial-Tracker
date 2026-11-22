@@ -66,7 +66,20 @@
       ],
       "expo-sqlite",
       "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Money Planner uses Face ID to unlock your profile, so only you can see its money data."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#5B4DFF"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

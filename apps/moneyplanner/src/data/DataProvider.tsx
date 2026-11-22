@@ -78,16 +78,32 @@ export function useRepoMutation<A extends unknown[], R>(write: (repo: Repository
   );
 }
 
-/** Loads everything the engine needs (settings, categories, recurring items, overrides, transactions). */
+/** Loads everything the engine needs. Debts and cheques are left out while their module is off. */
 export function usePlanInput() {
   return useRepoQuery(async (r) => {
-    const [settings, categories, recurring, overrides, transactions] = await Promise.all([
+    const [settings, categories, recurring, overrides, transactions, debts, debtPayments, debtOverrides, cheques] = await Promise.all([
       r.getSettings(),
       r.listCategories(),
       r.listRecurring(),
       r.listOverrides(),
       r.listTransactions(),
+      r.listDebts(),
+      r.listDebtPayments(),
+      r.listDebtOverrides(),
+      r.listCheques(),
     ]);
-    return { settings, categories, recurring, overrides, transactions };
+    // Modules that are off don't count anywhere (their data is kept).
+    const on = settings.enabledModules;
+    return {
+      settings,
+      categories,
+      recurring,
+      overrides,
+      transactions,
+      debts: on.debts ? debts.filter((d) => !d.archived) : [],
+      debtPayments: on.debts ? debtPayments : [],
+      debtOverrides: on.debts ? debtOverrides : [],
+      cheques: on.cheques ? cheques : [],
+    };
   });
 }

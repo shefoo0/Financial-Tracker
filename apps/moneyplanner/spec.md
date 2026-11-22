@@ -138,10 +138,19 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 ### Milestone 2 — Debts, cheques, alerts, lock
 | Task | Owns |
 | --- | --- |
-| T6 Engine: loans, cards (minimum rule, plan, interest estimate), instalment plans, cheques in the forecast; debt-to-income, utilisation, debt-free date; alert rules | `src/engine/debts/**`, `src/engine/alerts/**` |
+| T6 Engine: loans, cards (minimum rule, plan, interest estimate), instalment plans, cheques in the forecast; debt-to-income, utilisation, debt-free date; alert rules; debts and cheques in the month view and Coming up | `src/engine/**`, `src/features/dashboard/month-items.ts`, `src/features/dashboard/upcoming.ts` |
 | T7 Debts screens (list, loan/card/plan forms, payment log) | `app/debts/**`, `src/features/debts/**` |
 | T8 Cheques screens (list, series helper) | `app/cheques/**`, `src/features/cheques/**` |
-| T9 Notifications scheduler, in-app alert list, permission explainer, biometric/PIN lock | `src/features/alerts/**`, `src/features/lock/**` |
+| T9 Notifications scheduler, in-app alert list, permission explainer, biometric/PIN lock | `src/features/alerts/**`, `src/features/lock/**`, `src/app/lock*.tsx`, `src/app/(tabs)/settings.tsx` |
+| D Data: debts/payments/overrides/cheques in the SQLite and memory repositories, schema v2 migration test, backup v2 (v1 still restores), CSV export rows | `src/data/sqlite/**`, `src/data/memory/**`, `src/data/backup/**` |
+
+### Milestone 2 decisions (lead)
+- **Where things live:** Debts and Cheques are separate screens (`/debts`, `/cheques`) opened from cards on the Plan tab (and the dashboard's Coming up / alerts). The 4-tab bar stays as it is for one-handed use.
+- **Forecast:** loan payments (monthly on the payment day until the balance or end date is reached), card payments on the due day by plan (full: the statement balance; minimum: the minimum rule; fixed: the amount, capped at the balance), instalment plan payments (plans linked to a card are paid as part of that card), and upcoming cheques all count as outflows in the forecast, the month view, Coming up and the dashboard. Cleared and cancelled cheques don't count. Logged payments (the payment log) reduce balances; a logged regular payment replaces that month's scheduled one.
+- **Alerts** are computed from the forecast for the open profile only and shown in an in-app list on the dashboard. Local notifications are scheduled for the open profile (at 09:00 local time on `notifyOn`), rescheduled after every change, and cleared when switching profiles. When the profile has a lock, the notification text is generic ("A payment needs attention in Money Planner") so amounts never show on the lock screen. Permission is asked only after the explainer, when the user turns Alerts on.
+- **Lock (per profile):** a 4-6 digit PIN, with Face ID / fingerprint as a shortcut when the phone has it. The PIN is never stored: a salted SHA-256 hash is kept in the phone's secure storage (`expo-secure-store`) under the profile's id. Opening a locked profile (at launch, after switching, or after the app was in the background for over 60 seconds) shows the lock screen. Forgetting the PIN: the only way in is deleting that profile's data from the lock screen (typed confirmation), so other people's data is never exposed; the lock screen says so up front.
+- **Modules:** Debts, Cheques and Alerts switches appear in the wizard and Settings once built (`AVAILABLE_MODULES`). Turning a module off hides its data everywhere but keeps it.
+- Backup files are version 2 (debts, payments, schedule changes, cheques); version 1 files still restore.
 
 ### Milestone 3 — Statement import and OCR (native code; needs a development build)
 | Task | Owns |
