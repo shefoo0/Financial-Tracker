@@ -518,6 +518,15 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       await write((db) => db.runAsync('DELETE FROM cheques WHERE id = ?', [id]));
     },
 
+    async saveImportBatch({ transactions, importRecord, template }) {
+      await write((db) =>
+        transaction(db, async (txn) => {
+          for (const t of transactions) await writeTransaction(txn, t);
+          await writeImport(txn, importRecord);
+          if (template) await writeTemplate(txn, template);
+        }),
+      );
+    },
     async listImports() {
       return (await (await getDb()).getAllAsync<Row>('SELECT * FROM imports ORDER BY imported_at, id')).map(toImport);
     },

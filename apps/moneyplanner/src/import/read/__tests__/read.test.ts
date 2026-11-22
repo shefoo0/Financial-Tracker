@@ -1,13 +1,13 @@
 import { strToU8, zipSync } from 'fflate';
 import { fixtures } from '../../parse/fixtures-loader';
 import { readImport } from '../index';
-import { readBytes } from '../files';
+import { fileSize, readBytes } from '../files';
 import { extractPdfText } from '../../pdf';
 import { isOcrSupported, ocrImage, ocrPdfPages } from '../../ocr';
 
 jest.mock('../../ocr/native', () => ({ ocrNative: {} }));
 jest.mock('../../pdf/native', () => ({ pdfNative: {} }));
-jest.mock('../files', () => ({ readBytes: jest.fn() }));
+jest.mock('../files', () => ({ readBytes: jest.fn(), fileSize: jest.fn() }));
 jest.mock('../../pdf', () => ({ extractPdfText: jest.fn() }));
 jest.mock('../../ocr', () => ({
   ...jest.requireActual('../../ocr/index'),
@@ -121,11 +121,11 @@ describe('PDF', () => {
   });
   it('falls back to OCR for scanned PDFs and parses the OCR lines', async () => {
     pdf.mockResolvedValue({ text: '', pages: 2, needsPassword: false, isScanned: true });
-    ocrPdf.mockResolvedValue(STATEMENT.split('\n'));
+    ocrPdf.mockResolvedValue({ lines: STATEMENT.split('\n'), pagesRead: 2, truncated: false });
     const onProgress = jest.fn();
     const r = await readImport(file('scan.pdf'), { onProgress });
     expect(r).toMatchObject({ status: 'ok', fileKind: 'pdf' });
-    expect(ocrPdf).toHaveBeenCalledWith('file:///scan.pdf', 10, expect.any(Function));
+    expect(ocrPdf).toHaveBeenCalledWith('file:///scan.pdf', { totalPages: 2, onProgress: expect.any(Function) });
   });
   it('explains when a scanned PDF cannot be read here', async () => {
     pdf.mockResolvedValue({ text: '', pages: 1, needsPassword: false, isScanned: true });
@@ -163,5 +163,40 @@ describe('images', () => {
     expect(await readImport(file('a.jpg'))).toMatchObject({ status: 'error' });
     supported.mockReturnValue(false);
     expect((await readImport(file('a.jpg'))).status).toBe('unsupported');
+  });
+});
+
+describe('limits and multiple messages', () => {
+  it('refuses files over 25 MB before reading them', async () => {
+    (fileSize as jest.Mock).mockResolvedValue(26 * 1024 * 1024);
+    const r = await readImport(file('big.csv'));
+    expect(r).toMatchObject({ status: 'error' });
+    if (r.status === 'error') expect(r.message).toMatch(/25 MB/);
+    expect(bytes).not.toHaveBeenCalled();
+  });
+  it('adds a problem line when a scanned PDF was cut at 20 pages', async () => {
+    pdf.mockResolvedValue({ text: '', pages: 30, needsPassword: false, isScanned: true });
+    ocrPdf.mockResolvedValue({ lines: STATEMENT.split('\n'), pagesRead: 20, truncated: true });
+    const r = await readImport(file('scan.pdf'));
+    expect(r.status).toBe('ok');
+    if (r.status === 'ok') expect(r.result.problems).toContain('Only the first 20 pages were read — import the rest as a second file.');
+  });
+  it('keeps every pasted SMS, split by blank lines', async () => {
+    const two = `${SMS}\n\nPurchase of AED 45.50 at CARREFOUR on 03 Dec 2026 with card ending 4321.`;
+    const r = await readImport({ kind: 'text', text: two });
+    expect(r.status).toBe('ok');
+    if (r.status === 'ok') expect(r.result.rows).toHaveLength(2);
+  });
+  it('splits messages that follow each other on separate lines', async () => {
+    const text = `${SMS}\nPurchase of AED 45.50 at CARREFOUR on 03 Dec 2026 with card ending 4321.`;
+    const r = await readImport({ kind: 'text', text });
+    expect(r.status).toBe('ok');
+    if (r.status === 'ok') expect(r.result.rows).toHaveLength(2);
+  });
+  it('warns when one block holds several amounts but reads as one message', async () => {
+    const text = 'Spent AED 10.00 at A, AED 20.00 at B, AED 30.00 at C on 02 Dec 2026 card ending 4321.';
+    const r = await readImport({ kind: 'text', text });
+    expect(r.status).toBe('ok');
+    if (r.status === 'ok') expect(r.result.rows[0].warnings.join(' ')).toMatch(/several amounts/);
   });
 });

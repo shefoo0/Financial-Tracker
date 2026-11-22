@@ -91,6 +91,8 @@ export interface Repository {
   upsertCheques(cheques: Cheque[]): Promise<void>;
   deleteCheque(id: string): Promise<void>;
 
+  /** Saves an import's transactions, its record and (optionally) its column template in ONE transaction. Safe to repeat with the same ids. */
+  saveImportBatch(batch: { transactions: Transaction[]; importRecord: ImportRecord; template?: ImportTemplate | null }): Promise<void>;
   /** Finished imports, oldest first. */
   listImports(): Promise<ImportRecord[]>;
   addImport(record: ImportRecord): Promise<void>;

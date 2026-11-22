@@ -459,6 +459,28 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect((await repo.listImports()).map((i) => i.id)).toEqual(['i0', 'i1']);
       });
 
+      it('saves an import batch in one go, and repeating it with the same ids changes nothing', async () => {
+        const batch = { transactions: [txn({ id: 'a', source: 'import' as const, importId: 'i1' }), txn({ id: 'b', source: 'import' as const, importId: 'i1' })], importRecord: imp(), template: tpl() };
+        await repo.saveImportBatch(batch);
+        await repo.saveImportBatch(batch);
+        expect(await repo.listTransactions()).toHaveLength(2);
+        expect(await repo.listImports()).toEqual([imp()]);
+        expect(await repo.getImportTemplate('ENBD-march.csv')).toEqual(tpl());
+        await repo.saveImportBatch({ transactions: [], importRecord: imp({ id: 'i2', importedAt: '2026-05-01T00:00:00.000Z' }) });
+        expect((await repo.listImports()).map((i) => i.id)).toEqual(['i1', 'i2']);
+      });
+
+      it('saves nothing of an import batch when one row is invalid', async () => {
+        const bad: any = txn({ id: 'z' });
+        bad.amount = undefined; // NOT NULL in SQLite; the memory repository has no such rule
+        try {
+          await repo.saveImportBatch({ transactions: [txn({ id: 'a' }), bad], importRecord: imp() });
+        } catch {
+          expect(await repo.listTransactions()).toEqual([]);
+          expect(await repo.listImports()).toEqual([]);
+        }
+      });
+
       it('keeps one template per source name', async () => {
         expect(await repo.getImportTemplate('ENBD-march.csv')).toBeNull();
         await repo.saveImportTemplate(tpl());

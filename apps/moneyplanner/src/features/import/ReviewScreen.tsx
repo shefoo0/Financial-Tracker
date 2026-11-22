@@ -1,10 +1,11 @@
 // /import/review: every row the reader found, grouped by day, before anything is saved.
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Card, DateField, EmptyState, Pill, Screen, ScreenHeader, Sheet, T } from '@/components/ui';
-import { Radius, Spacing } from '@/constants/theme';
+import { AuroraBackground, Button, Card, DateField, EmptyState, Pill, Screen, ScreenHeader, Sheet, T } from '@/components/ui';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useTheme } from '@/hooks/use-theme';
 import { learnRule, type CategoryRule } from '@/import/parse';
@@ -18,9 +19,11 @@ import { ImportProLocked } from './ProLocked';
 import {
   applyCategoryToSimilar,
   buildReviewRows,
+  flipAll,
   flipKind,
   groupByDate,
   isLowConfidence,
+  looksLikeCardExport,
   lowConfidenceReason,
   merchantName,
   setAllSelected,
@@ -70,7 +73,7 @@ function RowView({
   const money = `${row.kind === 'income' ? '+' : '-'}${formatMoney(row.amount, currency)}`;
   const moneyWords = `${row.kind === 'income' ? 'Income' : 'Spending'} ${formatMoney(row.amount, currency)}`;
   return (
-    <View testID={`review-row-${i}`} style={[styles.row, { borderBottomColor: c.border }, !row.selected && { opacity: 0.6 }]}>
+    <View testID={`review-row-${i}`} style={[styles.row, { borderBottomColor: c.border, backgroundColor: c.glass }, !row.selected && { opacity: 0.6 }]}>
       <View style={styles.rowTop}>
         <Pressable
           onPress={onToggle}
@@ -78,11 +81,12 @@ function RowView({
           accessibilityState={{ checked: row.selected }}
           accessibilityLabel={`Import ${row.description}`}
           testID={`review-toggle-${i}`}
-          hitSlop={6}
-          style={[styles.box, { borderColor: row.selected ? c.accent : c.textSecondary, backgroundColor: row.selected ? c.accent : 'transparent' }]}>
-          <T variant="label" style={{ color: row.selected ? c.onAccent : 'transparent' }} accessibilityLabel="">
-            ✓
-          </T>
+          style={styles.hit}>
+          <View style={[styles.box, { borderColor: row.selected ? c.accent : c.textSecondary, backgroundColor: row.selected ? c.accent : 'transparent' }]}>
+            <T variant="label" style={{ color: row.selected ? c.onAccent : 'transparent' }} accessibilityLabel="">
+              ✓
+            </T>
+          </View>
         </Pressable>
         <Pressable
           onPress={onExpand}
@@ -421,13 +425,14 @@ export default function ReviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  row: { paddingVertical: Spacing.two, gap: Spacing.one, borderBottomWidth: StyleSheet.hairlineWidth },
+  row: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.two, gap: Spacing.one, borderBottomWidth: StyleSheet.hairlineWidth },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  hit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   box: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   main: { flex: 1, minHeight: 44, justifyContent: 'center', gap: 2 },
   pills: { flexDirection: 'row', gap: Spacing.one, flexWrap: 'wrap' },
-  category: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three, borderWidth: 1, borderRadius: Radius.pill, marginLeft: 36 },
-  fixes: { gap: Spacing.two, marginLeft: 36, marginTop: Spacing.one },
+  category: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three, borderWidth: 1, borderRadius: Radius.pill, marginLeft: 52 },
+  fixes: { gap: Spacing.two, marginLeft: 52, marginTop: Spacing.one },
   actions: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: Spacing.three, gap: Spacing.two, borderTopWidth: 1 },
   option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.two, borderRadius: Radius.sm },

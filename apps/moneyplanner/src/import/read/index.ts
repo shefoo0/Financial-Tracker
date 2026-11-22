@@ -1,8 +1,8 @@
 import { parseCsv, parseOfx, parseSmsText, parseStatementText, parseXlsx } from '../parse';
 import type { ParseResult } from '../parse';
-import { isOcrSupported, ocrImage, ocrPdfPages, OcrError } from '../ocr';
+import { isOcrSupported, ocrImage, ocrPdfPages, OcrError, TRUNCATED_MESSAGE } from '../ocr';
 import { extractPdfText } from '../pdf';
-import { readBytes } from './files';
+import { fileSize, readBytes } from './files';
 
 export type FileKind = 'csv' | 'xlsx' | 'ofx' | 'pdf' | 'image' | 'text';
 
@@ -24,7 +24,8 @@ export type ReadOutcome =
 export const PASSWORD_MESSAGE =
   "This PDF is protected. Enter its password (often your date of birth or card digits — check your bank's email).";
 const EMPTY_MESSAGE = 'No transactions were found. Check that this is a statement, or try a different export (CSV is the most reliable).';
-const MAX_OCR_PAGES = 10;
+export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const TOO_BIG_MESSAGE = 'This file is larger than 25 MB, which is too big to read on your phone. Export a shorter date range from your bank and try again.';
 
 const IMAGE_EXT = /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i;
 
@@ -114,6 +115,52 @@ function parseTextual(text: string): ParseResult {
   return st.rows.length > 0 ? st : better(st, parseCsv(text));
 }
 
+const SMS_OPENER =
+  /^(?:dear\b|hi\b|hello\b|aed\s*[\d,]|you have\b|your (?:a\/c|account|card|credit|debit)|(?:a )?(?:purchase|payment|transaction|txn|cash withdrawal|withdrawal|deposit|salary)\b|(?:a\/c|acct|account|card)\s*(?:no|ending|xx|\*|x)|thank you\b|spent\b|debited\b|credited\b|otp\b)/i;
+const AMOUNT_TOKEN = /(?:AED|Dhs?\.?|USD|SAR|EUR|GBP)\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:AED|Dhs?\b)/gi;
+
+/** Splits pasted text into separate bank messages: blank lines first, then lines that start like a new SMS. */
+export function splitMessages(text: string): string[] {
+  const blocks = text.split(/\r?\n\s*\r?\n/).map((b) => b.trim()).filter(Boolean);
+  const out: string[] = [];
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length > 1 && lines.filter((l) => SMS_OPENER.test(l)).length >= 2) {
+      let cur: string[] = [];
+      for (const l of lines) {
+        if (SMS_OPENER.test(l) && cur.length > 0) {
+          out.push(cur.join(' '));
+          cur = [];
+        }
+        cur.push(l);
+      }
+      if (cur.length) out.push(cur.join(' '));
+    } else out.push(block);
+  }
+  return out;
+}
+
+/** Parses each message with parseSmsText and merges the rows. */
+function parseMessages(messages: string[]): ParseResult {
+  const merged: ParseResult = { rows: [], source: 'text', problems: [] };
+  for (const m of messages) {
+    const r = parseSmsText(m);
+    if (r.rows.length > 0) {
+      const amounts = new Set((m.match(AMOUNT_TOKEN) ?? []).map((a) => a.replace(/[^\d.]/g, '')));
+      if (amounts.size > 2 && messages.length === 1) {
+        const w = 'This text has several amounts but was read as one message. Check it, or paste each message separately.';
+        r.rows.forEach((row) => row.warnings.push(w));
+        r.problems.push(w);
+      }
+    }
+    merged.rows.push(...r.rows);
+    merged.problems.push(...r.problems.filter((p) => r.rows.length > 0 || messages.length === 1));
+    merged.account ??= r.account;
+    merged.currency ??= r.currency;
+  }
+  return merged;
+}
+
 function done(result: ParseResult, sourceName: string, fileKind: FileKind): ReadOutcome {
   if (result.rows.length === 0) {
     return { status: 'empty', message: result.problems[0] ? `${EMPTY_MESSAGE} (${result.problems[0]})` : EMPTY_MESSAGE };
@@ -130,6 +177,7 @@ async function readPdf(uri: string, name: string, opts: ReadOptions): Promise<Re
   }
   if (pdf.error && !pdf.unavailable) return { status: 'error', message: pdf.error };
   let text = pdf.text;
+  let truncated = false;
   if (pdf.unavailable || pdf.isScanned) {
     // Scanned (or no text reader): render pages and read them as pictures.
     if (!isOcrSupported()) {
@@ -139,14 +187,20 @@ async function readPdf(uri: string, name: string, opts: ReadOptions): Promise<Re
       return { status: 'error', message: 'This protected PDF has no readable text (it looks scanned). Save an unprotected copy, or screenshot its pages and import the screenshots.' };
     }
     try {
-      const lines = await ocrPdfPages(uri, MAX_OCR_PAGES, (d, t) => opts.onProgress?.({ step: 'ocr', done: d, total: t }));
-      text = lines.join('\n');
+      const ocr = await ocrPdfPages(uri, {
+        totalPages: pdf.pages,
+        onProgress: (d, t) => opts.onProgress?.({ step: 'ocr', done: d, total: t }),
+      });
+      text = ocr.lines.join('\n');
+      truncated = ocr.truncated;
     } catch (e) {
       return { status: 'error', message: e instanceof OcrError ? e.message : 'The PDF pages could not be read.' };
     }
   }
   if (!text.trim()) return { status: 'empty', message: EMPTY_MESSAGE };
-  return done(parseStatementText(text), name, 'pdf');
+  const parsed = parseStatementText(text);
+  if (truncated) parsed.problems.push(TRUNCATED_MESSAGE);
+  return done(parsed, name, 'pdf');
 }
 
 async function readImage(uri: string, name: string, opts: ReadOptions): Promise<ReadOutcome> {
@@ -172,19 +226,24 @@ export async function readImport(input: ImportInput, opts: ReadOptions = {}): Pr
       if (!text.trim()) return { status: 'empty', message: 'There is no text to read.' };
       const name = 'Shared text';
       if (looksLikeOfx(text)) return done(parseOfx(text), name, 'ofx');
-      const sms = parseSmsText(text);
-      if (sms.rows.length > 0 && nonEmptyLines(text).length < 3) return done(sms, name, 'text');
+      const messages = splitMessages(text);
+      const sms = parseMessages(messages);
+      if (messages.length === 1 && nonEmptyLines(text).length < 3) return done(sms, name, 'text');
       if (nonEmptyLines(text).length >= 2) {
         const full = parseTextual(text);
-        return done(full.rows.length > 0 || sms.rows.length === 0 ? better(sms, full) : sms, name, 'text');
+        // A real statement parses to more rows than the per-message reading; otherwise keep the messages.
+        return done(full.rows.length > sms.rows.length ? full : sms, name, 'text');
       }
       return done(sms, name, 'text');
     }
 
+    const size = await fileSize(input.uri);
+    if (size !== null && size > MAX_FILE_BYTES) return { status: 'error', message: TOO_BIG_MESSAGE };
     let kind = kindFromName(input.name, input.mimeType);
     let bytes: Uint8Array | null = null;
     if (kind === null || kind === 'text') {
       bytes = await readBytes(input.uri);
+      if (bytes.length > MAX_FILE_BYTES) return { status: 'error', message: TOO_BIG_MESSAGE };
       const sniffed = kindFromBytes(bytes);
       if (sniffed) kind = sniffed;
       else if (kind === null) kind = 'text';

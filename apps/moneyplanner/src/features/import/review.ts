@@ -1,6 +1,6 @@
 // Pure logic of the review screen: rows with their suggested category, duplicates, fixes and the totals.
 import type { CategoryRule, ParsedRow } from '@/import/parse';
-import { applySimilar, dedupe, merchantKey, suggestCategory } from '@/import/parse';
+import { dedupe, merchantKey, suggestCategory } from '@/import/parse';
 import type { Category, Fils, ISODate, Kind, Transaction } from '@/types';
 
 /** Rows below this confidence are shown with "Check this". */
@@ -22,6 +22,10 @@ export interface ReviewRow {
   raw: string;
   /** The user fixed the date or direction, so the warning no longer applies. */
   fixed: boolean;
+  /** Merchant key, worked out once (used to find similar rows). */
+  key: string;
+  /** The user chose this row's category by hand: "apply to similar" leaves it alone. */
+  manual: boolean;
 }
 
 /** The category suggested for a row: the user's rules first, then built-in words; only one of the right kind (income or cost). */
@@ -47,6 +51,8 @@ export function buildReviewRows(rows: ParsedRow[], existing: Transaction[], rule
     warnings: r.warnings,
     raw: r.raw,
     fixed: false,
+    key: merchantKey(r.description),
+    manual: false,
   }));
 }
 
@@ -83,23 +89,43 @@ export function setDate(rows: ReviewRow[], index: number, date: ISODate): Review
 }
 
 export function setCategory(rows: ReviewRow[], index: number, categoryId: string | null): ReviewRow[] {
-  return rows.map((r) => (r.index === index ? { ...r, categoryId } : r));
+  return rows.map((r) => (r.index === index ? { ...r, categoryId, manual: true } : r));
+}
+
+/** Same merchant: equal keys, or one key's words are the start of the other's (like sameMerchant, on keys already worked out). */
+function sameKey(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const ta = a.split(' ');
+  const tb = b.split(' ');
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  return short.every((w, i) => long[i] === w);
 }
 
 /** Indexes (file positions) of the other rows of the same merchant and direction. */
 export function similarIndexes(rows: ReviewRow[], index: number): number[] {
-  const at = rows.findIndex((r) => r.index === index);
-  if (at < 0) return [];
-  return applySimilar(rows, at, null)
-    .map((x) => rows[x.index])
-    .filter((r) => r.kind === rows[at].kind)
-    .map((r) => r.index);
+  const base = rows.find((r) => r.index === index);
+  if (!base) return [];
+  return rows.filter((r) => r.index !== index && r.kind === base.kind && sameKey(base.key, r.key)).map((r) => r.index);
 }
 
-/** Gives every row like `index` (same merchant, same direction) the category of that row. */
+/** Gives every row like `index` (same merchant, same direction) the category of that row, except rows the user set by hand. */
 export function applyCategoryToSimilar(rows: ReviewRow[], index: number, categoryId: string | null): ReviewRow[] {
   const same = new Set(similarIndexes(rows, index));
-  return rows.map((r) => (same.has(r.index) ? { ...r, categoryId } : r));
+  return rows.map((r) => (same.has(r.index) && !r.manual ? { ...r, categoryId } : r));
+}
+
+/** Switches every row between income and spending (card exports often show purchases as positive). */
+export function flipAll(rows: ReviewRow[], rules: CategoryRule[], categories: Category[]): ReviewRow[] {
+  return rows.map((r) => {
+    const kind: Kind = r.kind === 'income' ? 'cost' : 'income';
+    return { ...r, kind, categoryId: r.manual ? null : suggestFor(r.description, kind, rules, categories), manual: false, fixed: true };
+  });
+}
+
+/** True when the source looks like a card statement whose signs may be the wrong way round. */
+export function looksLikeCardExport(sourceName: string, rows: ReviewRow[]): boolean {
+  if (/card|visa|master|amex|credit/i.test(sourceName)) return true;
+  return rows.length >= 3 && rows.filter((r) => r.kind === 'income').length / rows.length > 0.6;
 }
 
 export interface ReviewSummary {
@@ -136,11 +162,11 @@ export function groupByDate(rows: ReviewRow[]): DateGroup[] {
 }
 
 /** The transactions an import saves: only ticked rows, as real (not planned) items marked as imported. */
-export function toTransactions(rows: ReviewRow[], importId: string, makeId: () => string): Transaction[] {
+export function toTransactions(rows: ReviewRow[], importId: string, idFor: (index: number) => string): Transaction[] {
   return rows
     .filter((r) => r.selected)
     .map((r) => ({
-      id: makeId(),
+      id: idFor(r.index),
       kind: r.kind,
       date: r.date,
       description: r.description,

@@ -217,6 +217,14 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       cheques = cheques.filter((c) => c.id !== id);
     },
 
+    async saveImportBatch({ transactions: list, importRecord, template }) {
+      for (const t of clone(list)) upsertById(transactions, t);
+      upsertById(imports, clone(importRecord));
+      if (template) {
+        importTemplates = importTemplates.filter((x) => x.sourceName !== template.sourceName);
+        importTemplates.push(clone(template));
+      }
+    },
     async listImports() {
       return clone([...imports].sort((a, b) => (a.importedAt === b.importedAt ? (a.id < b.id ? -1 : 1) : a.importedAt < b.importedAt ? -1 : 1)));
     },
