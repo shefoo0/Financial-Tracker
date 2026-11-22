@@ -86,11 +86,11 @@ describe('profile switcher', () => {
     expect(screen.queryByTestId('profile-add')).toBeNull();
   });
 
-  it('changes the appearance and opens Manage profiles', async () => {
+  it('has no appearance switch (that lives in Settings) and opens Manage profiles', async () => {
     await renderApp(<ProfileButton />);
     await fireEvent.press(screen.getByTestId('profile-button'));
-    await fireEvent.press(await screen.findByTestId('appearance-segmented-dark'));
-    await waitFor(() => expect(probe().endsWith('|dark')).toBe(true));
+    expect(await screen.findByTestId('profile-manage')).toBeTruthy();
+    expect(screen.queryByTestId('appearance-segmented-dark')).toBeNull();
     await fireEvent.press(screen.getByTestId('profile-manage'));
     expect(router.push).toHaveBeenCalledWith('/profiles');
   });
@@ -114,17 +114,10 @@ describe('manage profiles', () => {
     }
   }
 
-  it('does not offer delete for the only profile', async () => {
+  it('offers delete for the only profile and for the open one', async () => {
     await renderApp(<ManageProfilesScreen />);
-    expect(screen.queryByTestId('profile-delete-0')).toBeNull();
-    expect(screen.getByText(/only profile/)).toBeTruthy();
-  });
-
-  it('does not offer delete for the open profile', async () => {
-    await withTwoProfiles('Layla');
-    expect(screen.queryByTestId('profile-delete-1')).toBeNull();
-    expect(screen.getByText(/open now, so it cannot be deleted/)).toBeTruthy();
     expect(screen.getByTestId('profile-delete-0')).toBeTruthy();
+    expect(screen.queryByText(/cannot be deleted/)).toBeNull();
   });
 
   it('renames a profile and validates the name', async () => {
@@ -143,7 +136,7 @@ describe('manage profiles', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await withTwoProfiles('Me');
     await fireEvent.press(screen.getByTestId('profile-delete-1'));
-    expect(await screen.findByText(/deleted permanently/)).toBeTruthy();
+    expect(await screen.findByText(/safety copy is kept for 7 days/)).toBeTruthy();
     const confirm = screen.getByTestId('profile-delete-confirm');
     expect(confirm.props.accessibilityState.disabled).toBe(true);
     await fireEvent.changeText(screen.getByTestId('profile-delete-input'), 'Lay');
@@ -155,5 +148,27 @@ describe('manage profiles', () => {
     });
     await waitFor(() => expect(probe()).toBe('Me|Me|system'));
     expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('deletes the open profile and opens the other one', async () => {
+    await withTwoProfiles('Layla');
+    await fireEvent.press(screen.getByTestId('profile-delete-1'));
+    expect(await screen.findByText(/another profile opens afterwards/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('profile-delete-input'), 'Layla');
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('profile-delete-confirm'));
+    });
+    await waitFor(() => expect(probe()).toBe('Me|Me|system'));
+  });
+
+  it('deleting the only profile starts a fresh "Me" with no data', async () => {
+    await renderApp(<ManageProfilesScreen />);
+    await fireEvent.press(screen.getByTestId('profile-delete-0'));
+    expect(await screen.findByText(/only profile: a new empty profile "Me" starts/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('profile-delete-input'), 'Me');
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('profile-delete-confirm'));
+    });
+    await waitFor(() => expect(probe()).toBe('Me|Me|system'));
   });
 });

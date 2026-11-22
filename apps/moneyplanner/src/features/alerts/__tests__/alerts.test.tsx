@@ -91,7 +91,7 @@ describe('AlertScheduler', () => {
     await waitFor(() => expect(N.cancelAllScheduledNotificationsAsync).toHaveBeenCalled());
   });
 
-  it('schedules nothing when the module is off', async () => {
+  it('schedules nothing when phone notifications are off', async () => {
     await renderWithRepo(<AlertScheduler />, { settings: { ...base, enabledModules: { ...base.enabledModules, alerts: false } } });
     await waitFor(() => expect(N.cancelAllScheduledNotificationsAsync).toHaveBeenCalled(), { timeout: 4000 });
     expect(N.scheduleNotificationAsync).not.toHaveBeenCalled();
@@ -142,9 +142,10 @@ describe('AlertsCard', () => {
     expect(screen.queryByTestId('alerts-card')).toBeNull();
   });
 
-  it('renders nothing when the module is off', async () => {
+  it('still shows the alerts when phone notifications are off', async () => {
     await renderWithRepo(<AlertsCard />, { settings: { ...base, enabledModules: { ...base.enabledModules, alerts: false } } });
-    await waitFor(() => expect(screen.queryByTestId('alerts-card')).toBeNull());
+    await waitFor(() => expect(build).toHaveBeenCalled());
+    expect(await screen.findByTestId('alerts-card')).toBeTruthy();
   });
 });
 
@@ -154,7 +155,7 @@ describe('Settings -> Alerts', () => {
   it('explains first, then asks for permission, then turns alerts on', async () => {
     N.getPermissionsAsync.mockResolvedValue(undetermined);
     const { repo } = await renderWithRepo(<SettingsScreen />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-module-alerts'), 'valueChange', true);
+    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     expect(await screen.findByTestId('alerts-explainer')).toBeTruthy();
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
     expect((await repo.getSettings()).enabledModules.alerts).toBe(false);
@@ -168,7 +169,7 @@ describe('Settings -> Alerts', () => {
     N.requestPermissionsAsync.mockResolvedValue(denied);
     const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     await renderWithRepo(<SettingsScreen />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-module-alerts'), 'valueChange', true);
+    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     await fireEvent.press(await screen.findByTestId('alerts-allow'));
     expect(await screen.findByTestId('alerts-denied-text')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('alerts-open-settings'));
@@ -177,7 +178,7 @@ describe('Settings -> Alerts', () => {
 
   it('turns on without the explainer when permission is already granted, and shows the status', async () => {
     const { repo } = await renderWithRepo(<SettingsScreen />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-module-alerts'), 'valueChange', true);
+    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     await waitFor(async () => expect((await repo.getSettings()).enabledModules.alerts).toBe(true));
     expect(screen.queryByTestId('alerts-explainer')).toBeNull();
     expect(await screen.findByText('Notifications: on')).toBeTruthy();

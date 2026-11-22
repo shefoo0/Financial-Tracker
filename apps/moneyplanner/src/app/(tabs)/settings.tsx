@@ -1,4 +1,4 @@
-// Settings: money, modules, categories, backup and restore, delete, about.
+// Settings: money, alerts, lock, categories, backup, restore, export, about.
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -8,20 +8,18 @@ import { Avatar, Button, Card, EmptyState, ListRow, MoneyField, Screen, ScreenHe
 import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { exportChequesCsv, exportDebtsCsv, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { exportAllCsv, restoreBackupFromFile } from '@/data/backup';
 import { backupBeforeChange, exportBackupAndRecord, formatBackupTime } from '@/data/backup/auto';
 import { AlertsSettings } from '@/features/alerts/AlertsSettings';
 import { AutoBackupsSheet } from '@/features/backup/AutoBackupsSheet';
 import { BackupReminderCard } from '@/features/backup/BackupReminderCard';
 import { useBackupInfo } from '@/features/backup/useBackupInfo';
-import { clearProfileLock } from '@/features/lock/lockStore';
 import { LockSettings } from '@/features/lock/LockSettings';
 import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
 import {
   PAYDAY_OPTIONS,
   choiceToPayday,
-  moduleList,
   paydayForSettings,
   paydayToChoice,
   signedBalance,
@@ -30,7 +28,7 @@ import {
 import { PRIVACY_POLICY_URL } from '@/features/settings/links';
 import { formatDate, today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
-import type { Fils, ModuleId, Settings } from '@/types';
+import type { Fils, Settings } from '@/types';
 
 const showError = (title: string, e: unknown) => Alert.alert(title, e instanceof Error ? e.message : String(e));
 
@@ -71,10 +69,7 @@ export default function SettingsScreen() {
   }
 
   const cur = settings.currency;
-  // Alerts has its own section below (switch, permission explainer, levels).
-  const moduleChoices = moduleList().filter((m) => m.id !== 'alerts');
-
-  // Start the text boxes from the saved values again (after Restore or Delete all).
+  // Start the text boxes from the saved values again (after Restore).
   const resetDrafts = () => {
     setCurrency(null);
     setCurrencyError(null);
@@ -155,39 +150,6 @@ export default function SettingsScreen() {
       if (result === 'restored') Alert.alert('Backup restored', 'Your data has been replaced with the backup.');
     });
 
-  const deleteAll = () => {
-    Alert.alert(`Delete all data in ${active.name}?`, `This removes every item, balance and setting of the profile ${active.name} from this phone. Other profiles are not touched.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Continue',
-        style: 'destructive',
-        onPress: () =>
-          Alert.alert('Are you sure?', 'A safety copy is saved on this phone for 7 days first (see Automatic backups). Save a backup file too if you might want your data again.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Delete everything',
-              style: 'destructive',
-              onPress: () =>
-                run('Could not delete', async () => {
-                  await backupBeforeChange(repo, active.id, 'before-delete');
-                  await repo.deleteAll();
-                  await clearProfileLock(active.id);
-                  await repo.updateSettings({ lockEnabled: false });
-                  resetDrafts();
-                  bump();
-                  router.replace('/onboarding');
-                }),
-            },
-          ]),
-      },
-    ]);
-  };
-
-  const toggleModule = (id: ModuleId, v: boolean) =>
-    run('Could not save', async () => {
-      await update({ enabledModules: { ...settings.enabledModules, [id]: v } });
-    });
-
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -258,24 +220,6 @@ export default function SettingsScreen() {
         <Button label="Save buffer" onPress={saveBuffer} disabled={busy || newBuffer == null} testID="settings-buffer-save" />
       </Card>
 
-      {moduleChoices.length > 0 && (
-        <>
-          <SectionHeader title="Modules" />
-          <Card>
-            {moduleChoices.map((m) => (
-              <ToggleRow
-                key={m.id}
-                label={m.label}
-                description={m.description}
-                value={settings.enabledModules[m.id]}
-                onChange={(v) => toggleModule(m.id, v)}
-                testID={`settings-module-${m.id}`}
-              />
-            ))}
-          </Card>
-        </>
-      )}
-
       <AlertsSettings settings={settings} update={update} />
       <LockSettings settings={settings} update={update} />
 
@@ -288,7 +232,7 @@ export default function SettingsScreen() {
       <BackupReminderCard testID="settings-backup-reminder" />
       <Card>
         <T variant="caption" tone="secondary" testID="settings-data-note">
-          {`Backup, restore, CSV export and delete apply to ${active.name} only, not to the other profiles.`}
+          {`Backup, restore and CSV export apply to ${active.name} only, not to the other profiles. To delete this profile and its data, use Manage profiles.`}
         </T>
         <Button label="Back up to a file" variant="secondary" disabled={busy} onPress={() => run('Backup failed', () => exportBackupAndRecord(repo, active.id))} testID="settings-backup" />
         <ListRow
@@ -303,20 +247,7 @@ export default function SettingsScreen() {
           testID="settings-auto-backups"
         />
         <Button label="Restore from a backup" variant="secondary" disabled={busy} onPress={restore} testID="settings-restore" />
-        <Button
-          label="Export one-time items as CSV"
-          variant="secondary"
-          disabled={busy}
-          onPress={() => run('Export failed', () => exportTransactionsCsv(repo))}
-          testID="settings-export-csv"
-        />
-        {settings.enabledModules.debts ? (
-          <Button label="Export debts as CSV" variant="secondary" disabled={busy} onPress={() => run('Export failed', () => exportDebtsCsv(repo))} testID="settings-export-debts-csv" />
-        ) : null}
-        {settings.enabledModules.cheques ? (
-          <Button label="Export cheques as CSV" variant="secondary" disabled={busy} onPress={() => run('Export failed', () => exportChequesCsv(repo))} testID="settings-export-cheques-csv" />
-        ) : null}
-        <Button label={`Delete all data in ${active.name}`} variant="destructive" disabled={busy} onPress={deleteAll} testID="settings-delete-all" />
+        <Button label="Export to spreadsheet (CSV)" variant="secondary" disabled={busy} onPress={() => run('Export failed', () => exportAllCsv(repo))} testID="settings-export-csv" />
       </Card>
 
       <AutoBackupsSheet

@@ -22,13 +22,16 @@ export const DEFAULT_CATEGORIES: Category[] = [
   ['other', 'Other', 'cost'],
 ].map(([id, name, kind], sort) => ({ id, name, kind: kind as Category['kind'], sort, archived: false }));
 
+/** AED 1,000 in fils: the starting buffer, changeable in Settings. */
+export const DEFAULT_BUFFER = 100000;
+
 export function defaultSettings(now: Date = new Date()): Settings {
   return {
     currency: 'AED',
     payday: null,
     startingBalance: 0,
     startingBalanceDate: today(now),
-    buffer: 0,
+    buffer: DEFAULT_BUFFER,
     enabledModules: { debts: true, cheques: false, alerts: true, import: true },
     alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
     onboarded: false,

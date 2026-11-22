@@ -9,10 +9,10 @@ import { formatMoney } from '@/lib/money';
 import type { PlanInput } from '@/types';
 
 export function ModuleCards({ input }: { input: PlanInput }) {
-  const { enabledModules, currency } = input.settings;
+  const { currency } = input.settings;
   const upcoming = input.cheques.filter((c) => c.status === 'upcoming');
   const cards = [
-    enabledModules.debts && {
+    {
       key: 'debts',
       href: '/debts' as const,
       glyph: '🏦',
@@ -22,7 +22,7 @@ export function ModuleCards({ input }: { input: PlanInput }) {
         ? `${input.debts.length} active · loans, cards and instalment plans`
         : 'Add loans, credit cards and instalment plans',
     },
-    enabledModules.cheques && {
+    {
       key: 'cheques',
       href: '/cheques' as const,
       glyph: '🧾',
@@ -32,9 +32,8 @@ export function ModuleCards({ input }: { input: PlanInput }) {
         ? `${upcoming.length} upcoming · ${formatMoney(upcoming.reduce((s, c) => s + c.amount, 0), currency)}`
         : 'Add post-dated cheques, such as rent',
     },
-  ].filter(Boolean) as { key: string; href: '/debts' | '/cheques'; glyph: string; color: string; title: string; detail: string }[];
+  ] as { key: string; href: '/debts' | '/cheques'; glyph: string; color: string; title: string; detail: string }[];
 
-  if (cards.length === 0) return null;
   return (
     <View style={styles.wrap}>
       {cards.map((c) => (

@@ -303,6 +303,62 @@ export function buildTransactionsCsv(transactions: Transaction[], categories: Ca
   return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
 }
 
+const csvRows = (rows: string[][]) => rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
+const byDateThenId = <T extends { date: string; id: string }>(list: T[]) => [...list].sort((a, b) => (a.date === b.date ? (a.id < b.id ? -1 : 1) : a.date < b.date ? -1 : 1));
+
+function describeRepeat(item: RecurringItem): string {
+  const s = item.schedule;
+  if (s.type === 'weekly') return s.everyWeeks === 1 ? 'Every week' : `Every ${s.everyWeeks} weeks`;
+  if (s.type === 'yearly') return `Every year on ${s.day}/${s.month}`;
+  const day = s.day === 'last' ? 'the last day' : `day ${s.day}`;
+  return !s.everyMonths || s.everyMonths === 1 ? `Every month on ${day}` : `Every ${s.everyMonths} months on ${day}`;
+}
+
+/** Builds the CSV text for recurring items (income and costs that repeat). */
+export function buildRecurringCsv(items: RecurringItem[], categories: Category[]): string {
+  const names = new Map(categories.map((c) => [c.id, c.name]));
+  const rows = [['Name', 'Type', 'Category', 'Amount', 'Repeats', 'Starts', 'Ends', 'Number of payments', 'Note']];
+  const sorted = [...items].sort((a, b) => (a.startDate === b.startDate ? (a.id < b.id ? -1 : 1) : a.startDate < b.startDate ? -1 : 1));
+  for (const r of sorted) {
+    rows.push([
+      safeText(r.name),
+      r.kind === 'income' ? 'Income' : 'Cost',
+      safeText(r.categoryId ? (names.get(r.categoryId) ?? '') : ''),
+      filsToDecimal(r.amount),
+      describeRepeat(r),
+      r.startDate,
+      r.endDate ?? '',
+      r.count === null ? '' : String(r.count),
+      safeText(r.note),
+    ]);
+  }
+  return csvRows(rows);
+}
+
+/** Builds the CSV text for logged debt payments. Rows are sorted by date. */
+export function buildPaymentsCsv(payments: DebtPayment[], debts: Debt[]): string {
+  const names = new Map(debts.map((d) => [d.id, d.name]));
+  const kind = { regular: 'Regular', extra: 'Extra', partial: 'Partial' } as const;
+  const rows = [['Date', 'Debt', 'Amount', 'Kind', 'Note']];
+  for (const p of byDateThenId(payments)) rows.push([p.date, safeText(names.get(p.debtId) ?? ''), filsToDecimal(p.amount), kind[p.kind], safeText(p.note)]);
+  return csvRows(rows);
+}
+
+/**
+ * One CSV with a section per kind of data: a title line, a header line and the rows, with a blank
+ * line between sections. Built from the same safe builders as above, so formulas are neutralised.
+ */
+export function buildCombinedCsv(data: Pick<BackupData, 'transactions' | 'recurring' | 'categories' | 'debts' | 'debtPayments' | 'cheques'>): string {
+  const sections: [string, string][] = [
+    ['One-time items', buildTransactionsCsv(data.transactions, data.categories)],
+    ['Recurring items', buildRecurringCsv(data.recurring, data.categories)],
+    ['Debts', buildDebtsCsv(data.debts)],
+    ['Debt payments', buildPaymentsCsv(data.debtPayments, data.debts)],
+    ['Cheques', buildChequesCsv(data.cheques)],
+  ];
+  return sections.map(([title, csv]) => `${title}\r\n${csv}`).join('\r\n');
+}
+
 /** Builds the CSV text for debts: one row per debt, with the columns that apply to its type filled in. */
 export function buildDebtsCsv(debts: Debt[]): string {
   const rows = [
@@ -401,18 +457,8 @@ export async function restoreBackupFromFile(
   return 'restored';
 }
 
-/** Writes all one-time items as a CSV file and opens the share sheet. */
-export async function exportTransactionsCsv(repo: Repository): Promise<void> {
-  const [transactions, categories] = await Promise.all([repo.listTransactions(), repo.listCategories()]);
-  await writeAndShare(`money-planner-transactions-${dateStamp()}.csv`, buildTransactionsCsv(transactions, categories), 'text/csv', 'Save your Money Planner transactions');
-}
-
-/** Writes all debts as a CSV file and opens the share sheet. */
-export async function exportDebtsCsv(repo: Repository): Promise<void> {
-  await writeAndShare(`money-planner-debts-${dateStamp()}.csv`, buildDebtsCsv(await repo.listDebts()), 'text/csv', 'Save your Money Planner debts');
-}
-
-/** Writes all cheques as a CSV file and opens the share sheet. */
-export async function exportChequesCsv(repo: Repository): Promise<void> {
-  await writeAndShare(`money-planner-cheques-${dateStamp()}.csv`, buildChequesCsv(await repo.listCheques()), 'text/csv', 'Save your Money Planner cheques');
+/** Writes everything as one CSV file (a section per kind of data) and opens the share sheet. */
+export async function exportAllCsv(repo: Repository): Promise<void> {
+  const data = await repo.exportAll();
+  await writeAndShare(`money-planner-${dateStamp()}.csv`, buildCombinedCsv(data), 'text/csv', 'Save your Money Planner data as a spreadsheet');
 }

@@ -4,19 +4,17 @@ import { Alert, Platform, Pressable, Text, View } from 'react-native';
 
 import { Avatar, Button, Screen, Sheet, T, TextField } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useData } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import type { Profile } from '@/data/profiles/types';
 import { useTheme } from '@/hooks/use-theme';
 import { authenticateWithBiometrics, biometricsAvailable } from './biometrics';
-import { clearProfileLock, lockStore, PIN_MAX, PIN_MIN } from './lockStore';
+import { lockStore, PIN_MAX, PIN_MIN } from './lockStore';
 import { PinPad } from './PinPad';
 import { formatWait, throttle } from './throttle';
 
 export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlocked: () => void }) {
   const c = useTheme();
-  const { repo, bump } = useData();
-  const { profiles, switchProfile } = useProfiles();
+  const { profiles, switchProfile, deleteProfile } = useProfiles();
   const [len, setLen] = useState<number | null | undefined>(undefined);
   const [bio, setBio] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -95,18 +93,14 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
   const deleteData = async () => {
     setBusy(true);
     try {
-      await repo.deleteAll();
-      await clearProfileLock(profile.id);
-      await repo.updateSettings({ lockEnabled: false }).catch(() => undefined);
       throttle.reset(profile.id);
-      bump();
-      onUnlocked();
+      // A safety copy is kept 7 days; the PIN goes too. The screens then show another profile, or a fresh "Me" with the setup wizard.
+      await deleteProfile(profile.id);
     } catch (e) {
       Alert.alert('Could not delete', e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   };
-
 
   return (
     <Screen testID="lock-screen">
@@ -160,7 +154,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
       <Sheet visible={forgot} onClose={() => (busy ? undefined : setForgot(false))} title="Forgot your PIN?" testID="lock-forgot-sheet">
         <View style={{ gap: Spacing.three }}>
           <T>
-            {`The PIN can't be recovered or reset, so that nobody else can see your money. The only way back in is to delete everything in ${profile.name}: its items, balances and settings. The other profiles on this phone are not touched, and ${profile.name} stays as an empty profile.`}
+            {`The PIN can't be recovered or reset, so that nobody else can see your money. The only way back in is to delete this profile with everything in it: its items, balances and settings. The other profiles on this phone are not touched. A safety copy is kept for 7 days in Automatic backups.${others.length === 0 ? ' This is your only profile, so a new empty profile starts with the setup wizard.' : ''}`}
           </T>
           {others.length > 0 ? (
             <View style={{ gap: Spacing.two }}>
@@ -177,7 +171,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
             hint="This cannot be undone."
             testID="lock-confirm-input"
           />
-          <Button label={`Delete all data in ${profile.name}`} variant="destructive" onPress={deleteData} disabled={!nameMatches || busy} testID="lock-delete-confirm" />
+          <Button label="Delete this profile" variant="destructive" onPress={deleteData} disabled={!nameMatches || busy} testID="lock-delete-confirm" />
           <Button label="Cancel" variant="plain" onPress={() => setForgot(false)} disabled={busy} testID="lock-forgot-cancel" />
         </View>
       </Sheet>

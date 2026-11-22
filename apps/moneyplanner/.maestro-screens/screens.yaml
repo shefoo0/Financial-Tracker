@@ -6,11 +6,11 @@ name: Screenshots of the main screens
 - launchApp:
     clearState: true
 - tapOn:
-    id: onboarding-next
-- tapOn:
     id: onboarding-salary
 - inputText: "18000"
 - runFlow: ../.maestro/common/dismiss-keyboard.yaml
+- tapOn:
+    id: onboarding-next
 - tapOn:
     id: onboarding-payday
 - scrollUntilVisible:
@@ -27,21 +27,8 @@ name: Screenshots of the main screens
     id: onboarding-balance
 - inputText: "6500"
 - runFlow: ../.maestro/common/dismiss-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: onboarding-buffer
-    direction: DOWN
 - tapOn:
-    id: onboarding-buffer
-- inputText: "2000"
-- runFlow: ../.maestro/common/dismiss-keyboard.yaml
-- repeat:
-    while:
-      notVisible:
-        id: onboarding-start
-    commands:
-      - tapOn:
-          id: onboarding-next
+    id: onboarding-next
 - tapOn:
     id: onboarding-start
 - assertVisible:

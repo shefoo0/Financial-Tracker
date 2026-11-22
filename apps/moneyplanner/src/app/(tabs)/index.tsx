@@ -118,12 +118,6 @@ function DashboardBody({ input }: { input: PlanInput }) {
   }
 
   const bars = categoryBars(catScope === 'month' ? ms.costsByCategory : ys.costsByCategory, input.categories);
-  const belowZero = fc.days.some((d) => d.balance < 0);
-  const showWarning = !!fc.firstBelowBuffer || belowZero;
-  const warnText = fc.firstBelowBuffer
-    ? `Projected below your ${money(buffer)} buffer on ${shortDate(fc.firstBelowBuffer.date)}`
-    : `Projected below zero on ${shortDate(fc.lowest.date)}`;
-  const firstNegative = fc.days.find((d) => d.balance < 0);
 
   const rows: { label: string; get: (i: number) => number | null; kind?: 'pct' | 'money'; bold?: boolean }[] = [
     { label: 'Recurring income', get: (i) => ys.months[i].recurringIncome },
@@ -189,30 +183,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
         <StatTile label="Free" value={formatCompact(ms.freeMoney)} accessibilityLabel={`Free: ${money(ms.freeMoney)}`} tone={ms.freeMoney < 0 ? 'negative' : 'accent'} icon="✦" testID="dashboard-tile-free" />
       </View>
 
-      {/* With the Alerts module on, its list covers the shortfall too (and more); otherwise the simple warning. */}
-      {input.settings.enabledModules.alerts ? <AlertsCard limit={4} /> : null}
-      {showWarning && !input.settings.enabledModules.alerts && (
-        <Card>
-          <View
-            accessible
-            accessibilityRole="alert"
-            accessibilityLabel={`Warning. ${warnText}${firstNegative && fc.firstBelowBuffer ? `. Below zero on ${shortDate(firstNegative.date)}` : ''}`}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two }}
-            testID="dashboard-forecast-warning">
-            <IconBadge glyph="⚠" color={c.warning} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <T variant="label" tone="warning">
-                ⚠ {warnText}
-              </T>
-              {firstNegative && fc.firstBelowBuffer && (
-                <T variant="caption" tone="negative">
-                  Below zero on {shortDate(firstNegative.date)}
-                </T>
-              )}
-            </View>
-          </View>
-        </Card>
-      )}
+      <AlertsCard limit={4} />
 
       <Card testID="dashboard-upcoming">
         <SectionHeader

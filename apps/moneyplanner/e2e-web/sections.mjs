@@ -2,16 +2,19 @@ export const sections = [];
 const add = (name, fn) => sections.push([name, fn]);
 
 add('1 Wizard', async (d, step) => {
-  await step('welcome shown', async () => { await d.see('#onboarding-screen'); await d.see('Welcome', { exact: true }); await d.shot('welcome'); });
-  await step('next to salary', async () => { await d.tap('#onboarding-next'); await d.see('Your salary'); });
+  await step('step 1 of 3: salary (with the welcome text)', async () => { await d.see('#onboarding-screen'); await d.see('Welcome', { exact: true }); await d.see('Step 1 of 3'); await d.see('Your salary'); await d.shot('welcome'); });
   await step('type salary 18000', async () => { await d.type('#onboarding-salary', '18000'); });
-  await step('pick payday 25', async () => { await d.tap('#onboarding-payday'); await d.tap('#onboarding-payday-option-25'); });
-  await step('next to balance', async () => { await d.tap('#onboarding-next'); await d.see('Your balance today'); });
-  await step('balance 6500 buffer 2000', async () => { await d.type('#onboarding-balance', '6500'); await d.type('#onboarding-buffer', '2000'); });
-  await step('through to Start', async () => {
-    for (let i = 0; i < 6 && !(await d.has('#onboarding-start')); i++) await d.tap('#onboarding-next');
+  await step('step 2 of 3: payday 25', async () => { await d.tap('#onboarding-next'); await d.see('Step 2 of 3'); await d.tap('#onboarding-payday'); await d.tap('#onboarding-payday-option-25'); });
+  await step('step 3 of 3: balance 6500 (no buffer or module questions)', async () => {
+    await d.tap('#onboarding-next'); await d.see('Your balance today'); await d.see('Step 3 of 3');
+    if (await d.has('#onboarding-buffer') || await d.has('#onboarding-module-debts')) throw new Error('wizard still asks for buffer or modules');
+    await d.type('#onboarding-balance', '6500');
+  });
+  await step('Start screen shows the default buffer', async () => {
+    await d.tap('#onboarding-next'); await d.see('#onboarding-start');
     await d.see('#onboarding-summary');
     await d.seeText('#onboarding-summary', /Salary: AED 18,000\.00 every month, on day 25/);
+    await d.seeText('#onboarding-summary', /Buffer: AED 1,000\.00/);
     await d.shot('wizard-summary');
   });
   await step('start -> Home with balance', async () => {
@@ -20,8 +23,8 @@ add('1 Wizard', async (d, step) => {
     await d.see('AED 6,500', { exact: true }); await d.see('Coming up'); await d.see('Salary', { exact: true });
     await d.shot('home-after-wizard');
   });
-  await step('Home payday card: safe to spend = balance 6,500 - buffer 2,000, until payday', async () => {
-    await d.see('#payday-card'); await d.seeText('#payday-safe', /AED 4,500/);
+  await step('Home payday card: safe to spend = balance 6,500 - default buffer 1,000, until payday', async () => {
+    await d.see('#payday-card'); await d.seeText('#payday-safe', /AED 5,500/);
     await d.seeText('#payday-card', /until payday on 25 [A-Z][a-z]{2}/);
     await d.tap('#payday-toggle'); await d.see('#payday-details'); await d.seeText('#payday-details', /Balance now.*6,500\.00/);
     await d.shot('home-payday-expanded'); await d.tap('#payday-toggle'); await d.notSee('#payday-details');
@@ -59,13 +62,13 @@ add('2 Plan: recurring items', async (d, step) => {
     await d.notSee('#undo-bar');
   });
   await step('edit Rent amount to 9600', async () => {
-    await d.tab('Plan'); await d.tap('Rent'); await d.see('#recurring-screen');
+    await d.tab('Plan'); await d.tap('Rent', { exact: true }); await d.see('#recurring-screen');
     await d.type('#recurring-amount', '9600'); await d.tap('#recurring-save-bottom');
     await d.see('#plan-screen'); await d.seeText('#plan-total-cost', /9,600\.00/);
   });
   await step('Discard changes? prompt: keep editing, then discard', async () => {
     await d.clearAlerts();
-    await d.tap('Rent'); await d.see('#recurring-screen');
+    await d.tap('Rent', { exact: true }); await d.see('#recurring-screen');
     await d.type('#recurring-amount', '1111'); await d.back();
     const a = await d.alerts();
     if (!a.some((x) => x.title === 'Discard changes?')) throw new Error('leaving a changed form did not ask "Discard changes?" (alerts: ' + JSON.stringify(a) + ')');
@@ -92,7 +95,7 @@ add('2 Plan: recurring items', async (d, step) => {
     await d.tap('#recurring-schedule-yearly'); await d.tap('#recurring-save-bottom'); await d.see('Insurance');
   });
   await step('skip and move one payment of Rent', async () => {
-    await d.tap('Rent'); await d.see('#recurring-screen'); await d.see('Upcoming', { exact: true });
+    await d.tap('Rent', { exact: true }); await d.see('#recurring-screen'); await d.see('Upcoming', { exact: true });
     await d.tap('#occurrence-skip-0'); await d.see('#occurrence-unskip-0'); await d.shot('rent-skipped');
     await d.tap('#occurrence-unskip-0'); await d.see('#occurrence-skip-0');
     await d.tap('#occurrence-move-0'); await d.type('#occurrence-date-input-0', '2026-12-03'); await d.tap('#occurrence-date-apply-0');
@@ -245,8 +248,9 @@ add('4 Debts', async (d, step) => {
 const iso = (plusDays) => { const t = new Date(Date.now() + plusDays * 86400000); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
 
 add('5 Cheques', async (d, step) => {
-  await step('back to Plan, switch the Cheques module on in Settings', async () => {
-    await d.tab('Settings'); await d.see('#settings-screen'); await d.tap('#settings-module-cheques');
+  await step('Plan shows the Cheques card without any switch', async () => {
+    await d.tab('Settings'); await d.see('#settings-screen');
+    if (await d.has('#settings-module-cheques') || await d.has('#settings-module-debts')) throw new Error('Settings still has module switches');
     await d.tab('Plan'); await d.see('#plan-open-cheques'); await d.shot('plan-with-cheques-card');
   });
   await step('Cheques empty state', async () => { await d.tap('#plan-open-cheques'); await d.see('#cheques-screen'); await d.see('No cheques yet'); await d.shot('cheques-empty'); });
@@ -297,7 +301,7 @@ const pin = async (d, prefix, digits) => {
 };
 
 add('6 Alerts', async (d, step) => {
-  await step('Settings: Alerts switch is on by default; notifications say "not available in the web preview"', async () => {
+  await step('Settings: the phone notifications switch is on by default; notifications say "not available in the web preview"', async () => {
     await d.tab('Settings'); await d.see('#settings-alerts'); await d.see('#settings-alerts-status'); await d.shot('settings-alerts');
   });
   await step('set alert levels low (caution 5%, high 10%, card 20%) and save', async () => {
@@ -317,12 +321,12 @@ add('6 Alerts', async (d, step) => {
     await d.tab('Settings'); await d.type('#settings-threshold-caution', '40'); await d.type('#settings-threshold-high', '50'); await d.type('#settings-threshold-card', '80');
     await d.tap('#settings-thresholds-save'); await d.settle(300);
   });
-  await step('Alerts switch off hides the alerts card on Home; on brings it back', async () => {
+  await step('Phone notifications off keeps the alerts card on Home (alerts always show in the app)', async () => {
     await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await d.tap('#settings-thresholds-save'); await d.settle(300);
-    await d.tap('#settings-module-alerts'); await d.settle(300);
+    await d.tap('#settings-notifications'); await d.settle(300);
     await d.tab('Home'); await d.see('#dashboard-screen'); await d.settle(300);
-    if (await d.has('#alerts-card')) throw new Error('alerts card still shown on Home with the Alerts switch off'); await d.shot('home-alerts-off');
-    await d.tab('Settings'); await d.tap('#settings-module-alerts'); await d.settle(300);
+    await d.see('#alerts-card'); await d.shot('home-notifications-off');
+    await d.tab('Settings'); await d.tap('#settings-notifications'); await d.settle(300);
     await d.tab('Home'); await d.see('#alerts-card');
     await d.tab('Settings'); await d.type('#settings-threshold-caution', '40'); await d.type('#settings-threshold-high', '50'); await d.tap('#settings-thresholds-save');
   });
@@ -330,14 +334,15 @@ add('6 Alerts', async (d, step) => {
 
 add('7 Profiles and appearance', async (d, step) => {
   await step('profile switcher lists "Me" with Add profile', async () => {
-    await d.tab('Home'); await d.tap('#profile-button'); await d.see('#profile-sheet'); await d.see('#profile-row-0'); await d.see('#profile-add'); await d.shot('profile-sheet');
+    await d.tab('Home'); await d.tap('#profile-button'); await d.see('#profile-sheet'); await d.see('#profile-row-0'); await d.see('#profile-add');
+    if (await d.has('#appearance-segmented-dark')) throw new Error('the profile switcher still has the appearance switch'); await d.shot('profile-sheet');
   });
   await step('add profile Layla -> her own wizard', async () => {
     await d.tap('#profile-add'); await d.type('#profile-name-input', 'Layla'); await d.tap('#profile-create');
     await d.see('#onboarding-profile-name'); await d.see('Setting up Layla'); await d.shot('layla-wizard');
   });
   await step("Layla's wizard: salary 9000 payday 1, balance 1000", async () => {
-    await d.tap('#onboarding-next'); await d.type('#onboarding-salary', '9000'); await d.tap('#onboarding-payday'); await d.tap('#onboarding-payday-option-1');
+    await d.type('#onboarding-salary', '9000'); await d.tap('#onboarding-next'); await d.tap('#onboarding-payday'); await d.tap('#onboarding-payday-option-1');
     await d.tap('#onboarding-next'); await d.type('#onboarding-balance', '1000');
     for (let i = 0; i < 6 && !(await d.has('#onboarding-start')); i++) await d.tap('#onboarding-next');
     await d.tap('#onboarding-start'); await d.see('#dashboard-screen'); await d.see('Layla'); await d.shot('layla-home');
@@ -356,7 +361,7 @@ add('7 Profiles and appearance', async (d, step) => {
     await d.tap('#profile-edit-1'); await d.type('#profile-edit-name-input', 'Layla K'); await d.tap('#profile-edit-save');
     await d.see('Layla K'); await d.shot('profiles-renamed');
   });
-  await step('open profile cannot be deleted; delete Layla K with typed name', async () => {
+  await step('delete Layla K with the typed name (any profile can be deleted)', async () => {
     await d.tap('#profile-delete-1'); await d.see('#profile-delete-sheet'); await d.type('#profile-delete-input', 'Layla K');
     await d.tap('#profile-delete-confirm'); await d.notSee('Layla K', { exact: true });
   });
@@ -457,25 +462,27 @@ add('11 Settings: money, exports and backup', async (d, step) => {
     await d.type('#settings-currency', 'AED'); await d.settle(100); await d.see('#settings-currency-save');
   });
   await step('Home shows the new balance', async () => { await d.tab('Home'); await d.see('AED 7,000', { exact: true }); await d.tab('Settings'); });
-  await step('tap backup and CSV exports (no crash)', async () => {
-    for (const id of ['settings-backup', 'settings-export-csv', 'settings-export-debts-csv', 'settings-export-cheques-csv']) {
-      if (await d.has('#' + id)) { await d.tap('#' + id); await d.settle(500); }
-    }
+  await step('tap backup and the one CSV export (no crash)', async () => {
+    for (const id of ['settings-backup', 'settings-export-csv']) { await d.tap('#' + id); await d.settle(500); }
+    for (const id of ['settings-export-debts-csv', 'settings-export-cheques-csv', 'settings-delete-all']) if (await d.has('#' + id)) throw new Error(`${id} should be gone from Settings`);
     await d.see('#settings-screen'); await d.shot('settings-after-exports');
   });
   await step('Restore button opens the picker without crashing', async () => { await d.tap('#settings-restore'); await d.settle(500); await d.see('#settings-screen'); });
   await step('About shows version and the not-advice note', async () => { await d.see('#settings-version'); await d.see('not financial advice'); });
 });
 
-add('12 Delete all data', async (d, step) => {
-  await step('cancel keeps the data', async () => {
-    await d.tab('Settings'); await d.alertPick('Cancel'); await d.tap('#settings-delete-all'); await d.settle(300);
-    const a = await d.alerts(); if (!a.some((x) => /Delete all data/.test(x.title))) throw new Error('no confirmation was asked');
-    await d.see('#settings-screen'); await d.clearAlerts();
+add('12 Delete profile', async (d, step) => {
+  await step('Settings has no Delete all data; the data note points to Manage profiles', async () => {
+    await d.tab('Settings'); await d.notSee('Delete all data'); await d.seeText('#settings-data-note', /Manage profiles/);
   });
-  await step('confirm twice -> wizard starts again', async () => {
-    await d.alertPick(['Continue', 'Delete everything']); await d.tap('#settings-delete-all');
-    await d.see('#onboarding-screen'); await d.see('Welcome', { exact: true }); await d.shot('after-delete-all'); await d.clearAlerts();
+  await step('the only profile can be deleted: cancel keeps it', async () => {
+    await d.tap('#settings-manage-profiles'); await d.see('#profiles-screen'); await d.tap('#profile-delete-0'); await d.see('#profile-delete-sheet');
+    await d.see('only profile'); await d.shot('delete-only-profile');
+    await d.tap('#profile-delete-cancel'); await d.see('#profiles-screen');
+  });
+  await step('typed name deletes it -> a fresh Me starts at the wizard', async () => {
+    await d.tap('#profile-delete-0'); await d.type('#profile-delete-input', 'Me'); await d.tap('#profile-delete-confirm');
+    await d.see('#onboarding-screen'); await d.see('Welcome', { exact: true }); await d.shot('after-delete-profile');
   });
   await step('skip every step -> empty Home, Plan, Month, Debts', async () => {
     for (let i = 0; i < 6 && !(await d.has('#onboarding-start')); i++) await d.tap('#onboarding-next');

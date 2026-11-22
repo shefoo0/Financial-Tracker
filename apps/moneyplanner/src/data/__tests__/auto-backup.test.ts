@@ -7,6 +7,7 @@ import {
   removeProfileBackups,
   restoreAutoBackup,
   runAutoBackup,
+  saveDeletedProfileCopy,
   snoozeBackupReminder,
   updateBackupMeta,
 } from '@/data/backup/auto';
@@ -207,6 +208,40 @@ describe('restore and safety copies', () => {
     expect(listAutoBackups('p1').map((i) => i.kind)).toEqual(['before-delete']);
     await backupBeforeChange(repo, 'p1', 'before-restore', at(2026, 11, 9));
     expect(listAutoBackups('p1').map((i) => i.kind)).toEqual(['before-restore']);
+  });
+});
+
+describe('copies of deleted profiles', () => {
+  it('survives removing the profile folder, is listed for other profiles with its name, and expires after 7 days', async () => {
+    const repo = await repoWithData();
+    await saveDeletedProfileCopy(repo, 'Layla & Co', at(2026, 11, 20));
+    await runAutoBackup(repo, 'p1', at(2026, 11, 20));
+    await removeProfileBackups('p1');
+    const listed = listAutoBackups('p2', at(2026, 11, 22));
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({ kind: 'deleted-profile', profileName: 'Layla & Co' });
+    expect(listAutoBackups('p2', at(2026, 11, 27))).toHaveLength(1);
+    expect(listAutoBackups('p2', at(2026, 11, 27, 10))).toHaveLength(0);
+  });
+
+  it('restores into another profile, and stops when the copy cannot be saved', async () => {
+    const source = await repoWithData();
+    await saveDeletedProfileCopy(source, 'Layla', at(2026, 11, 21));
+    const copy = listAutoBackups('p2', at(2026, 11, 22))[0];
+    const target = createMemoryRepository({ settings });
+    await target.init();
+    await restoreAutoBackup(target, copy.uri, 'p2', at(2026, 11, 22));
+    expect((await target.exportAll()).transactions).toHaveLength(1);
+    fsMock.__state.failWrite = true;
+    await expect(saveDeletedProfileCopy(source, 'X')).rejects.toThrow(/nothing was deleted/);
+  });
+
+  it('old copies are dropped when the next copy is written', async () => {
+    const repo = await repoWithData();
+    await saveDeletedProfileCopy(repo, 'Old', at(2026, 11, 1));
+    await saveDeletedProfileCopy(repo, 'New', at(2026, 11, 20));
+    expect(listAutoBackups('p2', at(2026, 11, 20)).map((i) => i.profileName)).toEqual(['New']);
+    expect([...fsMock.__files.keys()].filter((k) => k.includes('/deleted-'))).toHaveLength(1);
   });
 });
 

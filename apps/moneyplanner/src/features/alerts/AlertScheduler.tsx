@@ -37,6 +37,7 @@ export function AlertScheduler() {
           if (cancelled) return;
           const permission = await getPermission();
           if (cancelled) return;
+          // enabledModules.alerts is the stored "phone notifications on" flag (never shown as a module).
           if (!data.settings.enabledModules.alerts || permission.state !== 'granted') {
             await cancelAll();
             return;

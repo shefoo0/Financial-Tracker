@@ -1,4 +1,4 @@
-// The profile switcher: profiles, add, manage and the appearance switch.
+// The profile switcher: profiles, add and manage.
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
@@ -8,7 +8,6 @@ import { Palette, Radius, Spacing } from '@/constants/theme';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { MAX_PROFILES } from '@/data/profiles/types';
 import { useTheme } from '@/hooks/use-theme';
-import { AppearanceSetting } from './AppearanceSetting';
 import { ProfileForm } from './ProfileForm';
 import { nextColor } from './validate';
 
@@ -123,13 +122,6 @@ export function ProfileSwitcherSheet({ visible, onClose }: { visible: boolean; o
             }}
             testID="profile-manage"
           />
-
-          <View style={{ gap: Spacing.two, marginTop: Spacing.two }}>
-            <T variant="label" tone="secondary">
-              Appearance
-            </T>
-            <AppearanceSetting />
-          </View>
         </View>
       )}
     </Sheet>

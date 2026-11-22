@@ -111,15 +111,27 @@ function runStoreContract(label: string, make: Make, restart: (s: ProfileStore) 
       expect((await store.init()).profiles[0]).toMatchObject({ name: 'Alex', color: 3, dbName: 'moneyplanner.db' });
     });
 
-    it('delete refuses the last and the active profile, and unknown ids', async () => {
+    it('delete works for any profile; unknown ids throw', async () => {
       const store = make();
       const { profiles } = await store.init();
-      await expect(store.deleteProfile(profiles[0].id)).rejects.toThrow();
       const p = await store.addProfile('Sam', 1);
-      await expect(store.deleteProfile(profiles[0].id)).rejects.toThrow(); // active
       await expect(store.deleteProfile('nope')).rejects.toThrow();
-      await store.deleteProfile(p.id);
-      expect((await store.init()).profiles.map((x) => x.name)).toEqual(['Me']);
+      await store.deleteProfile(profiles[0].id); // the active one: the next profile opens
+      const after = await store.init();
+      expect(after.profiles.map((x) => x.name)).toEqual(['Sam']);
+      expect(after.activeProfileId).toBe(p.id);
+    });
+
+    it('deleting the last profile creates a fresh "Me" in a new file and makes it active', async () => {
+      const store = make();
+      const { profiles } = await store.init();
+      await store.deleteProfile(profiles[0].id);
+      const after = await store.init();
+      expect(after.profiles).toHaveLength(1);
+      expect(after.profiles[0]).toMatchObject({ name: 'Me', color: 0 });
+      expect(after.profiles[0].id).not.toBe(profiles[0].id);
+      expect(after.profiles[0].dbName).not.toBe('moneyplanner.db');
+      expect(after.activeProfileId).toBe(after.profiles[0].id);
     });
 
     it('setActiveProfile and setAppearance persist; unknown ids throw', async () => {

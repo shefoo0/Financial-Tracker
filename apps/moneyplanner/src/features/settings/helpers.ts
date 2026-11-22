@@ -1,22 +1,14 @@
 // Pure helpers for the setup wizard, Settings and Categories screens.
 import { addMonths, daysInMonth, monthKey, parseISODate, toISODate } from '@/lib/dates';
-import { AVAILABLE_MODULES, MODULE_INFO } from '@/data/modules';
 import { newId } from '@/lib/id';
-import type { Category, Fils, ISODate, Kind, ModuleId, RecurringItem } from '@/types';
+import type { Category, Fils, ISODate, Kind, RecurringItem } from '@/types';
 
 export type PaydayDay = number | 'last';
 
-/** Switches to show: only modules that are built (see data/modules.ts). */
-export function moduleList(available: ModuleId[] = AVAILABLE_MODULES): { id: ModuleId; label: string; description: string }[] {
-  return available.map((id) => ({ id, label: MODULE_INFO[id].title, description: MODULE_INFO[id].description }));
-}
+export type WizardStep = 'salary' | 'payday' | 'balance' | 'done';
 
-export type WizardStep = 'welcome' | 'salary' | 'balance' | 'modules' | 'done';
-
-/** Wizard steps in order; the Modules step only exists when a module is available. */
-export function wizardSteps(hasModules: boolean): WizardStep[] {
-  return hasModules ? ['welcome', 'salary', 'balance', 'modules', 'done'] : ['welcome', 'salary', 'balance', 'done'];
-}
+/** Wizard steps in order: salary (optional), payday, today's balance, then Start. */
+export const WIZARD_STEPS: WizardStep[] = ['salary', 'payday', 'balance', 'done'];
 
 /** Select options for a payday: "Not set", 1-30 and "Last day of the month" (stored as 31). Values are strings. */
 export const PAYDAY_OPTIONS: { value: string; label: string }[] = [

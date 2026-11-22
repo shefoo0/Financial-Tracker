@@ -18,44 +18,46 @@ beforeEach(() => {
 });
 
 
-// The number of steps depends on which optional modules exist, so go on until Start shows.
+// Go on until Start shows.
 async function toLastStep() {
   for (let i = 0; i < 10 && !screen.queryByTestId('onboarding-start'); i++) await fireEvent.press(screen.getByTestId('onboarding-next'));
   expect(screen.getByTestId('onboarding-start')).toBeTruthy();
 }
 
 describe('Onboarding wizard', () => {
-  it('starts on the welcome step with no Back button', async () => {
+  it('starts on the salary step (with the welcome text) and no Back button', async () => {
     await renderWithRepo(<Onboarding />);
     expect(await screen.findByText('Welcome')).toBeTruthy();
-    expect(screen.getByText(/^Step 1 of \d$/)).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
     expect(screen.queryByTestId('onboarding-back')).toBeNull();
     expect(screen.queryByTestId('onboarding-profile-name')).toBeNull();
   });
 
   it('asks for a payday when a salary is entered without one', async () => {
     await renderWithRepo(<Onboarding />);
-    await fireEvent.press(await screen.findByTestId('onboarding-next'));
-    await fireEvent.changeText(screen.getByTestId('onboarding-salary'), '18000');
+    await fireEvent.changeText(await screen.findByTestId('onboarding-salary'), '18000');
+    await fireEvent.press(screen.getByTestId('onboarding-next'));
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('onboarding-next'));
     expect(await screen.findByText('Choose the day you get paid, or clear the amount.')).toBeTruthy();
-    expect(screen.getByText(/^Step 2 of \d$/)).toBeTruthy();
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
   });
 
   it('creates the Salary item, saves settings and marks onboarded', async () => {
     const { repo } = await renderWithRepo(<Onboarding />);
-    await fireEvent.press(await screen.findByTestId('onboarding-next'));
-    await fireEvent.changeText(screen.getByTestId('onboarding-salary'), '18000');
+    await fireEvent.changeText(await screen.findByTestId('onboarding-salary'), '18000');
+    await fireEvent.press(screen.getByTestId('onboarding-next'));
     await fireEvent.press(screen.getByTestId('onboarding-payday'));
     await fireEvent.press(screen.getByTestId('onboarding-payday-option-25'));
     await fireEvent.press(screen.getByTestId('onboarding-next'));
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    expect(screen.queryByTestId('onboarding-buffer')).toBeNull();
     await fireEvent.changeText(screen.getByTestId('onboarding-balance'), '6500');
-    await fireEvent.changeText(screen.getByTestId('onboarding-buffer'), '2000');
     await toLastStep();
     const summary = within(screen.getByTestId('onboarding-summary'));
     expect(summary.getByText('Salary: AED 18,000.00 every month, on day 25')).toBeTruthy();
     expect(summary.getByText('Balance today: AED 6,500.00')).toBeTruthy();
-    expect(summary.getByText('Buffer: AED 2,000.00')).toBeTruthy();
+    expect(summary.getByText(/^Buffer: AED 1,000\.00/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
 
@@ -63,24 +65,25 @@ describe('Onboarding wizard', () => {
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ name: 'Salary', kind: 'income', amount: 1800000, categoryId: 'salary', schedule: { type: 'monthly', day: 25 } });
     const s = await repo.getSettings();
-    expect(s).toMatchObject({ onboarded: true, payday: 25, startingBalance: 650000, buffer: 200000, startingBalanceDate: today() });
+    expect(s).toMatchObject({ onboarded: true, payday: 25, startingBalance: 650000, buffer: 100000, startingBalanceDate: today() });
   });
 
   it('can be skipped through: no salary item, zero balance, still onboarded', async () => {
     const { repo } = await renderWithRepo(<Onboarding />);
-    await fireEvent.press(await screen.findByTestId('onboarding-next'));
+    await fireEvent.press(await screen.findByTestId('onboarding-skip'));
     await fireEvent.press(screen.getByTestId('onboarding-skip'));
-    await toLastStep();
+    await fireEvent.press(screen.getByTestId('onboarding-skip'));
+    expect(screen.queryByTestId('onboarding-start')).toBeTruthy();
     expect(screen.getByText('Salary: not added yet')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
     expect(await repo.listRecurring()).toEqual([]);
-    expect(await repo.getSettings()).toMatchObject({ onboarded: true, startingBalance: 0, buffer: 0 });
+    expect(await repo.getSettings()).toMatchObject({ onboarded: true, startingBalance: 0, buffer: 100000 });
   });
 
   it('stores an overdrawn balance as negative', async () => {
     const { repo } = await renderWithRepo(<Onboarding />);
-    await fireEvent.press(await screen.findByTestId('onboarding-next'));
+    await fireEvent.press(await screen.findByTestId('onboarding-skip'));
     await fireEvent.press(screen.getByTestId('onboarding-skip'));
     await fireEvent.changeText(screen.getByTestId('onboarding-balance'), '300');
     await fireEvent(screen.getByTestId('onboarding-overdrawn'), 'valueChange', true);
@@ -118,7 +121,7 @@ describe('Onboarding wizard', () => {
       await api!.addProfile('Layla', 1);
     });
     expect(await screen.findByText('Setting up Layla')).toBeTruthy();
-    expect(screen.getByText(/^Step 1 of \d$/)).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
     await act(async () => {
       await api!.switchProfile(api!.profiles[0].id);
     });

@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import { createMemoryRepository } from '@/data/memory/memory-repository';
-import { buildChequesCsv, buildDebtsCsv, buildTransactionsCsv, exportBackup, exportTransactionsCsv, restoreBackupFromFile, csvField, filsToDecimal, parseBackup, serializeBackup } from '@/data/backup';
+import { buildChequesCsv, buildDebtsCsv, buildCombinedCsv, buildRecurringCsv, buildTransactionsCsv, exportAllCsv, exportBackup, restoreBackupFromFile, csvField, filsToDecimal, parseBackup, serializeBackup } from '@/data/backup';
 import { BACKUP_VERSION } from '@/data/repository';
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { card, chq, dovr, dpay, loan, ovr, plan, rec, txn } from '@/data/memory/repository-contract';
@@ -322,7 +322,7 @@ describe('files and sharing', () => {
     (Sharing.shareAsync as jest.Mock).mockRejectedValue(new Error('cancelled'));
     const repo = createMemoryRepository({ transactions: [txn()] });
     await repo.init();
-    await expect(exportTransactionsCsv(repo)).rejects.toThrow('cancelled');
+    await expect(exportAllCsv(repo)).rejects.toThrow('cancelled');
     expect(files.size).toBe(0);
   });
   it('deletes the picked file after reading it, and restores with the lock off', async () => {
@@ -377,6 +377,29 @@ describe('CSV', () => {
   });
   it('has just the header when empty', () => {
     expect(buildTransactionsCsv([], [])).toBe('Date,Type,Description,Category,Amount,Note,Planned\r\n');
+  });
+});
+
+describe('one combined CSV', () => {
+  it('has a titled section per kind of data with a blank line between, and neutralises formulas', async () => {
+    const repo = createMemoryRepository({ transactions: [txn({ description: '=HYPERLINK("x")' })], cheques: [chq({ payee: '+evil' })] });
+    await repo.init();
+    const csv = buildCombinedCsv(await repo.exportAll());
+    const lines = csv.split('\r\n');
+    const titles = ['One-time items', 'Recurring items', 'Debts', 'Debt payments', 'Cheques'];
+    expect(lines.filter((l) => titles.includes(l))).toEqual(titles);
+    expect(lines[lines.indexOf('Recurring items') - 1]).toBe(''); // blank line before each later section
+    expect(lines[lines.indexOf('One-time items') + 1]).toBe('Date,Type,Description,Category,Amount,Note,Planned');
+    expect(lines[lines.indexOf('Debt payments') + 1]).toBe('Date,Debt,Amount,Kind,Note');
+    expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
+    expect(csv).toContain("'+evil");
+  });
+  it('builds recurring rows', () => {
+    const csv = buildRecurringCsv(
+      [{ id: 'r', kind: 'cost', name: '@Rent', categoryId: 'housing', amount: 950000, schedule: { type: 'monthly', day: 'last', everyMonths: 3 }, startDate: '2026-01-31', endDate: null, count: 4, note: '' }],
+      DEFAULT_CATEGORIES,
+    );
+    expect(csv.split('\r\n')).toEqual(['Name,Type,Category,Amount,Repeats,Starts,Ends,Number of payments,Note', "'@Rent,Cost,Housing,9500.00,Every 3 months on the last day,2026-01-31,,4,", '']);
   });
 });
 

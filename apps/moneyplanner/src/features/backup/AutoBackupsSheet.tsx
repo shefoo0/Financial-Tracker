@@ -8,11 +8,12 @@ import { type AutoBackupInfo, formatBackupTime, restoreAutoBackup } from '@/data
 import { useData } from '@/data/DataProvider';
 import { formatDate } from '@/lib/dates';
 
-const KIND_LABEL = { daily: 'Automatic copy', 'before-restore': 'Safety copy before a restore', 'before-delete': 'Safety copy before deleting' } as const;
+const KIND_LABEL = { daily: 'Automatic copy', 'before-restore': 'Safety copy before a restore', 'before-delete': 'Safety copy before deleting', 'deleted-profile': 'Kept for 7 days after deleting' } as const;
 
 export function describeCopy(c: AutoBackupInfo, now = new Date()): { title: string; subtitle: string } {
   const kb = Math.max(1, Math.round(c.size / 1024));
   if (c.kind === 'daily') return { title: formatDate(c.date), subtitle: `${KIND_LABEL.daily} · ${kb} KB` };
+  if (c.kind === 'deleted-profile') return { title: `Deleted profile ${c.profileName ?? ''}`.trim(), subtitle: `${formatBackupTime(c.date, now)} · ${KIND_LABEL[c.kind]} · ${kb} KB` };
   return { title: formatBackupTime(c.date, now), subtitle: `${KIND_LABEL[c.kind]} · ${kb} KB` };
 }
 
@@ -39,7 +40,7 @@ export function AutoBackupsSheet({
     const { title } = describeCopy(c);
     Alert.alert(
       'Restore this copy?',
-      `This replaces everything now in ${profileName} with the copy from ${title}. A safety copy of your current data is saved first, so you can undo this from this list.`,
+      `This replaces everything now in ${profileName} with ${c.kind === 'deleted-profile' ? `the copy of the deleted profile ${c.profileName ?? ''}` : `the copy from ${title}`}. A safety copy of your current data is saved first, so you can undo this from this list.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -78,7 +79,7 @@ export function AutoBackupsSheet({
               <View key={c.uri} style={{ gap: Spacing.one }}>
                 <ListRow title={d.title} subtitle={d.subtitle} testID={`auto-backup-${i}`} />
                 <Button
-                  label="Restore this copy"
+                  label={c.kind === 'deleted-profile' ? 'Restore into this profile' : 'Restore this copy'}
                   variant="secondary"
                   disabled={busy}
                   onPress={() => restore(c)}

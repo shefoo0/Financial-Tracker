@@ -51,11 +51,11 @@ export function AlertsSettings({ settings, update }: { settings: Settings; updat
       <SectionHeader title="Alerts" />
       <Card>
         <ToggleRow
-          label="Alerts"
-          description="Warnings before money runs short, on the dashboard and as reminders"
+          label="Phone notifications"
+          description="Reminders before a payment or when money may run short. Alerts always show in the app."
           value={alerts.value}
           onChange={alerts.onChange}
-          testID="settings-module-alerts"
+          testID="settings-notifications"
         />
         {status ? (
           <T variant="caption" tone="secondary" testID="settings-alerts-status">

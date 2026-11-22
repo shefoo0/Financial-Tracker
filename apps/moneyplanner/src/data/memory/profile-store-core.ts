@@ -126,11 +126,19 @@ export function createProfileStoreCore(
       run(async () => {
         const s = await load();
         const i = need(s, id);
-        if (s.profiles.length <= 1) throw new Error('You cannot delete the only profile.');
-        if (s.activeProfileId === id) throw new Error('Switch to another profile before deleting this one.');
         const profile = s.profiles[i];
         await backend.removeData(profile);
-        await commit({ ...s, profiles: s.profiles.filter((p) => p.id !== id) });
+        let profiles = s.profiles.filter((p) => p.id !== id);
+        let activeProfileId = s.activeProfileId;
+        if (profiles.length === 0) {
+          // The last profile: start over with a fresh "Me" in a new file.
+          const fresh = newId();
+          profiles = [{ id: fresh, name: 'Me', color: 0, createdAt: new Date().toISOString(), dbName: `moneyplanner-${fresh}.db` }];
+          activeProfileId = fresh;
+        } else if (activeProfileId === id) {
+          activeProfileId = profiles[0].id;
+        }
+        await commit({ ...s, profiles, activeProfileId });
       }),
 
     setActiveProfile: (id) =>

@@ -112,18 +112,30 @@ describe('ProfileProvider', () => {
     expect((await store.init()).profiles).toHaveLength(1);
   });
 
-  it('surfaces errors: deleting the active or the last profile', async () => {
-    await setup();
-    await act2(() => api.deleteProfile(api.active.id));
-    expect(lastError).toBeTruthy();
-    expect(api.profiles).toHaveLength(1);
-    lastError = null;
+  it('deleting the open profile opens another one', async () => {
+    const { store } = await setup();
     await act2(() => api.addProfile('Layla', 1));
     await waitFor(() => expect(state().startsWith('Layla|')).toBe(true));
-    lastError = null;
-    await act2(() => api.deleteProfile(api.active.id));
-    expect(lastError).toBeTruthy();
-    expect(api.profiles).toHaveLength(2);
+    const layla = api.active.id;
+    await act2(() => api.deleteProfile(layla));
+    expect(lastError).toBeNull();
+    await waitFor(() => expect(state()).toContain('tx=Mine'));
+    expect(state().startsWith('Me|')).toBe(true);
+    expect(api.profiles.map((p) => p.name)).toEqual(['Me']);
+    expect(store.repositoryFor(layla)).toBeUndefined();
+  });
+
+  it('deleting the only profile starts a fresh empty "Me" that has to be set up again', async () => {
+    const { store } = await setup();
+    const oldId = api.active.id;
+    await act2(() => api.deleteProfile(oldId));
+    expect(lastError).toBeNull();
+    await waitFor(() => expect(state()).toContain('onboarded=false'));
+    expect(state()).toContain('tx=|');
+    expect(api.active.id).not.toBe(oldId);
+    expect(api.active.name).toBe('Me');
+    expect(api.active.dbName).not.toBe('moneyplanner.db');
+    expect(store.repositoryFor(oldId)).toBeUndefined();
   });
 
   it('surfaces errors: empty and too long names, and the 7th profile', async () => {

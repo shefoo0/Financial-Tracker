@@ -4,8 +4,6 @@ name: Profiles
 ---
 - launchApp:
     clearState: true
-- tapOn:
-    id: onboarding-next
 - repeat:
     while:
       notVisible:
@@ -28,12 +26,10 @@ name: Profiles
 - runFlow: common/dismiss-text-keyboard.yaml
 - tapOn:
     id: profile-create
-# The new profile starts with the setup wizard.
+# The new profile starts with the setup wizard (3 steps, then Start).
 - assertVisible:
     id: onboarding-profile-name
 - assertVisible: "Setting up Layla"
-- tapOn:
-    id: onboarding-next
 - repeat:
     while:
       notVisible:

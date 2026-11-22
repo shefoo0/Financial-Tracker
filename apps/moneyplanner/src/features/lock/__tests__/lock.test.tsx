@@ -220,20 +220,22 @@ describe('LockGate', () => {
     expect(screen.queryByTestId('lock-biometric')).toBeNull();
   });
 
-  it('forgot PIN: deleting the profile data needs the typed name, then clears the PIN and keeps the profile', async () => {
-    const { id, repo, store } = await renderLocked({ seed: { recurring: [recurring({ id: 'r1', name: 'Rent', kind: 'cost', amount: 100000 })] } });
+  it('forgot PIN: deleting the only profile needs the typed name, clears the PIN and starts a fresh Me', async () => {
+    const { id, store } = await renderLocked({ seed: { recurring: [recurring({ id: 'r1', name: 'Rent', kind: 'cost', amount: 100000 })] } });
     await fireEvent.press(await screen.findByTestId('lock-forgot'));
-    expect(await screen.findByText(/only way back in is to delete everything in Me/)).toBeTruthy();
+    expect(await screen.findByText(/only way back in is to delete this profile/)).toBeTruthy();
+    expect(screen.getByText(/only profile, so a new empty profile starts/)).toBeTruthy();
     expect(screen.getByTestId('lock-delete-confirm').props.accessibilityState.disabled).toBe(true);
     await fireEvent.changeText(screen.getByTestId('lock-confirm-input'), 'Someone');
     expect(screen.getByTestId('lock-delete-confirm').props.accessibilityState.disabled).toBe(true);
     await fireEvent.changeText(screen.getByTestId('lock-confirm-input'), 'Me');
     await fireEvent.press(screen.getByTestId('lock-delete-confirm'));
     await waitFor(() => expect(screen.queryByTestId('lock-screen')).toBeNull());
-    expect(await repo.listRecurring()).toEqual([]);
     expect(await lockStore.hasPin(id)).toBe(false);
-    expect((await repo.getSettings()).lockEnabled).toBe(false);
-    expect((await store.init()).profiles.map((p) => p.name)).toEqual(['Me']);
+    const after = await store.init();
+    expect(after.profiles.map((p) => p.name)).toEqual(['Me']);
+    expect(after.profiles[0].id).not.toBe(id);
+    expect(store.repositoryFor(id)).toBeUndefined();
   });
 
   it('forgot PIN: offers to switch to another profile', async () => {

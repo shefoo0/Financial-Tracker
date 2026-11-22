@@ -44,9 +44,11 @@ export interface ProfileStore {
   addProfile(name: string, color: number): Promise<Profile>;
   /** Same name rules as addProfile. */
   updateProfile(id: string, patch: { name?: string; color?: number }): Promise<Profile>;
-  /** Removes the profile and deletes its database file. Throws for the last
-   * remaining profile or for the active one (switch first). The repository for
-   * it must already be closed. */
+  /** Removes the profile and deletes its database file; any profile can be
+   * deleted. If it was the active one, the first remaining profile becomes
+   * active. If it was the last one, a fresh empty profile "Me" with a NEW
+   * dbName (never the deleted file's name) is created and made active. The
+   * repository for the deleted profile must already be closed. */
   deleteProfile(id: string): Promise<void>;
   setActiveProfile(id: string): Promise<void>;
   setAppearance(appearance: Appearance): Promise<void>;

@@ -1,11 +1,10 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 
 import SettingsScreen from '@/app/(tabs)/settings';
 import { defaultSettings } from '@/data/defaults';
 
 import { resetRouterMock, router } from '../../../test-support/expo-router-mock';
-import { recurring, renderWithRepo } from '../../../test-support/render';
+import { renderWithRepo } from '../../../test-support/render';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('expo-router', () => require('../../../test-support/expo-router-mock'));
@@ -18,9 +17,6 @@ beforeEach(() => {
 
 
 const settings = { ...defaultSettings(), onboarded: true, startingBalance: 650000, buffer: 200000, payday: 25 };
-
-const confirm = (alert: jest.SpyInstance, call: number, text: string) =>
-  (alert.mock.calls[call][2] as { text: string; onPress?: () => void }[]).find((b) => b.text === text)!.onPress!();
 
 describe('Settings', () => {
   it('shows saved values', async () => {
@@ -35,8 +31,7 @@ describe('Settings', () => {
     await renderWithRepo(<SettingsScreen />, { settings });
     expect(await screen.findByText('Profile & appearance')).toBeTruthy();
     expect(screen.getByTestId('profile-button')).toBeTruthy();
-    expect(screen.getByLabelText('Delete all data in Me')).toBeTruthy();
-    expect(screen.getByTestId('settings-data-note')).toBeTruthy();
+        expect(screen.getByTestId('settings-data-note')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('settings-manage-profiles'));
     expect(router.push).toHaveBeenCalledWith('/profiles');
   });
@@ -73,30 +68,17 @@ describe('Settings', () => {
     expect(router.push).toHaveBeenCalledWith('/categories');
   });
 
-  it('delete all data needs two confirmations, then wipes and returns to the wizard', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const { repo } = await renderWithRepo(<SettingsScreen />, {
-      settings,
-      recurring: [recurring({ id: 'r', name: 'Rent', kind: 'cost', amount: 950000 })],
-    });
-    await fireEvent.press(await screen.findByTestId('settings-delete-all'));
-    expect(await repo.listRecurring()).toHaveLength(1);
-    await confirm(alert, 0, 'Continue');
-    expect(await repo.listRecurring()).toHaveLength(1);
-    await confirm(alert, 1, 'Delete everything');
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/onboarding'));
-    expect(await repo.listRecurring()).toEqual([]);
-    expect((await repo.getSettings()).onboarded).toBe(false);
-  });
-
-  it('cancelling the first prompt deletes nothing', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const { repo } = await renderWithRepo(<SettingsScreen />, {
-      settings,
-      recurring: [recurring({ id: 'r', name: 'Rent', kind: 'cost', amount: 950000 })],
-    });
-    await fireEvent.press(await screen.findByTestId('settings-delete-all'));
-    expect(alert).toHaveBeenCalledTimes(1);
-    expect(await repo.listRecurring()).toHaveLength(1);
+  it('has no Delete all data, no module switches and a single CSV export', async () => {
+    await renderWithRepo(<SettingsScreen />, { settings });
+    await screen.findByText('Profile & appearance');
+    expect(screen.queryByTestId('settings-delete-all')).toBeNull();
+    expect(screen.queryByText(/Delete all data/)).toBeNull();
+    expect(screen.queryByText('Modules')).toBeNull();
+    expect(screen.queryByTestId('settings-module-debts')).toBeNull();
+    expect(screen.queryByTestId('settings-module-cheques')).toBeNull();
+    expect(screen.getByLabelText('Export to spreadsheet (CSV)')).toBeTruthy();
+    expect(screen.queryByTestId('settings-export-debts-csv')).toBeNull();
+    expect(screen.queryByTestId('settings-export-cheques-csv')).toBeNull();
+    expect(screen.getByText(/To delete this profile and its data, use Manage profiles/)).toBeTruthy();
   });
 });

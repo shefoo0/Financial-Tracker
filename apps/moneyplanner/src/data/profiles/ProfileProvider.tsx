@@ -8,7 +8,7 @@ import { Appearance as RNAppearance, Platform } from 'react-native';
 
 import { createProfileStore } from '@/data/create-repository';
 import { DataProvider } from '@/data/DataProvider';
-import { removeProfileBackups } from '@/data/backup/auto';
+import { removeProfileBackups, saveDeletedProfileCopy } from '@/data/backup/auto';
 import { clearProfileLock } from '@/features/lock/lockStore';
 import type { Repository } from '@/data/repository';
 import type { Appearance, DeviceState, Profile, ProfileStore } from './types';
@@ -22,7 +22,7 @@ interface ProfilesContextValue {
   /** Adds a profile and switches to it (it starts with the setup wizard). */
   addProfile(name: string, color: number): Promise<Profile>;
   updateProfile(id: string, patch: { name?: string; color?: number }): Promise<void>;
-  /** Deletes a profile that is not the active one, with all its data. */
+  /** Deletes any profile with all its data (a safety copy is kept 7 days). Deleting the open one switches to another; deleting the last starts a fresh "Me". */
   deleteProfile(id: string): Promise<void>;
   setAppearance(appearance: Appearance): Promise<void>;
 }
@@ -147,16 +147,63 @@ class ProfileController {
       await this.store.updateProfile(id, patch);
       await this.refresh();
     });
-  /** Only profiles that aren't open are deleted, so their database is already closed. */
+  /**
+   * Deletes any profile with all its data. A safety copy is saved first (kept 7 days in the shared
+   * backups/deleted folder) and the delete stops if it can't be saved. The open profile's database is
+   * closed before its file is deleted; the store then opens another profile, or a fresh "Me" when it was the last.
+   */
   deleteProfile = (id: string) =>
     this.run(async () => {
-      await this.store.deleteProfile(id);
+      const s = this.ready();
+      const profile = s.state.profiles.find((p) => p.id === id);
+      if (!profile) throw new Error('That profile no longer exists');
+      const isOpen = s.state.activeProfileId === id;
+      if (isOpen) {
+        await saveDeletedProfileCopy(s.repo, profile.name);
+      } else {
+        const temp = this.store.openRepository(profile);
+        try {
+          await temp.init();
+          await saveDeletedProfileCopy(temp, profile.name);
+        } finally {
+          await temp.close().catch(() => undefined);
+        }
+      }
+      if (!isOpen) {
+        await this.store.deleteProfile(id);
+      } else {
+        // Show the loading screen while the open database is closed and its file deleted.
+        this.set({ kind: 'loading' });
+        try {
+          await s.repo.close().catch(() => undefined);
+          await this.store.deleteProfile(id);
+        } catch (e) {
+          // Put the screens back on whichever profile the store has open now.
+          await this.reopen();
+          throw e;
+        }
+      }
       // Its automatic backups and PIN live outside the database: remove them too.
       await removeProfileBackups(id);
-      // Its PIN lives in the phone's secure storage, outside the database: remove it too.
       await clearProfileLock(id).catch(() => undefined);
-      await this.refresh();
+      if (isOpen) await this.reopen();
+      else await this.refresh();
     });
+
+  /** Opens whichever profile the store says is active (after the open one was deleted or failed to delete). */
+  private async reopen() {
+    let repo: Repository | null = null;
+    try {
+      const state = await this.store.init();
+      const profile = state.profiles.find((p) => p.id === state.activeProfileId) ?? state.profiles[0];
+      repo = this.store.openRepository(profile);
+      await repo.init();
+      this.set({ kind: 'ready', state: { ...state, activeProfileId: profile.id }, repo });
+    } catch (e) {
+      await repo?.close().catch(() => undefined);
+      this.set({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+    }
+  }
   setAppearance = (appearance: Appearance) =>
     this.run(async () => {
       await this.store.setAppearance(appearance);

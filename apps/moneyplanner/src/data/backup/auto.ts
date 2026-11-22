@@ -1,7 +1,9 @@
 // Automatic local backups. Once a day the open profile's data is written to
 // the app's document folder (backups/<profileId>/auto-YYYY-MM-DD.json), in the
 // same format as a manual backup file. The newest 7 are kept. A safety copy is
-// also written right before a restore or "Delete all data" (kept 7 days).
+// also written right before a restore (kept 7 days). Deleting a profile keeps
+// its last copy in the shared folder backups/deleted/ for 7 days (listed in the
+// open profile's Automatic backups, "Restore into this profile").
 // Nothing here throws to the caller except restoreAutoBackup and
 // backupBeforeChange, which must stop the action if the data can't be checked
 // or saved first.
@@ -21,7 +23,7 @@ export type AutoBackupStatus =
   | { status: 'skipped'; reason: 'already-today' | 'not-set-up' }
   | { status: 'failed'; message: string };
 
-export type BackupKind = 'daily' | 'before-restore' | 'before-delete';
+export type BackupKind = 'daily' | 'before-restore' | 'before-delete' | 'deleted-profile';
 
 export interface AutoBackupInfo {
   /** 'YYYY-MM-DD' for a daily copy, an ISO timestamp for a safety copy. */
@@ -29,6 +31,8 @@ export interface AutoBackupInfo {
   size: number;
   uri: string;
   kind: BackupKind;
+  /** Only for 'deleted-profile': the name the deleted profile had. */
+  profileName?: string;
 }
 
 /** Small facts kept next to the copies, so no database setting is needed. */
@@ -47,11 +51,14 @@ const EMPTY_META: BackupMeta = { lastAutoAt: null, lastManualAt: null, firstSeen
 const META_NAME = 'meta.json';
 const DAILY_RE = /^auto-(\d{4})-(\d{2})-(\d{2})\.json$/;
 const SAFETY_RE = /^(before-restore|before-delete)-(\d+)\.json$/;
+const DELETED_RE = /^deleted-(\d+)-(.*)\.json$/;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const localDateStamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const folder = (profileId: string) => new Directory(Paths.document, 'backups', profileId);
+/** Shared by all profiles, so a deleted profile's copy survives removeProfileBackups. Not a valid profile id. */
+const deletedFolder = () => new Directory(Paths.document, 'backups', 'deleted');
 
 function ensureFolder(profileId: string): Directory {
   const dir = folder(profileId);
@@ -136,15 +143,45 @@ function sortKey(i: AutoBackupInfo): number {
   return Date.parse(i.date);
 }
 
-/** Automatic and safety copies of a profile, newest first. Returns [] if there are none or the folder can't be read. */
-export function listAutoBackups(profileId: string): AutoBackupInfo[] {
+function fileName(entry: File) {
+  return entry.name ?? entry.uri.split('/').pop() ?? '';
+}
+
+function safeDecode(text: string): string {
   try {
-    const dir = folder(profileId);
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
+/** Copies of deleted profiles that are still within their 7 days, newest first. */
+function listDeletedCopies(now: Date = new Date()): AutoBackupInfo[] {
+  try {
+    const dir = deletedFolder();
     if (!dir.exists) return [];
     const out: AutoBackupInfo[] = [];
     for (const entry of dir.list()) {
       if (!(entry instanceof File)) continue;
-      const name = entry.name ?? entry.uri.split('/').pop() ?? '';
+      const m = DELETED_RE.exec(fileName(entry));
+      if (!m || now.getTime() - Number(m[1]) > KEEP_SAFETY_DAYS * DAY_MS) continue;
+      out.push({ date: new Date(Number(m[1])).toISOString(), size: entry.size ?? 0, uri: entry.uri, kind: 'deleted-profile', profileName: safeDecode(m[2]) });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** Automatic and safety copies of a profile plus the copies of deleted profiles, newest first. Returns [] if there are none or the folder can't be read. */
+export function listAutoBackups(profileId: string, now: Date = new Date()): AutoBackupInfo[] {
+  const out: AutoBackupInfo[] = listDeletedCopies(now);
+  try {
+    const dir = folder(profileId);
+    if (!dir.exists) return out.sort((a, b) => sortKey(b) - sortKey(a));
+    for (const entry of dir.list()) {
+      if (!(entry instanceof File)) continue;
+      const name = fileName(entry);
       const daily = DAILY_RE.exec(name);
       const safety = SAFETY_RE.exec(name);
       if (daily) out.push({ date: `${daily[1]}-${daily[2]}-${daily[3]}`, size: entry.size ?? 0, uri: entry.uri, kind: 'daily' });
@@ -157,11 +194,23 @@ export function listAutoBackups(profileId: string): AutoBackupInfo[] {
 }
 
 function rotate(profileId: string, now: Date) {
-  const all = listAutoBackups(profileId);
+  const all = listAutoBackups(profileId, now).filter((i) => i.kind !== 'deleted-profile');
   const drop = [
     ...all.filter((i) => i.kind === 'daily').slice(KEEP_DAILY),
     ...all.filter((i) => i.kind !== 'daily' && now.getTime() - Date.parse(i.date) > KEEP_SAFETY_DAYS * DAY_MS),
   ];
+  // Old copies of deleted profiles go too.
+  try {
+    const dir = deletedFolder();
+    if (dir.exists) {
+      for (const entry of dir.list()) {
+        const m = entry instanceof File ? DELETED_RE.exec(fileName(entry)) : null;
+        if (entry instanceof File && m && now.getTime() - Number(m[1]) > KEEP_SAFETY_DAYS * DAY_MS) entry.delete();
+      }
+    }
+  } catch {
+    // a leftover copy is harmless
+  }
   for (const i of drop) {
     try {
       new File(i.uri).delete();
@@ -229,8 +278,8 @@ export async function backupBeforeChange(repo: Repository, profileId: string, ki
  * of the current data is saved, then everything is replaced. The lock setting of this phone is kept.
  */
 export async function restoreAutoBackup(repo: Repository, uri: string, profileId: string, now: Date = new Date()): Promise<void> {
-  const prefix = folder(profileId).uri.replace(/\/?$/, '/');
-  if (!uri.startsWith(prefix)) throw new Error("That copy isn't one of this profile's automatic backups.");
+  const prefixes = [folder(profileId), deletedFolder()].map((d) => d.uri.replace(/\/?$/, '/'));
+  if (!prefixes.some((p) => uri.startsWith(p))) throw new Error("That copy isn't one of this profile's automatic backups.");
   let text: string;
   try {
     text = await new File(uri).text();
@@ -241,6 +290,26 @@ export async function restoreAutoBackup(repo: Repository, uri: string, profileId
   await backupBeforeChange(repo, profileId, 'before-restore', now);
   await repo.importAll(data);
   notify();
+}
+
+/**
+ * Saves a copy of a profile's data that survives its deletion (backups/deleted/<ts>-<name>), kept 7 days.
+ * Throws (so the caller stops) if it can't be saved: the data is not deleted without a copy.
+ */
+export async function saveDeletedProfileCopy(repo: Repository, profileName: string, now: Date = new Date()): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const dir = deletedFolder();
+    dir.create({ intermediates: true, idempotent: true });
+    const data = await repo.exportAll();
+    const file = await writeAtomic(dir, `deleted-${now.getTime()}-${encodeURIComponent(profileName)}.json`, serializeBackup(data));
+    rotate('deleted', now);
+    notify();
+    return file.uri;
+  } catch (e) {
+    console.warn('Could not save a safety copy', e);
+    throw new Error("Couldn't save a safety copy of this profile first, so nothing was deleted. Free up some space on this phone and try again.");
+  }
 }
 
 /** Removes all copies of a profile. Call when the profile is deleted. Never throws. */

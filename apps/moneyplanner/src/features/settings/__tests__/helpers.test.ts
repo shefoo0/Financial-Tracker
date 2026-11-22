@@ -5,10 +5,9 @@ import {
   choiceToPayday,
   describePayday,
   formatPayday,
-  moduleList,
   paydayToChoice,
   PAYDAY_OPTIONS,
-  wizardSteps,
+  WIZARD_STEPS,
   nextPayday,
   paydayForSettings,
   signedBalance,
@@ -79,12 +78,9 @@ describe('validation', () => {
   });
 });
 
-describe('modules and wizard steps', () => {
-  it('lists nothing when no module is built', () => expect(moduleList([])).toEqual([]));
-  it('lists titles from MODULE_INFO', () => expect(moduleList(['debts'])).toEqual([{ id: 'debts', label: 'Debts', description: expect.any(String) }]));
-  it('skips the Modules step when none are available', () => {
-    expect(wizardSteps(false)).toEqual(['welcome', 'salary', 'balance', 'done']);
-    expect(wizardSteps(true)).toContain('modules');
+describe('wizard steps', () => {
+  it('is salary, payday and balance, then the summary (Start)', () => {
+    expect(WIZARD_STEPS).toEqual(['salary', 'payday', 'balance', 'done']);
   });
 });
 

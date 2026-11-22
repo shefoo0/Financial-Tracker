@@ -1,4 +1,4 @@
-// First-launch setup wizard: welcome, salary, balance, modules, done.
+// First-launch setup wizard: 3 steps (salary, payday, today's balance), then Start. The buffer starts at AED 1,000 (Settings changes it).
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, View } from 'react-native';
@@ -8,22 +8,21 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useData } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { defaultSettings } from '@/data/defaults';
+import { DEFAULT_BUFFER, defaultSettings } from '@/data/defaults';
 import {
   PAYDAY_OPTIONS,
   buildSalaryItem,
   choiceToPayday,
   describePayday,
-  moduleList,
   paydayForSettings,
   signedBalance,
-  wizardSteps,
+  WIZARD_STEPS,
 } from '@/features/settings/helpers';
 import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { newId } from '@/lib/id';
 import { today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
-import type { Fils, ModuleId } from '@/types';
+import type { Fils } from '@/types';
 
 const initial = defaultSettings();
 
@@ -36,10 +35,9 @@ export default function Onboarding() {
   const isFirstProfile = profiles[0]?.id === active.id;
   const currency = initial.currency;
 
-  // Alerts is not a wizard choice: its switch asks for notification permission, which lives in Settings -> Alerts.
-  const moduleChoices = moduleList().filter((m) => m.id !== 'alerts');
-  const steps = wizardSteps(moduleChoices.length > 0);
-  const STEPS = steps.length;
+  const steps = WIZARD_STEPS;
+  // The last screen ('done') is the summary with Start; only the first three are numbered steps.
+  const STEPS = steps.length - 1;
   const [index, setIndex] = useState(0);
   const step = steps[index];
   // One id for the whole wizard, so saving twice updates the same Salary item.
@@ -49,8 +47,6 @@ export default function Onboarding() {
   const [paydayChoice, setPaydayChoice] = useState('none');
   const [balance, setBalance] = useState<Fils | null>(null);
   const [overdrawn, setOverdrawn] = useState(false);
-  const [buffer, setBuffer] = useState<Fils | null>(null);
-  const [modules, setModules] = useState<Record<ModuleId, boolean>>(initial.enabledModules);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,12 +55,12 @@ export default function Onboarding() {
   const finalBalance = signedBalance(balance, overdrawn);
 
   const next = () => {
-    if (step === 'salary' && hasSalary && payday == null) {
+    if (step === 'payday' && hasSalary && payday == null) {
       setError('Choose the day you get paid, or clear the amount.');
       return;
     }
     setError(null);
-    setIndex((i) => Math.min(STEPS - 1, i + 1));
+    setIndex((i) => Math.min(steps.length - 1, i + 1));
   };
   const back = () => {
     setError(null);
@@ -74,16 +70,16 @@ export default function Onboarding() {
   const skip = () => {
     if (step === 'salary') {
       setSalary(null);
+    } else if (step === 'payday') {
+      // A salary needs a payday: skipping the payday forgets the salary too.
+      setSalary(null);
       setPaydayChoice('none');
     } else if (step === 'balance') {
       setBalance(null);
       setOverdrawn(false);
-      setBuffer(null);
-    } else if (step === 'modules') {
-      setModules(initial.enabledModules);
     }
     setError(null);
-    setIndex((i) => Math.min(STEPS - 1, i + 1));
+    setIndex((i) => Math.min(steps.length - 1, i + 1));
   };
 
   // Android Back goes to the previous step; on the first step (or while saving) it does nothing.
@@ -111,8 +107,7 @@ export default function Onboarding() {
         payday: paydayForSettings(payday),
         startingBalance: finalBalance,
         startingBalanceDate: todayDate,
-        buffer: buffer ?? 0,
-        enabledModules: modules,
+        buffer: DEFAULT_BUFFER,
         onboarded: true,
       });
       bump();
@@ -124,20 +119,20 @@ export default function Onboarding() {
     }
   };
 
-  const enabledNames = moduleChoices.filter((m) => modules[m.id]).map((m) => m.label);
-
   return (
     <Screen testID="onboarding-screen">
-      <T variant="caption" tone="secondary" accessibilityLabel={`Step ${index + 1} of ${STEPS}`} testID="onboarding-step">
-        {`Step ${index + 1} of ${STEPS}`}
-      </T>
+      {step !== 'done' && (
+        <T variant="caption" tone="secondary" accessibilityLabel={`Step ${index + 1} of ${STEPS}`} testID="onboarding-step">
+          {`Step ${index + 1} of ${STEPS}`}
+        </T>
+      )}
       <View style={{ flexDirection: 'row', gap: Spacing.one }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        {steps.map((s, i) => (
+        {steps.slice(0, STEPS).map((s, i) => (
           <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= index ? c.accent : c.border }} />
         ))}
       </View>
 
-      {step === 'welcome' && (
+      {step === 'salary' && (
         <View style={{ gap: Spacing.three }}>
           <HeroCard testID="onboarding-hero">
             <View accessible accessibilityRole="header">
@@ -150,23 +145,21 @@ export default function Onboarding() {
                 {`Setting up ${active.name}`}
               </T>
             )}
-            <T style={{ color: '#FFFFFF' }}>See where your money goes and what is left each month. Add your income and bills once, and the app shows what is coming.</T>
+            <T style={{ color: '#FFFFFF' }}>See where your money goes and what is left each month. Your data stays on this phone: no account, no bank login. Tracking only, not financial advice.</T>
           </HeroCard>
-          <Card>
-            <T variant="label">Your data stays on this phone. No account, no bank login.</T>
-          </Card>
-          <T variant="caption" tone="secondary">
-            Tracking only — not financial advice.
-          </T>
-        </View>
-      )}
-
-      {step === 'salary' && (
-        <View style={{ gap: Spacing.three }}>
           <ScreenTitle>Your salary</ScreenTitle>
           <T tone="secondary">We will add it as a monthly income so your plan starts with it. You can skip this and add it later.</T>
           <Card>
             <MoneyField label="Monthly salary" value={salary} onChange={setSalary} currency={currency} testID="onboarding-salary" />
+          </Card>
+        </View>
+      )}
+
+      {step === 'payday' && (
+        <View style={{ gap: Spacing.three }}>
+          <ScreenTitle>Your payday</ScreenTitle>
+          <T tone="secondary">The day you usually get paid. The app counts your month from it.</T>
+          <Card>
             <SelectField
               label="Payday"
               value={paydayChoice}
@@ -187,35 +180,6 @@ export default function Onboarding() {
             <MoneyField label="Bank balance today" value={balance} onChange={setBalance} currency={currency} testID="onboarding-balance" />
             <ToggleRow label="My account is overdrawn" value={overdrawn} onChange={setOverdrawn} testID="onboarding-overdrawn" />
           </Card>
-          <Card>
-            <MoneyField
-              label="Buffer"
-              value={buffer}
-              onChange={setBuffer}
-              currency={currency}
-              hint="The least you want to keep in your account. You get a warning if the forecast goes below it."
-              testID="onboarding-buffer"
-            />
-          </Card>
-        </View>
-      )}
-
-      {step === 'modules' && (
-        <View style={{ gap: Spacing.three }}>
-          <ScreenTitle>Extra features</ScreenTitle>
-          <T tone="secondary">Switch on what you need. You can change these any time in Settings.</T>
-          <Card>
-            {moduleChoices.map((m) => (
-              <ToggleRow
-                key={m.id}
-                label={m.label}
-                description={m.description}
-                value={modules[m.id]}
-                onChange={(v) => setModules((prev) => ({ ...prev, [m.id]: v }))}
-                testID={`onboarding-module-${m.id}`}
-              />
-            ))}
-          </Card>
         </View>
       )}
 
@@ -225,14 +189,13 @@ export default function Onboarding() {
           <Card testID="onboarding-summary">
             <T>{hasSalary && payday != null ? `Salary: ${formatMoney(salary as Fils, currency)} every month, ${describePayday(payday)}` : 'Salary: not added yet'}</T>
             <T>{`Balance today: ${formatMoney(finalBalance, currency)}`}</T>
-            <T>{`Buffer: ${formatMoney(buffer ?? 0, currency)}`}</T>
-            {moduleChoices.length > 0 && <T>{`Extra features: ${enabledNames.length ? enabledNames.join(', ') : 'none'}`}</T>}
+            <T>{`Buffer: ${formatMoney(DEFAULT_BUFFER, currency)} (the least you want to keep in your account)`}</T>
           </Card>
           <T variant="caption" tone="secondary">
-            Everything can be changed later in Settings.
+            Everything, including the buffer, can be changed later in Settings.
           </T>
           <T variant="caption" tone="secondary" testID="onboarding-alerts-note">
-            Turn on alerts later in Settings → Alerts.
+            Turn on phone notifications later in Settings → Alerts.
           </T>
         </View>
       )}
@@ -249,7 +212,7 @@ export default function Onboarding() {
               <Button label="Back" variant="secondary" onPress={back} disabled={saving} testID="onboarding-back" />
             </View>
           )}
-          {step !== 'welcome' && step !== 'done' && (
+          {step !== 'done' && (
             <View style={{ flex: 1 }}>
               <Button label="Skip" variant="plain" onPress={skip} accessibilityHint="Skips this step" testID="onboarding-skip" />
             </View>

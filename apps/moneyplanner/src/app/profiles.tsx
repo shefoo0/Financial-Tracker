@@ -1,4 +1,4 @@
-// Manage profiles: rename, recolour and delete (typed confirmation).
+// Manage profiles: rename, recolour and delete any profile (typed confirmation).
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
@@ -21,7 +21,6 @@ export default function ManageProfilesScreen() {
       </T>
       {profiles.map((p, i) => {
         const isActive = p.id === active.id;
-        const isLast = profiles.length <= 1;
         return (
           <Card key={p.id} testID={`profile-manage-${i}`}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.three }}>
@@ -50,15 +49,7 @@ export default function ManageProfilesScreen() {
             ) : (
               <View style={{ gap: Spacing.two }}>
                 <Button label="Rename or change colour" accessibilityHint={`Edits ${p.name}`} variant="secondary" onPress={() => setEditingId(p.id)} testID={`profile-edit-${i}`} />
-                {isActive || isLast ? (
-                  <T variant="caption" tone="secondary" testID={`profile-delete-note-${i}`}>
-                    {isLast
-                      ? 'This is your only profile, so it cannot be deleted.'
-                      : 'This profile is open now, so it cannot be deleted. Switch to another profile first.'}
-                  </T>
-                ) : (
-                  <Button label={`Delete ${p.name}`} variant="destructive" onPress={() => setDeleting(p)} testID={`profile-delete-${i}`} />
-                )}
+                <Button label={`Delete ${p.name}`} variant="destructive" onPress={() => setDeleting(p)} testID={`profile-delete-${i}`} />
               </View>
             )}
           </Card>
@@ -67,6 +58,8 @@ export default function ManageProfilesScreen() {
 
       <DeleteSheet
         profile={deleting}
+        profiles={profiles}
+        isOpen={!!deleting && deleting.id === active.id}
         onClose={() => setDeleting(null)}
         onConfirm={async (p) => {
           try {
@@ -81,7 +74,7 @@ export default function ManageProfilesScreen() {
   );
 }
 
-function DeleteSheet({ profile, onClose, onConfirm }: { profile: Profile | null; onClose: () => void; onConfirm: (p: Profile) => Promise<void> }) {
+function DeleteSheet({ profile, profiles, isOpen, onClose, onConfirm }: { profile: Profile | null; profiles: Profile[]; isOpen: boolean; onClose: () => void; onConfirm: (p: Profile) => Promise<void> }) {
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const close = () => {
@@ -93,7 +86,7 @@ function DeleteSheet({ profile, onClose, onConfirm }: { profile: Profile | null;
     <Sheet visible={!!profile} onClose={close} title={profile ? `Delete ${profile.name}?` : 'Delete profile'} testID="profile-delete-sheet">
       {profile ? (
         <View style={{ gap: Spacing.three }}>
-          <T>{`All of ${profile.name}'s data is deleted permanently from this phone: the plan, one-time items, categories, balance and settings. This cannot be undone.`}</T>
+          <T>{`All of ${profile.name}'s data is deleted from this phone: the plan, one-time items, categories, balance and settings. A safety copy is kept for 7 days in Automatic backups (Settings), where you can restore it into a profile.${profiles.length <= 1 ? ' This is your only profile: a new empty profile "Me" starts with the setup wizard.' : isOpen ? ' This profile is open now, so another profile opens afterwards.' : ''}`}</T>
           <TextField label={`Type "${profile.name}" to confirm`} value={typed} onChangeText={setTyped} testID="profile-delete-input" />
           <Button
             label="Delete profile and all its data"

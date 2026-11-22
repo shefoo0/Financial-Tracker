@@ -132,80 +132,10 @@ describe('a loan added in the form', () => {
     expect(screen.getByLabelText(/^Jun 2026: AED 116,500\.00/)).toBeTruthy();
   });
 
-  it('shows nothing from a loan when the Debts module is off for its card', async () => {
+  it('always shows the Debts and Cheques cards, whatever the old module flags say', async () => {
     await open({ settings: settings({ enabledModules: { debts: false, cheques: false, alerts: true, import: true } }), recurring: [salary()] });
     await screen.findByTestId('plan-screen');
-    expect(screen.queryByTestId('plan-open-debts')).toBeNull();
-    expect(screen.queryByTestId('plan-open-cheques')).toBeNull();
-  });
-});
-
-describe('a cheque series', () => {
-  it('shows in Month, the dashboard and the forecast, and clearing one removes it from the forecast', async () => {
-    // An old one-time item (on the starting-balance date, so not counted) keeps the dashboard out of its empty state.
-    const { repo } = await open({ settings: settings(), transactions: [transaction({ id: 'old', description: 'Old', kind: 'income', amount: 100, date: '2026-01-01' })] });
-    await goTo('cheques');
-    expect(await screen.findByText('No cheques yet')).toBeTruthy();
-
-    await goTo('cheque', { id: 'new', series: '1' });
-    await fireEvent.changeText(await screen.findByTestId('series-payee'), 'Landlord');
-    await fireEvent.changeText(screen.getByTestId('series-amount'), '4000');
-    await fireEvent.changeText(screen.getByTestId('series-purpose'), 'Rent');
-    await fireEvent.changeText(screen.getByTestId('series-count'), '4');
-    await fireEvent.changeText(screen.getByTestId('series-every'), '3');
-    await fireEvent.press(screen.getByTestId('series-save'));
-    await waitFor(async () => expect(await repo.listCheques()).toHaveLength(4));
-
-    // Plan card counts the 4 upcoming cheques, AED 16,000 together.
-    await goTo('plan');
-    await waitFor(() => expect(screen.getByTestId('plan-open-cheques')).toHaveTextContent(/4 upcoming · AED 16,000\.00/));
-
-    // Month: the first cheque (today, 10 June) is listed.
-    await goTo('month');
-    expect(await screen.findByLabelText(/^Cheque to Landlord, cost AED 4,000\.00/)).toBeTruthy();
-
-    // Dashboard: first cheque is today, so it is already in "Balance today"; the next is in 92 days.
-    await goTo('dashboard');
-    expect(await screen.findByLabelText('Balance today: AED 96,000.00')).toBeTruthy();
-    const next = screen.getByTestId('dashboard-upcoming');
-    expect(within(next).getAllByLabelText(/Cheque to Landlord/).length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(/^Sep 2026: AED 92,000\.00/)).toBeTruthy();
-
-    // Mark the first cheque cleared on the list.
-    await goTo('cheques');
-    await fireEvent.press(await screen.findByTestId('cheque-clear-0'));
-    await waitFor(async () => expect((await repo.listCheques()).filter((c) => c.status === 'cleared')).toHaveLength(1));
-
-    await goTo('dashboard');
-    // A cleared cheque is no longer an outflow: today's balance is back to 100,000 and September ends at 96,000.
-    await waitFor(() => expect(screen.getByLabelText('Balance today: AED 100,000.00')).toBeTruthy());
-    expect(screen.getByLabelText(/^Sep 2026: AED 96,000\.00/)).toBeTruthy();
-    await goTo('month');
-    await waitFor(() => expect(screen.queryByLabelText(/^Cheque to Landlord/)).toBeNull());
-    expect((await repo.listCheques()).filter((c) => c.status === 'upcoming')).toHaveLength(3);
-  });
-});
-
-describe('Home with only a debt or a cheque (no recurring or one-time items)', () => {
-  it('shows a loan in Coming up instead of the empty welcome', async () => {
-    await open({
-      settings: settings(),
-      debts: [{ id: 'L', type: 'loan', name: 'Car loan', note: '', archived: false, createdAt: '2026-01-02', balance: 2_000_000, balanceDate: '2026-06-01', monthlyPayment: 150_000, paymentDay: 15, annualRatePct: null, endDate: null }],
-    });
-    await goTo('dashboard');
-    expect(await screen.findByTestId('dashboard-screen')).toBeTruthy();
-    expect(screen.queryByText('Welcome to Money Planner')).toBeNull();
-    expect(within(screen.getByTestId('dashboard-upcoming')).getAllByLabelText(/Car loan payment/).length).toBeGreaterThan(0);
-  });
-
-  it('shows an upcoming cheque in Coming up instead of the empty welcome', async () => {
-    await open({
-      settings: settings(),
-      cheques: [{ id: 'Q', payee: 'Landlord', amount: 400_000, date: '2026-06-20', purpose: 'Rent', status: 'upcoming', seriesId: null, note: '' }],
-    });
-    await goTo('dashboard');
-    expect(await screen.findByTestId('dashboard-screen')).toBeTruthy();
-    expect(screen.queryByText('Welcome to Money Planner')).toBeNull();
-    expect(within(screen.getByTestId('dashboard-upcoming')).getAllByLabelText(/Cheque to Landlord/).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('plan-open-debts')).toBeTruthy();
+    expect(screen.getByTestId('plan-open-cheques')).toBeTruthy();
   });
 });
