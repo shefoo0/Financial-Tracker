@@ -9,7 +9,7 @@ export function validateProfileName(name: string): string | null {
 }
 
 /** Names of the avatar colours, for screen readers (same order as Palette). */
-export const COLOR_NAMES = ['Orange', 'Indigo', 'Green', 'Pink', 'Blue', 'Gold', 'Purple', 'Slate'] as const;
+export const COLOR_NAMES = ['Orange', 'Navy', 'Green', 'Red', 'Blue', 'Gold', 'Teal', 'Slate'] as const;
 
 /** The first colour no profile uses yet (or the next one in turn). */
 export function nextColor(used: number[], paletteSize: number): number {
