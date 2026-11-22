@@ -79,6 +79,8 @@ export default function RootLayout() {
             <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
             <Stack.Screen name="cheques/index" options={{ title: '', headerBackTitle: 'Plan' }} />
             <Stack.Screen name="cheques/[id]" options={{ presentation: 'modal', title: 'Cheque' }} />
+            <Stack.Screen name="reports/index" options={{ title: '', headerBackTitle: 'Home' }} />
+            <Stack.Screen name="reports/[key]" options={{ title: 'Report', headerBackTitle: 'Reports' }} />
           </Stack>
         </LockGate>
       </Themed>

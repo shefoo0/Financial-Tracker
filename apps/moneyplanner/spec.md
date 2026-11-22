@@ -166,6 +166,9 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 - **Modules:** Debts, Cheques and Alerts switches appear in the wizard and Settings once built (`AVAILABLE_MODULES`). Turning a module off hides its data everywhere but keeps it.
 - Backup files are version 2 (debts, payments, schedule changes, cheques); version 1 files still restore.
 
+### Milestone 3 decisions (developer, 2026-11-22; research in research/milestone3-import.md)
+- **Ship:** import by **sharing into the app** (PDF statements incl. password-protected ones, photos/screenshots of statements and receipts, Excel/CSV, OFX/QFX, and the text of a bank SMS shared from the Messages app), plus "Import" in the app with a file picker and the camera. On-device only: `expo-text-extractor` (Apple Vision / ML Kit, model downloaded at install via a config plugin), `expo-pdf-text-extract` for text PDFs, `react-native-pdf-thumbnail` to OCR scanned PDFs; review screen before anything is saved; duplicate detection and category rules.
+- **Not in v1:** automatic reading of SMS (Google Play's SMS permission is case-by-case and risky for a personal account) and of notifications (Android restricted settings, needs our own native module; impossible on iPhone). Revisit automatic Android notification capture after the app is approved on Google Play. The spec's "live SMS/notification capture" is replaced by share-in (two taps, both phones).
 ### Milestone 3 — Statement import and OCR (native code; needs a development build)
 | Task | Owns |
 | --- | --- |

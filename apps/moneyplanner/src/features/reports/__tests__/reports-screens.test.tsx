@@ -30,6 +30,8 @@ const seed = {
   recurring: [recurring({ id: 's', name: 'Zebra Corp salary', kind: 'income', amount: OWN_SALARY, schedule: { type: 'monthly', day: 1 } })],
   transactions: [transaction({ id: 't', description: 'Own purchase', kind: 'cost', amount: 123457, date: today() })],
 };
+// One, two or three monthly salaries, depending on the date the test runs.
+const OWN_AMOUNT = /76,543\.21|153,086\.42|229,629\.63/;
 const currentQuarterKey = () => {
   const t = today();
   return `${t.slice(0, 4)}-Q${Math.floor((Number(t.slice(5, 7)) - 1) / 3) + 1}`;
@@ -48,7 +50,7 @@ describe('free user', () => {
     expect(await screen.findByTestId('reports-screen')).toBeTruthy();
     expect(screen.getByTestId('report-sample-banner')).toBeTruthy();
     expect(screen.getByText(/Sample: your own reports come with Pro/)).toBeTruthy();
-    expect(screen.queryByText(/76,543/)).toBeNull();
+    expect(screen.queryByText(OWN_AMOUNT)).toBeNull();
     expect(screen.queryByText(/Zebra/)).toBeNull();
     await fireEvent.press(screen.getByTestId('report-period-0'));
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/reports/[key]', params: { key: sampleReport(today()).period.key } }));
@@ -68,7 +70,7 @@ describe('free user', () => {
     expect(screen.getByTestId('report-unlock')).toBeTruthy();
     expect(screen.getByText('Salary')).toBeTruthy();
     expect(screen.getByText(/Made-up demo numbers/)).toBeTruthy();
-    expect(screen.queryByText(/76,543/)).toBeNull();
+    expect(screen.queryByText(OWN_AMOUNT)).toBeNull();
     expect(screen.queryByText(/Zebra/)).toBeNull();
     expect(screen.queryByText(/1,234.57/)).toBeNull();
     expect(screen.queryByTestId('report-pdf')).toBeNull();
@@ -111,7 +113,8 @@ describe('Pro user', () => {
     expect(await screen.findByText('Zebra Corp salary')).toBeTruthy();
     expect(screen.queryByTestId('report-sample-banner')).toBeNull();
     expect(screen.queryByTestId('report-unlock')).toBeNull();
-    expect(screen.getAllByText(/76,543\.21/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1,234\.57/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(OWN_AMOUNT).length).toBeGreaterThan(0);
   });
 
   it('says so for a key that is not a period', async () => {
