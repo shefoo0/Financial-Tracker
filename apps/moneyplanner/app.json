@@ -51,7 +51,16 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "web": {
@@ -69,7 +78,6 @@
         }
       ],
       "expo-sqlite",
-      "expo-sharing",
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       [
@@ -83,7 +91,44 @@
         {
           "color": "#5B4DFF"
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Money Planner reads the statement or receipt photo you choose, on your phone only.",
+          "cameraPermission": "Money Planner uses the camera to photograph a statement or receipt. The photo stays on your phone.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/pdf",
+              "text/csv",
+              "text/comma-separated-values",
+              "text/plain",
+              "image/*",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/vnd.ms-excel",
+              "application/x-ofx",
+              "application/octet-stream"
+            ]
+          },
+          "ios": {
+            "enabled": true,
+            "appGroupId": "group.com.shefoo.moneyplanner",
+            "activationRule": {
+              "supportsFileWithMaxCount": 1,
+              "supportsImageWithMaxCount": 1,
+              "supportsText": true
+            }
+          }
+        }
+      ],
+      "./plugins/with-mlkit-ocr-dependency"
     ],
     "experiments": {
       "typedRoutes": true,
