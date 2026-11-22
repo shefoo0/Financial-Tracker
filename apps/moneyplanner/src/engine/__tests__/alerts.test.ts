@@ -135,7 +135,7 @@ describe('buildAlerts', () => {
   });
 
   it('debt-ends says estimated when interest was used', () => {
-    const l = loan({ id: 'L4', balance: 60000, monthlyPayment: 30000, annualRatePct: 12 });
+    const l = loan({ id: 'L4', balance: 50000, monthlyPayment: 30000, annualRatePct: 12 });
     const a = of(buildAlerts(input({ debts: [l] }), TODAY), 'debt-ends');
     expect(a[0].message).toMatch(/^Car loan has an estimated last payment on \d+ \w+\./);
   });

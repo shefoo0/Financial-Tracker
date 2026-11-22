@@ -1,12 +1,12 @@
 // Alerts state facts, never advice: scan every alert the engine can produce, across many situations.
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
 import { planNotifications } from '@/features/alerts/plan';
 import type { AlertKind, AppAlert, Transaction } from '@/types';
 
 import { buildAlerts } from '../index';
 import { card, cheque, income, input, loan, plan, settings } from '../test-fixtures';
+
+// Node's fs, without node type definitions (the project has none): tests run from the app folder.
+const readSource = (file: string): string => jest.requireActual<{ readFileSync: (p: string, e: string) => string }>('fs').readFileSync(`${(globalThis as unknown as { process: { cwd(): string } }).process.cwd()}/${file}`, 'utf8');
 
 const TODAY = '2026-01-10';
 const tx = (date: string, amount: number): Transaction => ({
@@ -78,7 +78,7 @@ describe('alert wording', () => {
 
   it('the wording source files contain no advice either (catches branches the scenarios miss)', () => {
     for (const file of ['src/engine/alerts/index.ts', 'src/features/alerts/plan.ts', 'src/features/alerts/AlertsCard.tsx', 'src/features/alerts/AlertsSettings.tsx']) {
-      const text = readFileSync(join(__dirname, '../../..', file), 'utf8');
+      const text = readSource(file);
       // Only string literals and JSX text matter; comments may say "never advice".
       const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
       const literals = code.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1|>[^<>{}\n]+</g) ?? [];
