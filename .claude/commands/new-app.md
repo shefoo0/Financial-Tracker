@@ -36,6 +36,9 @@ Both stores reject apps that are thin, templated, or copies of existing apps (Ap
 - work fully offline unless the problem needs the network, with no dead buttons, placeholder screens, lorem ipsum or "coming soon" features;
 - avoid other companies' trademarks, names, characters or artwork in its name, icon, copy and content;
 - collect no personal data unless a feature needs it, and declare exactly what it collects.
+- beat the competition where users complain: read the low-star reviews of the top competitors (`node scripts/store-lookup.mjs`) and make sure the app fixes the top complaints, then write that list as a "release bar" in `PROGRESS.md` that must be done before release;
+- be simple: one way to do each thing, no settings or switches that aren't needed, no duplicate controls, sensible defaults instead of setup questions (first use useful in under 60 seconds), primary actions within thumb reach. Justify every setting and screen in the spec; if it can't be justified, leave it out;
+- decide free vs paid deliberately: the free part must be a complete, useful app people can try without paying; the paid part holds the clearest reasons to pay (for example imports, reports), and free users can see what they'd get (a labelled sample) before buying.
 
 If the idea can't meet that bar (it duplicates a free system app, needs a backend the developer doesn't have, or is mainly a wrapper around a website), tell the developer, propose the closest variant that can, and ask before building it.
 
