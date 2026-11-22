@@ -19,6 +19,7 @@ name: First launch and setup wizard
 - scrollUntilVisible:
     element:
       id: onboarding-payday-option-25
+    visibilityPercentage: 50
     direction: DOWN
 - tapOn:
     id: onboarding-payday-option-25

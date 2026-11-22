@@ -19,11 +19,11 @@ name: Delete all data returns to the wizard
 - tapOn: "Settings"
 - assertVisible:
     id: settings-screen
-# Bring it to the middle of the screen: at the very bottom it sits under the tab bar.
+# Low on the screen near the tab bar: half visible is enough to tap it.
 - scrollUntilVisible:
     element:
       id: settings-delete-all
-    centerElement: true
+    visibilityPercentage: 50
 - tapOn:
     id: settings-delete-all
 - tapOn: "Continue"

@@ -30,6 +30,8 @@ import { useToday } from '@/features/dashboard/useToday';
 import { AlertsCard } from '@/features/alerts/AlertsCard';
 import { markPaid } from '@/features/payday/markPaid';
 import { PaydayCard } from '@/features/payday/PaydayCard';
+import { BackupReminderCard } from '@/features/backup/BackupReminderCard';
+import { ReportsCard } from '@/features/reports/ReportsCard';
 import { UndoBar } from '@/features/payday/UndoBar';
 import type { UpcomingItem } from '@/features/dashboard/upcoming';
 import { useTheme } from '@/hooks/use-theme';
@@ -269,6 +271,8 @@ function DashboardBody({ input }: { input: PlanInput }) {
         )}
       </Card>
 
+      <ReportsCard input={input} />
+
       <Card testID="dashboard-month-card">
         <SectionHeader title="This month" />
         <Stepper
@@ -386,6 +390,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
           Amounts in {currency}. The current month is highlighted.
         </T>
       </Card>
+        <BackupReminderCard testID="home-backup-reminder" />
         <QuickAddSpacer />
       </Screen>
       {undo ? <UndoBar message={undo.message} onUndo={onUndo} onDismiss={dismissUndo} /> : null}

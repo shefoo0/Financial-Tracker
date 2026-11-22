@@ -5,6 +5,7 @@
 // Nothing here throws to the caller except restoreAutoBackup and
 // backupBeforeChange, which must stop the action if the data can't be checked
 // or saved first.
+import { Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { exportBackup, parseBackup, serializeBackup } from '@/data/backup';
@@ -207,7 +208,9 @@ export function runAutoBackup(repo: Repository, profileId: string, now: Date = n
  * Saves a safety copy of the current data before something replaces or deletes it.
  * Throws (so the caller stops) if it can't be saved: the user keeps their data.
  */
-export async function backupBeforeChange(repo: Repository, profileId: string, kind: 'before-restore' | 'before-delete', now: Date = new Date()): Promise<string> {
+export async function backupBeforeChange(repo: Repository, profileId: string, kind: 'before-restore' | 'before-delete', now: Date = new Date()): Promise<string | null> {
+  // The web preview has no file storage and keeps nothing between visits: no copy to make.
+  if (Platform.OS === 'web') return null;
   try {
     const dir = ensureFolder(profileId);
     const data = await repo.exportAll();

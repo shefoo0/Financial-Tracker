@@ -31,10 +31,10 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - [x] Flexible schedules (every N weeks/months, last day, move/skip/change one payment, partial and extra payments).
 - [x] Cards with limit/available/usage, 0% instalment plans with editable dates, UAE cheques.
 - [x] Works offline, no account, per-profile lock.
-- [ ] **"Safe to spend until payday"** on Home (the loved Rocket Money "Payday view": what's left after bills until the next salary) — the clearest everyday reason to open the app.
-- [ ] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
-- [ ] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
-- [ ] **Quarterly and yearly reports** (spec §13, Pro; free users see a labelled sample report) with PDF export — no competitor offers company-style personal reports.
+- [x] **"Safe to spend until payday"** on Home (the loved Rocket Money "Payday view": what's left after bills until the next salary) — the clearest everyday reason to open the app.
+- [x] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
+- [x] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
+- [x] **Quarterly and yearly reports** (spec §13, Pro; free users see a labelled sample report) with PDF export — no competitor offers company-style personal reports.
 - [ ] First use in under 60 seconds to a useful forecast (time the wizard in the walkthrough).
 - [ ] UX audit of every screen from the walkthrough screenshots (light + dark, one-handed reach, empty states, wording, tap targets, numbers readable at a glance) — fix every major item.
 - [ ] Statement import with good OCR (M3) — competitors' OCR is "garbage" and paywalled; ours must read totals correctly and be free to try.

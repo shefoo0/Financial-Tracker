@@ -16,6 +16,7 @@ name: Screenshots of the main screens
 - scrollUntilVisible:
     element:
       id: onboarding-payday-option-25
+    visibilityPercentage: 50
     direction: DOWN
 - tapOn:
     id: onboarding-payday-option-25

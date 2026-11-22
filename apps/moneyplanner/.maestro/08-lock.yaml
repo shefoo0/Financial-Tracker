@@ -42,8 +42,10 @@ name: Lock with a PIN
     id: pin-key-3
 - tapOn:
     id: pin-key-4
+# Confirming the PIN finishes by itself once all digits are typed; the button may be gone.
 - tapOn:
     id: pin-submit
+    optional: true
 - scrollUntilVisible:
     element:
       id: settings-lock-change
