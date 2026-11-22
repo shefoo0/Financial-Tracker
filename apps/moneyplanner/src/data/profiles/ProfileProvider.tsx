@@ -8,6 +8,7 @@ import { Appearance as RNAppearance, Platform } from 'react-native';
 
 import { createProfileStore } from '@/data/create-repository';
 import { DataProvider } from '@/data/DataProvider';
+import { removeProfileBackups } from '@/data/backup/auto';
 import { clearProfileLock } from '@/features/lock/lockStore';
 import type { Repository } from '@/data/repository';
 import type { Appearance, DeviceState, Profile, ProfileStore } from './types';
@@ -150,6 +151,8 @@ class ProfileController {
   deleteProfile = (id: string) =>
     this.run(async () => {
       await this.store.deleteProfile(id);
+      // Its automatic backups and PIN live outside the database: remove them too.
+      await removeProfileBackups(id);
       // Its PIN lives in the phone's secure storage, outside the database: remove it too.
       await clearProfileLock(id).catch(() => undefined);
       await this.refresh();

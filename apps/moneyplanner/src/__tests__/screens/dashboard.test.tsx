@@ -171,4 +171,22 @@ describe('Dashboard', () => {
     expect(free.props.accessibilityLabel).toBe('Free: -AED 249,999.75');
     expect(within(free).getByText('-250,000')).toBeTruthy();
   });
+
+  describe('safe to spend and Paid', () => {
+    it('shows the payday card and the Paid button hides the row, with Undo', async () => {
+      await renderWithRepo(<DashboardScreen />, {
+        settings,
+        transactions: [transaction({ id: 'p', description: 'Gift', kind: 'cost', amount: 10000, date: addDays(today(), 1), planned: true })],
+      });
+      expect(await screen.findByTestId('payday-card')).toBeTruthy();
+      expect(screen.getByTestId('payday-safe').props.accessibilityLabel).toContain('AED 4,400.00');
+      await fireEvent.press(screen.getByTestId('payday-toggle'));
+      expect(screen.getByTestId('payday-details')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('upcoming-paid-0'));
+      await waitFor(() => expect(screen.queryByTestId('dashboard-upcoming-0')).toBeNull());
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('undo-button'));
+      expect(await screen.findByTestId('dashboard-upcoming-0')).toBeTruthy();
+    });
+  });
 });

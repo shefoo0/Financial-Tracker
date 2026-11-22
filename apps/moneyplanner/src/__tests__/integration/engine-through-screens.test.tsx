@@ -195,7 +195,7 @@ describe('Home with only a debt or a cheque (no recurring or one-time items)', (
     await goTo('dashboard');
     expect(await screen.findByTestId('dashboard-screen')).toBeTruthy();
     expect(screen.queryByText('Welcome to Money Planner')).toBeNull();
-    expect(within(screen.getByTestId('dashboard-upcoming')).getByLabelText(/Car loan payment/)).toBeTruthy();
+    expect(within(screen.getByTestId('dashboard-upcoming')).getAllByLabelText(/Car loan payment/).length).toBeGreaterThan(0);
   });
 
   it('shows an upcoming cheque in Coming up instead of the empty welcome', async () => {
@@ -206,6 +206,6 @@ describe('Home with only a debt or a cheque (no recurring or one-time items)', (
     await goTo('dashboard');
     expect(await screen.findByTestId('dashboard-screen')).toBeTruthy();
     expect(screen.queryByText('Welcome to Money Planner')).toBeNull();
-    expect(within(screen.getByTestId('dashboard-upcoming')).getByLabelText(/Cheque to Landlord/)).toBeTruthy();
+    expect(within(screen.getByTestId('dashboard-upcoming')).getAllByLabelText(/Cheque to Landlord/).length).toBeGreaterThan(0);
   });
 });

@@ -20,6 +20,12 @@ add('1 Wizard', async (d, step) => {
     await d.see('AED 6,500', { exact: true }); await d.see('Coming up'); await d.see('Salary', { exact: true });
     await d.shot('home-after-wizard');
   });
+  await step('Home payday card: safe to spend = balance 6,500 - buffer 2,000, until payday', async () => {
+    await d.see('#payday-card'); await d.seeText('#payday-safe', /AED 4,500/);
+    await d.seeText('#payday-card', /until payday on 25 [A-Z][a-z]{2}/);
+    await d.tap('#payday-toggle'); await d.see('#payday-details'); await d.seeText('#payday-details', /Balance now.*6,500\.00/);
+    await d.shot('home-payday-expanded'); await d.tap('#payday-toggle'); await d.notSee('#payday-details');
+  });
 });
 
 add('2 Plan: recurring items', async (d, step) => {
@@ -38,6 +44,19 @@ add('2 Plan: recurring items', async (d, step) => {
   });
   await step('Home Coming up shows Rent', async () => {
     await d.tab('Home'); await d.see('#dashboard-upcoming'); await d.see('Rent', { exact: true }); await d.shot('home-with-rent');
+  });
+  await step('Coming up: Paid on Rent records it (row moves to the next month), Undo brings it back', async () => {
+    const rentRow = () => d.page.locator('[data-testid^="dashboard-upcoming-"]').filter({ hasText: 'Rent' }).filter({ visible: true }).first();
+    const before = (await rentRow().innerText()).replace(/\s+/g, ' ');
+    await d.page.locator('[aria-label^="Mark Rent as paid"]').filter({ visible: true }).first().click();
+    await d.see('#undo-bar'); await d.shot('home-marked-paid');
+    await d.settle(300);
+    const after = (await rentRow().innerText()).replace(/\s+/g, ' ');
+    if (after === before) throw new Error('Rent row did not change after Paid: "' + before + '"');
+    await d.tap('#undo-button'); await d.settle(300);
+    const back = (await rentRow().innerText()).replace(/\s+/g, ' ');
+    if (back !== before) throw new Error('Undo did not bring the Rent row back: was "' + before + '", now "' + back + '"');
+    await d.notSee('#undo-bar');
   });
   await step('edit Rent amount to 9600', async () => {
     await d.tab('Plan'); await d.tap('Rent'); await d.see('#recurring-screen');

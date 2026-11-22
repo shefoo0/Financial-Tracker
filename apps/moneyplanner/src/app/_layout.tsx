@@ -11,6 +11,7 @@ import { Button, EmptyState, Screen } from '@/components/ui';
 import { Colors } from '@/constants/theme';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
 import { AlertScheduler } from '@/features/alerts/AlertScheduler';
+import { AutoBackup } from '@/features/backup/AutoBackup';
 import { LockGate } from '@/features/lock/LockGate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -65,6 +66,7 @@ export default function RootLayout() {
       <Themed>
         <HideSplash />
         <AlertScheduler />
+        <AutoBackup />
         <LockGate>
           <Stack screenOptions={{ headerBackTitle: 'Back', headerShadowVisible: false }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

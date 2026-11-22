@@ -4,6 +4,13 @@ import { Palette } from '@/constants/theme';
 import { addDays, diffDays } from '@/lib/dates';
 import type { Category, Fils, ISODate, Kind, PlanInput } from '@/types';
 
+/** What "Paid" writes for an upcoming row: the kind and the ids/date/amount needed to record it. */
+export type MarkPaid =
+  | { kind: 'recurring'; recurringId: string; originalDate: ISODate; amount: Fils }
+  | { kind: 'debt'; debtId: string; date: ISODate; amount: Fils }
+  | { kind: 'cheque'; chequeId: string }
+  | { kind: 'planned'; transactionId: string };
+
 export interface UpcomingItem {
   key: string;
   date: ISODate;
@@ -16,6 +23,7 @@ export interface UpcomingItem {
   /** '3 of 12 paid' for items with a fixed number of payments. */
   progress: string | null;
   href: string;
+  markPaid: MarkPaid;
 }
 
 const EMOJI: Record<string, string> = {
@@ -76,6 +84,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
         when: whenLabel(o.date, todayStr),
         progress,
         href: `/recurring/${o.recurringId}`,
+        markPaid: { kind: 'recurring', recurringId: o.recurringId, originalDate: o.originalDate, amount: o.amount },
       };
     });
   for (const t of input.transactions) {
@@ -90,6 +99,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(t.date, todayStr),
       progress: null,
       href: `/transaction/${t.id}`,
+      markPaid: { kind: 'planned', transactionId: t.id },
     });
   }
   const debtById = new Map((input.debts ?? []).map((d) => [d.id, d]));
@@ -106,6 +116,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(p.date, todayStr),
       progress: prog ? `${Math.min(prog.paid, prog.total)} of ${prog.total} paid` : null,
       href: `/debts/${p.debtId}`,
+      markPaid: { kind: 'debt', debtId: p.debtId, date: p.date, amount: p.amount },
     });
   }
   for (const c of chequesInRange(input, todayStr, to)) {
@@ -119,6 +130,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(c.date, todayStr),
       progress: null,
       href: `/cheques/${c.id}`,
+      markPaid: { kind: 'cheque', chequeId: c.id },
     });
   }
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));

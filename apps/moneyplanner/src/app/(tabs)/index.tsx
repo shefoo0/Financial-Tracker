@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { BalanceChart, BarList } from '@/components/charts';
 import {
@@ -18,7 +18,7 @@ import {
   T,
 } from '@/components/ui';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { usePlanInput } from '@/data/DataProvider';
+import { useData, usePlanInput } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
@@ -28,6 +28,10 @@ import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashb
 import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
 import { useToday } from '@/features/dashboard/useToday';
 import { AlertsCard } from '@/features/alerts/AlertsCard';
+import { markPaid } from '@/features/payday/markPaid';
+import { PaydayCard } from '@/features/payday/PaydayCard';
+import { UndoBar } from '@/features/payday/UndoBar';
+import type { UpcomingItem } from '@/features/dashboard/upcoming';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
 import { formatCompact, formatMoney, formatMoneyTrim } from '@/lib/money';
@@ -53,6 +57,9 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(Number(currentMonth.slice(0, 4)));
   const [catScope, setCatScope] = useState<'month' | 'year'>('month');
+  const { repo, bump } = useData();
+  const [undo, setUndo] = useState<{ message: string; run: () => Promise<void> } | null>(null);
+  const dismissUndo = useCallback(() => setUndo(null), []);
   const { currency, buffer } = input.settings;
   const money = (v: number) => formatMoney(v, currency);
 
@@ -62,6 +69,29 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const ys = useMemo(() => yearSummary(year, input), [year, input]);
   const upcoming = useMemo(() => buildUpcoming(input, todayStr), [input, todayStr]);
+
+  const onPaid = async (u: UpcomingItem) => {
+    try {
+      const run = await markPaid(repo, input, u.markPaid, todayStr);
+      if (run) setUndo({ message: `${u.title} marked as paid`, run });
+    } catch {
+      Alert.alert("Couldn't save", 'The payment was not recorded. Please try again.');
+    } finally {
+      bump();
+    }
+  };
+  const onUndo = async () => {
+    const u = undo;
+    setUndo(null);
+    if (!u) return;
+    try {
+      await u.run();
+    } catch {
+      Alert.alert("Couldn't undo", 'The change was not reversed. Please try again.');
+    } finally {
+      bump();
+    }
+  };
 
   const header = (
     <ScreenHeader title={active.name} subtitle={greeting(new Date().getHours())} right={<ProfileButton />} testID="dashboard-header" />
@@ -149,6 +179,8 @@ function DashboardBody({ input }: { input: PlanInput }) {
         </T>
       </HeroCard>
 
+      <PaydayCard input={input} today={todayStr} />
+
       <View style={{ flexDirection: 'row', gap: Spacing.two }} testID="dashboard-month-tiles">
         <StatTile label="Income" value={formatCompact(ms.totalIncome)} accessibilityLabel={`Income: ${money(ms.totalIncome)}`} tone="positive" icon="↓" testID="dashboard-tile-income" />
         <StatTile label="Spent" value={formatCompact(ms.totalSpend)} accessibilityLabel={`Spent: ${money(ms.totalSpend)}`} tone="negative" icon="↑" testID="dashboard-tile-spent" />
@@ -200,28 +232,39 @@ function DashboardBody({ input }: { input: PlanInput }) {
           <T tone="secondary">Nothing planned in the next 90 days.</T>
         ) : (
           upcoming.map((u, i) => (
-            <Pressable
-              key={u.key}
-              onPress={() => router.push(u.href as never)}
-              accessibilityRole="button"
-              accessibilityLabel={`${u.title}, ${u.when}${u.progress ? `, ${u.progress}` : ''}, ${u.kind === 'income' ? 'income' : 'cost'} ${money(u.amount)}`}
-              testID={`dashboard-upcoming-${i}`}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 52, paddingVertical: Spacing.one }}>
-              <IconBadge glyph={categoryEmoji(u.categoryId, u.kind)} color={categoryColor(u.categoryId, input.categories)} />
-              <View style={{ flex: 1 }}>
-                <T variant="label" numberOfLines={1}>
-                  {u.title}
+            <View key={u.key} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.one }}>
+              <Pressable
+                onPress={() => router.push(u.href as never)}
+                accessibilityRole="button"
+                accessibilityLabel={`${u.title}, ${u.when}${u.progress ? `, ${u.progress}` : ''}, ${u.kind === 'income' ? 'income' : 'cost'} ${money(u.amount)}`}
+                testID={`dashboard-upcoming-${i}`}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 52, paddingVertical: Spacing.one }}>
+                <IconBadge glyph={categoryEmoji(u.categoryId, u.kind)} color={categoryColor(u.categoryId, input.categories)} />
+                <View style={{ flex: 1 }}>
+                  <T variant="label" numberOfLines={1}>
+                    {u.title}
+                  </T>
+                  <T variant="caption" tone="secondary">
+                    {u.when}
+                    {u.progress ? ` · ${u.progress}` : ''}
+                  </T>
+                </View>
+                <T variant="number" tone={u.kind === 'income' ? 'positive' : 'negative'}>
+                  {u.kind === 'income' ? '+' : '-'}
+                  {money(u.amount)}
                 </T>
-                <T variant="caption" tone="secondary">
-                  {u.when}
-                  {u.progress ? ` · ${u.progress}` : ''}
+              </Pressable>
+              <Pressable
+                onPress={() => onPaid(u)}
+                accessibilityRole="button"
+                accessibilityLabel={`Mark ${u.title} as ${u.kind === 'income' ? 'received' : 'paid'}`}
+                testID={`upcoming-paid-${i}`}
+                style={{ minHeight: 44, minWidth: 56, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two, borderRadius: Radius.pill, borderWidth: 1, borderColor: c.border }}>
+                <T variant="label" tone="accent" maxFontSizeMultiplier={1.3}>
+                  {u.kind === 'income' ? 'Got it' : 'Paid'}
                 </T>
-              </View>
-              <T variant="number" tone={u.kind === 'income' ? 'positive' : 'negative'}>
-                {u.kind === 'income' ? '+' : '-'}
-                {money(u.amount)}
-              </T>
-            </Pressable>
+              </Pressable>
+            </View>
           ))
         )}
       </Card>
@@ -345,6 +388,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
       </Card>
         <QuickAddSpacer />
       </Screen>
+      {undo ? <UndoBar message={undo.message} onUndo={onUndo} onDismiss={dismissUndo} /> : null}
       <QuickAddButton testID="quick-add" />
     </View>
   );

@@ -8,8 +8,12 @@ import { Avatar, Button, Card, EmptyState, ListRow, MoneyField, Screen, ScreenHe
 import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { exportBackup, exportChequesCsv, exportDebtsCsv, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { exportChequesCsv, exportDebtsCsv, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { backupBeforeChange, exportBackupAndRecord, formatBackupTime } from '@/data/backup/auto';
 import { AlertsSettings } from '@/features/alerts/AlertsSettings';
+import { AutoBackupsSheet } from '@/features/backup/AutoBackupsSheet';
+import { BackupReminderCard } from '@/features/backup/BackupReminderCard';
+import { useBackupInfo } from '@/features/backup/useBackupInfo';
 import { clearProfileLock } from '@/features/lock/lockStore';
 import { LockSettings } from '@/features/lock/LockSettings';
 import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
@@ -46,6 +50,8 @@ export default function SettingsScreen() {
   const [bufferKey, setBufferKey] = useState(0);
   const [newBuffer, setNewBuffer] = useState<Fils | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copiesOpen, setCopiesOpen] = useState(false);
+  const { meta: backupMeta, copies } = useBackupInfo();
 
   const currency = currencyDraft ?? settings?.currency ?? '';
 
@@ -128,10 +134,17 @@ export default function SettingsScreen() {
         new Promise<boolean>((resolve) => {
           Alert.alert(
             'Replace everything with this backup?',
-            `Backup from ${s.exportedAt.slice(0, 10)}: ${s.recurring} recurring items and ${s.transactions} one-time items.\n\nThis replaces everything now on this phone. It cannot be undone.`,
+            `Backup from ${s.exportedAt.slice(0, 10)}: ${s.recurring} recurring items and ${s.transactions} one-time items.\n\nThis replaces everything now on this phone. A safety copy of your current data is saved first and kept for 7 days in Automatic backups.`,
             [
               { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Replace', style: 'destructive', onPress: () => resolve(true) },
+              {
+                text: 'Replace',
+                style: 'destructive',
+                onPress: () => {
+                  // Save the current data first; if that fails the restore stops and nothing changes.
+                  backupBeforeChange(repo, active.id, 'before-restore').then(() => resolve(true), (e) => { showError('Could not restore', e); resolve(false); });
+                },
+              },
             ],
             { cancelable: true, onDismiss: () => resolve(false) },
           );
@@ -149,13 +162,14 @@ export default function SettingsScreen() {
         text: 'Continue',
         style: 'destructive',
         onPress: () =>
-          Alert.alert('Are you sure?', 'This cannot be undone. Back up first if you might want your data again.', [
+          Alert.alert('Are you sure?', 'A safety copy is saved on this phone for 7 days first (see Automatic backups). Save a backup file too if you might want your data again.', [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Delete everything',
               style: 'destructive',
               onPress: () =>
                 run('Could not delete', async () => {
+                  await backupBeforeChange(repo, active.id, 'before-delete');
                   await repo.deleteAll();
                   await clearProfileLock(active.id);
                   await repo.updateSettings({ lockEnabled: false });
@@ -271,11 +285,23 @@ export default function SettingsScreen() {
       </Card>
 
       <SectionHeader title={`Your data in ${active.name}`} />
+      <BackupReminderCard testID="settings-backup-reminder" />
       <Card>
         <T variant="caption" tone="secondary" testID="settings-data-note">
           {`Backup, restore, CSV export and delete apply to ${active.name} only, not to the other profiles.`}
         </T>
-        <Button label="Back up to a file" variant="secondary" disabled={busy} onPress={() => run('Backup failed', () => exportBackup(repo))} testID="settings-backup" />
+        <Button label="Back up to a file" variant="secondary" disabled={busy} onPress={() => run('Backup failed', () => exportBackupAndRecord(repo, active.id))} testID="settings-backup" />
+        <ListRow
+          title="Automatic backups"
+          subtitle={
+            backupMeta?.lastAutoAt
+              ? `${formatBackupTime(backupMeta.lastAutoAt)} · ${copies.filter((c) => c.kind === 'daily').length} kept on this phone`
+              : 'None yet. A copy is saved once a day.'
+          }
+          onPress={() => setCopiesOpen(true)}
+          accessibilityLabel={`Automatic backups. ${backupMeta?.lastAutoAt ? `Last copy ${formatBackupTime(backupMeta.lastAutoAt)}` : 'None yet'}. Opens the list of copies`}
+          testID="settings-auto-backups"
+        />
         <Button label="Restore from a backup" variant="secondary" disabled={busy} onPress={restore} testID="settings-restore" />
         <Button
           label="Export one-time items as CSV"
@@ -292,6 +318,18 @@ export default function SettingsScreen() {
         ) : null}
         <Button label={`Delete all data in ${active.name}`} variant="destructive" disabled={busy} onPress={deleteAll} testID="settings-delete-all" />
       </Card>
+
+      <AutoBackupsSheet
+        visible={copiesOpen}
+        onClose={() => setCopiesOpen(false)}
+        copies={copies}
+        profileId={active.id}
+        profileName={active.name}
+        onRestored={() => {
+          resetDrafts();
+          bump();
+        }}
+      />
 
       <SectionHeader title="About" />
       <Card>
