@@ -128,7 +128,8 @@
           }
         }
       ],
-      "./plugins/with-mlkit-ocr-dependency"
+      "./plugins/with-mlkit-ocr-dependency",
+      "./plugins/with-proguard-rules"
     ],
     "experiments": {
       "typedRoutes": true,
