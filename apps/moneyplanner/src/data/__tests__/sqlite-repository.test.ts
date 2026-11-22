@@ -258,7 +258,7 @@ describe('migration v2 to v3', () => {
     db.raw.prepare("INSERT INTO categories (id, name, kind, sort) VALUES ('c', 'C', 'cost', 1)").run();
     db.raw.prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')").run();
     await migrate(db);
-    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(3);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
     expect(db.raw.prepare("SELECT monthly_limit FROM categories WHERE id = 'c'").get().monthly_limit).toBeNull();
     expect(db.raw.prepare('SELECT COUNT(*) AS n FROM transactions').get().n).toBe(1);
   });
@@ -276,5 +276,41 @@ describe('migration v2 to v3', () => {
     expect(cat.monthlyLimit).toBeNull();
     await repo.upsertCategory({ ...cat, monthlyLimit: 120000 });
     expect((await repo.listCategories()).find((c) => c.id === 'c')!.monthlyLimit).toBe(120000);
+  });
+});
+
+describe('migration v3 to v4', () => {
+  it('adds the import tables and keeps every row', async () => {
+    const { __make } = require('expo-sqlite');
+    const db = __make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\n${MIGRATIONS[1]}\n${MIGRATIONS[2]}\nPRAGMA user_version = 3;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('onboarded', 'true')").run();
+    db.raw.prepare("INSERT INTO categories (id, name, kind, sort, monthly_limit) VALUES ('c', 'C', 'cost', 1, 5000)").run();
+    db.raw.prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')").run();
+    db.raw.prepare("INSERT INTO cheques (id, payee, amount, date, status) VALUES ('q1', 'Landlord', 100, '2026-02-01', 'upcoming')").run();
+    await migrate(db);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(4);
+    for (const t of ['imports', 'import_templates', 'category_rules']) expect(db.raw.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n).toBe(0);
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM transactions').get().n).toBe(1);
+    expect(db.raw.prepare("SELECT monthly_limit FROM categories WHERE id = 'c'").get().monthly_limit).toBe(5000);
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM cheques').get().n).toBe(1);
+  });
+
+  it('reads a v3 database through the repository, then stores imports, a template and a rule next to the old data', async () => {
+    const expo = require('expo-sqlite');
+    const db = expo.__make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\n${MIGRATIONS[1]}\n${MIGRATIONS[2]}\nPRAGMA user_version = 3;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('onboarded', 'true')").run();
+    db.raw.prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')").run();
+    (globalThis as any).__nextDb = db;
+    const repo = createSqliteRepository('v3.db');
+    await repo.init();
+    expect((await repo.listTransactions()).map((t) => t.id)).toEqual(['t1']);
+    expect(await repo.listImports()).toEqual([]);
+    expect(await repo.listCategoryRules()).toEqual([]);
+    await repo.addImport({ id: 'i1', sourceName: 'a.csv', fileKind: 'csv', importedAt: '2026-02-01T00:00:00.000Z', rowCount: 1 });
+    await repo.upsertTransactions([{ ...(await repo.listTransactions())[0], id: 't2', source: 'import', importId: 'i1' }]);
+    expect((await repo.listTransactions()).map((t) => t.id)).toEqual(['t1', 't2']);
   });
 });

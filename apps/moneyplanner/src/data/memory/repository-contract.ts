@@ -1,7 +1,7 @@
 // Shared contract suite: run against every Repository implementation.
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type Repository } from '@/data/repository';
-import type { Cheque, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
+import type { CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
 
 export const rec = (o: Partial<RecurringItem> = {}): RecurringItem => ({
   id: 'r1', kind: 'cost', name: 'Rent', categoryId: 'housing', amount: 500000,
@@ -36,6 +36,17 @@ export const dovr = (o: Partial<DebtOverride> = {}): DebtOverride => ({
 });
 export const chq = (o: Partial<Cheque> = {}): Cheque => ({
   id: 'c1', payee: 'Landlord', amount: 500000, date: '2026-04-01', purpose: 'Rent', status: 'upcoming', seriesId: null, note: '', ...o,
+});
+
+export const imp = (o: Partial<ImportRecord> = {}): ImportRecord => ({
+  id: 'i1', sourceName: 'ENBD-march.csv', fileKind: 'csv', importedAt: '2026-04-01T08:00:00.000Z', rowCount: 12, ...o,
+});
+export const tpl = (o: Partial<ImportTemplate> = {}): ImportTemplate => ({
+  sourceName: 'ENBD-march.csv', mapping: { delimiter: ',', headerRow: 0, date: 0, description: 1, debit: null, credit: null, amount: 2, balance: null, direction: null, dateOrder: 'dmy' },
+  lastUsed: '2026-04-01T08:00:00.000Z', ...o,
+});
+export const crule = (o: Partial<CategoryRuleRecord> = {}): CategoryRuleRecord => ({
+  id: 'cr1', pattern: 'CAREEM', categoryId: 'transport', createdAt: '2026-04-01T08:00:00.000Z', ...o,
 });
 
 export function runRepositoryContract(name: string, make: () => Promise<Repository>) {
@@ -434,6 +445,61 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect(got[0].name).toBe('Car loan');
         got[0].name = 'again';
         expect((await repo.listDebts())[0].name).toBe('Car loan');
+      });
+
+      it('saves imported transactions together with their import record', async () => {
+        await repo.upsertTransactions([txn({ id: 'a', source: 'import', importId: 'i1' }), txn({ id: 'b', source: 'import', importId: 'i1', date: '2026-03-06' })]);
+        await repo.addImport(imp());
+        const all = await repo.listTransactions();
+        expect(all.map((t) => [t.id, t.source, t.importId])).toEqual([['a', 'import', 'i1'], ['b', 'import', 'i1']]);
+        expect(await repo.listImports()).toEqual([imp()]);
+        await repo.upsertTransactions([txn({ id: 'a', description: 'Changed', source: 'import', importId: 'i1' })]);
+        expect((await repo.listTransactions()).find((t) => t.id === 'a')!.description).toBe('Changed');
+        await repo.addImport(imp({ id: 'i0', importedAt: '2026-03-01T00:00:00.000Z' }));
+        expect((await repo.listImports()).map((i) => i.id)).toEqual(['i0', 'i1']);
+      });
+
+      it('keeps one template per source name', async () => {
+        expect(await repo.getImportTemplate('ENBD-march.csv')).toBeNull();
+        await repo.saveImportTemplate(tpl());
+        await repo.saveImportTemplate(tpl({ lastUsed: '2026-05-01T00:00:00.000Z', mapping: { ...tpl().mapping, amount: 3 } }));
+        const got = await repo.getImportTemplate('ENBD-march.csv');
+        expect(got?.mapping.amount).toBe(3);
+        expect(got?.lastUsed).toBe('2026-05-01T00:00:00.000Z');
+        expect(await repo.getImportTemplate('other.csv')).toBeNull();
+      });
+
+      it('keeps one category rule per pattern (ignoring case) and deletes by id', async () => {
+        await repo.upsertCategoryRule(crule());
+        await repo.upsertCategoryRule(crule({ id: 'cr2', pattern: 'Careem', categoryId: 'dining', createdAt: '2026-04-02T00:00:00.000Z' }));
+        await repo.upsertCategoryRule(crule({ id: 'cr3', pattern: 'NOON', categoryId: 'shopping', createdAt: '2026-04-03T00:00:00.000Z' }));
+        const rules = await repo.listCategoryRules();
+        expect(rules.map((r) => [r.id, r.pattern, r.categoryId])).toEqual([['cr2', 'Careem', 'dining'], ['cr3', 'NOON', 'shopping']]);
+        await repo.deleteCategoryRule('cr2');
+        expect((await repo.listCategoryRules()).map((r) => r.id)).toEqual(['cr3']);
+      });
+
+      it('backs up and restores the import lists; an older file restores with them empty; delete-all clears them', async () => {
+        await repo.addImport(imp());
+        await repo.saveImportTemplate(tpl());
+        await repo.upsertCategoryRule(crule());
+        const backup = await repo.exportAll();
+        expect(backup.imports).toEqual([imp()]);
+        expect(backup.importTemplates).toEqual([tpl()]);
+        expect(backup.categoryRules).toEqual([crule()]);
+        await repo.deleteAll();
+        expect(await repo.listImports()).toEqual([]);
+        expect(await repo.listCategoryRules()).toEqual([]);
+        await repo.importAll(backup);
+        expect(await repo.listImports()).toEqual([imp()]);
+        expect(await repo.getImportTemplate('ENBD-march.csv')).toEqual(tpl());
+        expect(await repo.listCategoryRules()).toEqual([crule()]);
+        const old: any = { ...backup };
+        delete old.imports; delete old.importTemplates; delete old.categoryRules;
+        await repo.importAll(old);
+        expect(await repo.listImports()).toEqual([]);
+        expect(await repo.listCategoryRules()).toEqual([]);
+        expect(await repo.getImportTemplate('ENBD-march.csv')).toBeNull();
       });
     });
   });

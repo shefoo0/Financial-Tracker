@@ -27,6 +27,10 @@ on:
         description: Run the Maestro end-to-end flows on an Android emulator
         type: boolean
         default: true
+      pro_preview:
+        description: "Test builds only: unlock the app's paid features (EXPO_PUBLIC_PRO_PREVIEW=1) so they can be tried on a phone before the real purchase exists"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -54,6 +58,7 @@ jobs:
     env:
       APP: ${{ inputs.app }}
       BUILD: ${{ inputs.build }}
+      PRO_PREVIEW: ${{ inputs.pro_preview }}
     outputs:
       artifact: ${{ steps.collect.outputs.artifact }}
     steps:
@@ -122,6 +127,12 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          # A preview of paid features is for test builds only, never for Google Play.
+          if [ "$PRO_PREVIEW" = "true" ]; then
+            [ "$BUILD" = "test" ] || { echo "::error::pro_preview is only allowed for test builds."; exit 1; }
+            export EXPO_PUBLIC_PRO_PREVIEW=1
+            echo "::notice::This APK unlocks paid features for testing. Don't share it as the real app."
+          fi
           tasks="assembleRelease"
           # Test builds only need modern phones (arm64) and the emulator (x86_64),
           # which halves the native compile time. Release builds include all four.

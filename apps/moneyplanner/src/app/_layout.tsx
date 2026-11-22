@@ -12,6 +12,7 @@ import { Colors } from '@/constants/theme';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
 import { AlertScheduler } from '@/features/alerts/AlertScheduler';
 import { AutoBackup } from '@/features/backup/AutoBackup';
+import { IncomingShareHandler } from '@/features/import/IncomingShareHandler';
 import { LockGate } from '@/features/lock/LockGate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -68,6 +69,7 @@ export default function RootLayout() {
         <AlertScheduler />
         <AutoBackup />
         <LockGate>
+          <IncomingShareHandler />
           <Stack screenOptions={{ headerBackTitle: 'Back', headerShadowVisible: false }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
@@ -79,6 +81,9 @@ export default function RootLayout() {
             <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
             <Stack.Screen name="cheques/index" options={{ title: '', headerBackTitle: 'Plan' }} />
             <Stack.Screen name="cheques/[id]" options={{ presentation: 'modal', title: 'Cheque' }} />
+            <Stack.Screen name="import/index" options={{ title: '', headerBackTitle: 'Back' }} />
+            <Stack.Screen name="import/review" options={{ title: 'Review', headerBackTitle: 'Import' }} />
+            <Stack.Screen name="import/columns" options={{ title: 'Columns', headerBackTitle: 'Import' }} />
             <Stack.Screen name="reports/index" options={{ title: '', headerBackTitle: 'Home' }} />
             <Stack.Screen name="reports/[key]" options={{ title: 'Report', headerBackTitle: 'Reports' }} />
           </Stack>

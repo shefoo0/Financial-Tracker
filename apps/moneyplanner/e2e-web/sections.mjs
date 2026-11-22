@@ -443,6 +443,29 @@ add('8 Quick add', async (d, step) => {
   });
 });
 
+add('8b Import: a free user sees the Pro screen', async (d, step) => {
+  // The web build has no EXPO_PUBLIC_PRO_PREVIEW, so this is a free user: the screen explains import and offers Pro, and reads nothing.
+  await step('Plan has the Import statements card; it opens the Pro screen with no import actions', async () => {
+    await d.tab('Plan'); await d.see('#plan-open-import'); await d.tap('#plan-open-import');
+    await d.see('#import-screen'); await d.see('#import-pro-badge'); await d.see('#import-unlock'); await d.see('PDF statements'); await d.see('Excel and CSV');
+    for (const id of ['import-choose-file', 'import-take-photo', 'import-choose-photo', 'import-paste-sms', 'import-sms-input', 'import-read']) {
+      if (await d.has('#' + id)) throw new Error(`${id} must not show for a free user`);
+    }
+    await d.shot('import-pro-screen');
+  });
+  await step('Unlock Pro explains that Pro comes with the next update (no crash)', async () => {
+    await d.clearAlerts(); await d.tap('#import-unlock'); await d.settle(300);
+    const alerts = JSON.stringify(await d.alerts());
+    if (!/Pro comes with the next update/.test(alerts)) throw new Error('no Pro alert: ' + alerts);
+    await d.see('#import-screen');
+  });
+  await step('the review and column screens are the Pro screen for a free user (never parse)', async () => {
+    await d.back(); await d.see('#plan-screen');
+    await d.tab('Home'); await d.tap('#quick-add'); await d.see('#quick-add-import'); await d.tap('#quick-add-import');
+    await d.see('#import-screen'); await d.see('#import-unlock'); await d.back();
+  });
+});
+
 add('9 Categories', async (d, step) => {
   await step('open Categories from Settings', async () => { await d.tab('Settings'); await d.tap('#settings-categories'); await d.see('#categories-screen'); await d.see('Housing'); await d.shot('categories'); });
   await step('add category "Pets"', async () => {

@@ -46,6 +46,7 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
     { id: 'quick-add-one-time', title: 'One-time item', text: 'A single payment or amount received', glyph: '✦', color: c.accent, href: oneTime },
     { id: 'quick-add-income', title: 'Recurring income', text: 'Salary or anything that repeats', glyph: '↓', color: c.positive, href: '/recurring/new?kind=income' },
     { id: 'quick-add-cost', title: 'Recurring cost', text: 'Rent, bills and subscriptions', glyph: '↑', color: c.negative, href: '/recurring/new?kind=cost' },
+    { id: 'quick-add-import', title: 'Import a statement', text: 'From a PDF, photo, Excel, CSV or bank SMS', glyph: '⇩', color: c.warning, href: '/import' },
   ];
 
   return (
@@ -55,7 +56,7 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
           onPress={() => setOpen(true)}
           accessibilityRole="button"
           accessibilityLabel="Add"
-          accessibilityHint="Add income, a cost or a one-time item"
+          accessibilityHint="Add income, a cost, a one-time item or import a statement"
           testID={testID}
           style={({ pressed }) => [
             styles.fab,

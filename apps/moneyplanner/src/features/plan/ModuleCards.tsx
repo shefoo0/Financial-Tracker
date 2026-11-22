@@ -6,10 +6,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Card, IconBadge, T } from '@/components/ui';
 import { Palette, Spacing } from '@/constants/theme';
 import { formatMoney } from '@/lib/money';
+import { usePro } from '@/lib/pro';
 import type { PlanInput } from '@/types';
 
 export function ModuleCards({ input }: { input: PlanInput }) {
   const { currency } = input.settings;
+  const { isPro } = usePro();
   const upcoming = input.cheques.filter((c) => c.status === 'upcoming');
   const cards = [
     {
@@ -32,7 +34,15 @@ export function ModuleCards({ input }: { input: PlanInput }) {
         ? `${upcoming.length} upcoming · ${formatMoney(upcoming.reduce((s, c) => s + c.amount, 0), currency)}`
         : 'Add post-dated cheques, such as rent',
     },
-  ] as { key: string; href: '/debts' | '/cheques'; glyph: string; color: string; title: string; detail: string }[];
+    {
+      key: 'import',
+      href: '/import',
+      glyph: '⇩',
+      color: Palette[2],
+      title: 'Import statements',
+      detail: isPro ? 'Read a PDF, photo, Excel, CSV or bank SMS' : 'Pro: read a PDF, photo, Excel, CSV or bank SMS',
+    },
+  ] as { key: string; href: '/debts' | '/cheques' | '/import'; glyph: string; color: string; title: string; detail: string }[];
 
   return (
     <View style={styles.wrap}>

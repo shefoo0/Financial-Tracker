@@ -44,6 +44,10 @@ name: Add a loan
 - assertVisible:
     id: plan-screen
 # Debts is on by default: open it from the Plan tab.
+- scrollUntilVisible:
+    element:
+      id: plan-open-debts
+    visibilityPercentage: 50
 - tapOn:
     id: plan-open-debts
 - assertVisible:

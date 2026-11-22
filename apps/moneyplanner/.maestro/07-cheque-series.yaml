@@ -19,6 +19,10 @@ name: Add a cheque series
 - assertVisible:
     id: dashboard-screen
 - tapOn: "Plan"
+- scrollUntilVisible:
+    element:
+      id: plan-open-cheques
+    visibilityPercentage: 50
 - tapOn:
     id: plan-open-cheques
 - assertVisible:

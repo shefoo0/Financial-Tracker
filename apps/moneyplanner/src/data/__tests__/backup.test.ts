@@ -220,6 +220,19 @@ describe('parseBackup debts and cheques', () => {
       expect(() => parseBackup(JSON.stringify(v2))).toThrow('damaged');
     }
   });
+  it('restores a version 2 file made before statement import, with the import lists empty', () => {
+    const old: any = { ...data };
+    delete old.imports; delete old.importTemplates; delete old.categoryRules;
+    const parsed = parseBackup(JSON.stringify(old));
+    expect(parsed).toMatchObject({ imports: [], importTemplates: [], categoryRules: [] });
+    expect(parsed.debts).toHaveLength(3);
+  });
+  it('rejects damaged import lists', () => {
+    const bad = (patch: object) => expect(() => parseBackup(JSON.stringify({ ...data, ...patch }))).toThrow('damaged');
+    bad({ imports: [{ id: 'i1' }] });
+    bad({ categoryRules: [{ id: 'a', pattern: 'X', categoryId: 'c', createdAt: 'z' }, { id: 'b', pattern: 'x', categoryId: 'c', createdAt: 'z' }] });
+    bad({ importTemplates: 'no' });
+  });
   it('rejects a future version with a clear message', () => {
     expect(() => parseBackup(text({ version: BACKUP_VERSION + 1 }))).toThrow('newer version of the app');
     expect(() => parseBackup(text({ version: 0 }))).toThrow('damaged');
