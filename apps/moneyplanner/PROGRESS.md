@@ -35,6 +35,12 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - [x] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
 - [x] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
 - [x] **Quarterly and yearly reports** (spec §13, Pro; free users see a labelled sample report) with PDF export — no competitor offers company-style personal reports.
+- [ ] **Bill reminders** for every upcoming bill, instalment and cheque, with a lead time (default 1 day before, 09:00), per item on/off — the most loved thing in 5-star reviews (ideas/2026-11-22-what-users-love-finance.md: 39 hits; TimelyBills' whole base).
+- [ ] **Faster entry**: recent-item chips and last-used category on the add forms, "repeat this" templates — under 10 seconds per item (55 "fast/easy" hits; widget praise is really about speed).
+- [ ] **Optional monthly limit per category** with "spent vs left" on Month (≈29 mentions/wishes) — optional, no envelope or zero-based rules.
+- [ ] **Opening and closing balance per month** on Month (small, asked for by Wallet/EveryDollar users).
+- [x] Daily allowance ("about AED x a day") — already in the payday card.
+- Later (v1.1 / after launch): month calendar grid; Android home-screen widget (needs native code; few mentions).
 - [ ] First use in under 60 seconds to a useful forecast (time the wizard in the walkthrough).
 - [ ] UX audit of every screen from the walkthrough screenshots (light + dark, one-handed reach, empty states, wording, tap targets, numbers readable at a glance) — fix every major item.
 - [ ] Statement import with good OCR (M3) — competitors' OCR is "garbage" and paywalled; ours must read totals correctly and be free to try.
