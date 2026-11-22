@@ -46,6 +46,11 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - [ ] Statement import with good OCR (M3) — competitors' OCR is "garbage" and paywalled; ours must read totals correctly and be free to try.
 - [ ] Accessibility pass (VoiceOver/TalkBack labels, large text, contrast) and store-quality QC (M4).
 
+## Launch plan (developer, 2026-11-22)
+- Start the Google Play **closed test** (12+ testers, 14 days) right after milestone 2 passes on the phones; keep building M3 (import) and M4 (Pro purchase) and ship them to testers as updates; apply for production after 14 days.
+- [ ] Developer: create and verify the personal Play developer account (in progress); collect 12+ testers' Gmail addresses.
+- [ ] Release kit: store listing (5-star review words), icon, feature graphic, phone screenshots, privacy + support pages from a small PUBLIC repo (GitHub Pages; the code repo stays private), Data safety / content rating / financial features answers, signed AAB.
+
 ## Decisions
 - Bundle ID `com.shefoo.moneyplanner`, read from `com.<Shefoo>.moneyplanner` (IDs are lowercase, no `<>`); needs the developer's confirmation, because it's permanent after the first upload.
 - The developer chose the full scope (OCR in v1) over the research's recommended forward-planner-first option; OCR is milestone 3, so milestones 1-2 ship a usable app first.
