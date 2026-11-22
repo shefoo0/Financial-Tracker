@@ -1,5 +1,6 @@
 import { daysInMonth, toISODate, isValidISODate } from '@/lib/dates';
 import type { ISODate } from '@/types';
+import { normaliseDigits } from './normalize';
 import type { DateOrder } from './types';
 
 const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -34,7 +35,7 @@ function plausible(p: DateParts): boolean {
 
 /** Parses a date written on its own. Numeric dates are day-first unless `order` is 'mdy'. */
 export function parseDateParts(text: string, order: DateOrder = 'dmy'): DateParts | null {
-  const s = text.trim();
+  const s = normaliseDigits(text).trim();
   let m: RegExpExecArray | null;
   let p: DateParts | null = null;
   if ((m = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/.exec(s))) {

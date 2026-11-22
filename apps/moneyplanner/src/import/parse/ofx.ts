@@ -1,4 +1,5 @@
 import { parseDateParts } from './date';
+import { normaliseDigits } from './normalize';
 import type { ParsedRow, ParseResult } from './types';
 
 const tag = (block: string, name: string): string | undefined => {
@@ -31,7 +32,7 @@ function ofxAmount(s: string | undefined): { fils: number; extraDecimals: boolea
 /** Parses OFX/QFX in SGML (no closing tags) or XML style. */
 export function parseOfx(text: string): ParseResult {
   const result: ParseResult = { rows: [], source: 'ofx', problems: [] };
-  const body = text.replace(/^﻿/, '');
+  const body = normaliseDigits(text.replace(/^﻿/, ''));
   const blocks = [...body.matchAll(/<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>|<\/CCSTMTRS>|<\/STMTRS>|$)/gi)];
   if (!/<OFX>/i.test(body) && !blocks.length) {
     result.problems.push('This does not look like an OFX or QFX file.');

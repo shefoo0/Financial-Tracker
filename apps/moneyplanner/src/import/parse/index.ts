@@ -1,6 +1,12 @@
 export type { ParsedRow, ParseResult, CsvMapping, CategoryRule, DedupedRow, ParseOptions, DateOrder } from './types';
-export { parseCsv, guessCsvMapping, readCsvTable } from './csv';
+export { parseCsv, guessCsvMapping, readCsvTable, parseTable, guessMappingFromTable } from './csv';
 export { parseOfx } from './ofx';
 export { parseStatementText, parseSmsText } from './text';
+export { readXlsx, parseXlsx, guessXlsxMapping, XLSX_MAX_ROWS } from './xlsx';
+export type { XlsxSheet, XlsxRead } from './xlsx';
 export { dedupe, descriptionSimilarity } from './dedupe';
 export { suggestCategory } from './category';
+export { learnRule, matchRules, merchantKey, sameMerchant, similarRows, applySimilar } from './rules';
+export { normaliseArabic, normaliseDigits } from './normalize';
+export { checkBalances } from './balance';
+export type { BalanceCheck } from './balance';

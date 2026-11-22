@@ -1,14 +1,16 @@
 import { addDays, isValidISODate } from '@/lib/dates';
 import { detectCurrency, parseAmountToken } from './amount';
 import type { AmountToken } from './amount';
+import { checkBalances } from './balance';
 import { parseDateParts, partsToISO } from './date';
+import { normaliseArabic, normaliseDigits } from './normalize';
 import type { CsvMapping, DateOrder, ParsedRow, ParseResult } from './types';
 
 const DELIMITERS = [',', ';', '\t'];
 
 /** Splits CSV text into rows of trimmed cells. Handles quotes (with "" escapes and newlines inside). Empty rows are dropped. */
 export function readCsvTable(text: string, delimiter?: string): { delimiter: string; rows: string[][] } {
-  let src = text.replace(/^﻿/, '');
+  let src = normaliseDigits(text.replace(/^﻿/, ''));
   // Excel's "sep=;" first line.
   const sep = /^sep=(.)\r?\n/i.exec(src);
   if (sep) src = src.slice(sep[0].length);
@@ -83,23 +85,24 @@ type Field = 'date' | 'description' | 'debit' | 'credit' | 'amount' | 'balance' 
 
 /** Header names, best first. Matched against the lower-cased header with punctuation removed. */
 const HEADERS: Record<Field, RegExp[]> = {
-  date: [/^(transaction|txn|trans) date( time)?$/, /^date$/, /^(posting|post|booking|posted) date$/, /^date (of )?(transaction|txn)$/, /^(value|val) date$/, /^date/],
+  date: [/^(transaction|txn|trans) date( time)?$/, /^date$/, /^(posting|post|booking|posted) date$/, /^date (of )?(transaction|txn)$/, /^(value|val) date$/, /^date/, /^(ال)?تاريخ/],
   description: [
     /^(transaction )?(description|details)$/,
     /^narration$|^narrative$|^particulars$/,
     /^(transaction|txn) (details|narration|description)$/,
     /^(remarks|memo|merchant|payee|reference|details?)$/,
     /description|narration|particulars|details/,
+    /^(ال)?(وصف|بيان|تفاصيل|ملاحظات)/,
   ],
-  debit: [/^(debit|debits|dr)( amount)?( aed)?$/, /^(withdrawals?|paid out|money out|outflow)( amount)?( aed)?$/, /^debit|^withdrawal/],
-  credit: [/^(credit|credits|cr)( amount)?( aed)?$/, /^(deposits?|paid in|money in|inflow)( amount)?( aed)?$/, /^credit|^deposit/],
-  amount: [/^(transaction )?amount( aed)?$/, /^(txn|trans) amount( aed)?$/, /^amount/, /^aed$/],
-  balance: [/^(running |available |ledger )?balance( aed)?$/, /^closing balance$/, /^balance/],
+  debit: [/^(debit|debits|dr)( amount)?( aed)?$/, /^(withdrawals?|paid out|money out|outflow)( amount)?( aed)?$/, /^debit|^withdrawal/, /^(ال)?(مدين|سحب|مسحوبات|مصروفات)/],
+  credit: [/^(credit|credits|cr)( amount)?( aed)?$/, /^(deposits?|paid in|money in|inflow)( amount)?( aed)?$/, /^credit|^deposit/, /^(ال)?(داين|ايداع|ايداعات)/],
+  amount: [/^(transaction )?amount( aed)?$/, /^(txn|trans) amount( aed)?$/, /^amount/, /^aed$/, /^(ال)?مبلغ/],
+  balance: [/^(running |available |ledger )?balance( aed)?$/, /^closing balance$/, /^balance/, /^(ال)?رصيد/],
   direction: [/^(dr ?cr|cr ?dr|debit credit|credit debit|dr or cr|cr or dr|indicator|(transaction |txn )?type|credit debit indicator)$/],
 };
 
 const normHeader = (h: string) =>
-  h
+  normaliseArabic(h)
     .toLowerCase()
     .replace(/[()\[\]:*]/g, ' ')
     .replace(/[\/\\-]/g, ' ')
@@ -150,11 +153,18 @@ const isDateCell = (c: string, order: DateOrder) => {
   return !!p && p.year !== null;
 };
 
-const looksDirection = (v: string) => /^(cr|dr|c|d|credit|debit)$/i.test(v);
+// Arabic literals here are in normalised spelling (دائن is written داين).
+const looksDirection = (v: string) => /^(cr|dr|c|d|credit|debit|داين|مدين)$/i.test(normaliseArabic(v));
+const isCreditWord = (v: string) => /^(cr|c|credit|داين)$/.test(normaliseArabic(v).toLowerCase());
 
 /** Detects the delimiter, the header row and which column holds what. The user can correct the result. */
 export function guessCsvMapping(text: string): CsvMapping {
   const { delimiter, rows } = readCsvTable(text);
+  return guessMappingFromTable(rows, delimiter);
+}
+
+/** Same as guessCsvMapping for a table that is already split into cells (a spreadsheet sheet). */
+export function guessMappingFromTable(rows: string[][], delimiter = ','): CsvMapping {
   const m: CsvMapping = { ...EMPTY_MAPPING, delimiter };
   if (!rows.length) return m;
 
@@ -227,7 +237,7 @@ export function guessCsvMapping(text: string): CsvMapping {
     const stats = Array.from({ length: width }, (_, c) => c)
       .filter((c) => !taken.has(c) || c === m.headerRow)
       .map((c) => ({ c, vals: column(rows, m.headerRow + 1, c) }))
-      .filter((s) => s.vals.length && s.vals.some((v) => /[A-Za-z]{3}/.test(v)));
+      .filter((s) => s.vals.length && s.vals.some((v) => /[A-Za-z\u0600-\u06FF]{3}/.test(v)));
     stats.sort((a, b) => avgLen(b.vals) - avgLen(a.vals));
     m.description = stats.length ? stats[0].c : null;
   }
@@ -270,6 +280,13 @@ const SKIP_DESC = /^(opening balance|closing balance|balance (brought|carried|b\
 export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
   const map = mapping ?? guessCsvMapping(text);
   const { rows: table } = readCsvTable(text, map.delimiter);
+  return parseTable(table, map, map.delimiter === '\t' ? '\t' : map.delimiter);
+}
+
+const ASSUMED_SPENDING = 'The file does not say whether this is money in or out; assumed spending.';
+
+/** Parses a table of cells with a mapping. Used for CSV text and for spreadsheet sheets. `rawSeparator` joins the cells of `raw`. */
+export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ', '): ParseResult {
   const result: ParseResult = { rows: [], source: 'csv', problems: [] };
   if (!table.length) {
     result.problems.push('The file is empty.');
@@ -314,9 +331,9 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
     const dateText = cell(r, map.date);
     if (SKIP_DESC.test(dateText)) continue;
     let date: string | null = null;
-    if (/^\d{5}$/.test(dateText) && Number(dateText) > 20000 && Number(dateText) < 80000) {
+    if (/^\d{5}(\.\d+)?$/.test(dateText) && Number(dateText) > 20000 && Number(dateText) < 80000) {
       // Excel serial date (days since 1899-12-30).
-      date = addDays('1899-12-30', Number(dateText));
+      date = addDays('1899-12-30', Math.floor(Number(dateText)));
       lower(0.8, 'The date was an Excel date number; check it.');
     } else {
       const p = parseDateParts(stripTime(dateText), map.dateOrder);
@@ -355,10 +372,10 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
       if (tok) {
         amount = Math.abs(tok.fils);
         const dirText = cell(r, map.direction).toLowerCase();
-        if (dirText) kind = /^(cr|c|credit)$/.test(dirText) ? 'income' : 'cost';
+        if (dirText) kind = isCreditWord(dirText) ? 'income' : 'cost';
         else if (tok.marker) kind = tok.marker === 'cr' ? 'income' : 'cost';
         else if (signed) kind = tok.fils < 0 ? 'cost' : 'income';
-        else lower(0.5, 'The file does not say whether this is money in or out; assumed spending.');
+        else lower(0.5, ASSUMED_SPENDING);
       }
     }
     if (!tok || amount === 0) {
@@ -380,11 +397,20 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
       amount,
       kind,
       ...(balance !== undefined ? { balance } : {}),
-      raw: r.join(map.delimiter === '\t' ? '\t' : map.delimiter),
+      raw: r.join(rawSeparator),
       confidence,
       warnings,
     } as ParsedRow);
   }
+
+  const check = checkBalances(result.rows);
+  if (check.order && check.disagreed > 0) {
+    result.problems.push(`${check.disagreed} row${check.disagreed === 1 ? '' : 's'} do not match the running balance; check them.`);
+  } else if (!check.order && check.checked >= 2) {
+    result.problems.push('The running balance does not match the amounts. Check that the balance column is the right one.');
+  }
+  const stillAssumed = result.rows.some((x) => x.warnings.includes(ASSUMED_SPENDING));
+  const unsignedSingle2 = unsignedSingle && stillAssumed;
 
   if (skipped.length) {
     result.problems.push(
@@ -392,7 +418,7 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
     );
   }
   if (badAmount) result.problems.push(`${badAmount} row${badAmount === 1 ? '' : 's'} skipped because the amount could not be read.`);
-  if (unsignedSingle && result.rows.length) {
+  if (unsignedSingle2 && result.rows.length) {
     result.problems.push('Amounts have no minus sign, Cr/Dr or debit/credit columns, so every row is assumed to be spending. Check the direction.');
   }
   if (map.dateOrder === 'mdy') result.problems.push('Dates look month-first (MM/DD/YYYY), so they were read that way.');

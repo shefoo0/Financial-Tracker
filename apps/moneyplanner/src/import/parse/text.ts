@@ -2,6 +2,8 @@ import { compareDates, today as deviceToday } from '@/lib/dates';
 import { detectCurrency, parseAmountToken } from './amount';
 import type { AmountToken } from './amount';
 import { findFullDates, matchLeadingDate, parseDateParts, partsToISO } from './date';
+import { checkBalances } from './balance';
+import { normaliseDigits } from './normalize';
 import type { ParsedRow, ParseOptions, ParseResult } from './types';
 import type { ISODate } from '@/types';
 
@@ -90,7 +92,7 @@ interface Candidate {
 export function parseStatementText(text: string, options: ParseOptions = {}): ParseResult {
   const todayISO = options.today ?? deviceToday();
   const result: ParseResult = { rows: [], source: 'text', problems: [] };
-  const lines = text
+  const lines = normaliseDigits(text)
     .replace(/\t/g, '  ')
     .split(/\r?\n/)
     .map((l) => l.replace(/^[^\w(]+/, '').replace(/\s+/g, ' ').trim());
@@ -162,7 +164,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
         lastWasRow &&
         continuation < 2 &&
         line.length <= 40 &&
-        /[A-Za-z]{2}/.test(line) &&
+        /[A-Za-z\u0600-\u06FF]{2}/.test(line) &&
         !/\d{4,}/.test(line) &&
         !NOT_CONTINUATION.test(line) &&
         popAmounts(line).amounts.length === 0
@@ -181,7 +183,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     const second = matchLeadingDate(rest);
     if (second) rest = second.rest;
     const p = popAmounts(rest);
-    if (!p.amounts.length && /[A-Za-z]{2}/.test(rest)) {
+    if (!p.amounts.length && /[A-Za-z\u0600-\u06FF]{2}/.test(rest)) {
       pending = { text: lead.text, day: parts.day, month: parts.month, year: parts.year, rest, raw: line, line: idx };
       lastWasRow = false;
       return;
@@ -312,6 +314,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     } as ParsedRow);
   });
 
+  checkBalances(rows, openingBalance);
   result.rows = rows;
   if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? ' starts' : 's start'} with a date but no amount could be read, so they were skipped.`);
   if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date or is far outside the statement period.`);
@@ -441,7 +444,7 @@ const SMS_DATE = new RegExp(
 export function parseSmsText(text: string, options: ParseOptions = {}): ParseResult {
   const todayISO = options.today ?? deviceToday();
   const result: ParseResult = { rows: [], source: 'text', problems: [] };
-  const sms = text.replace(/\s+/g, ' ').trim();
+  const sms = normaliseDigits(text).replace(/\s+/g, ' ').trim();
   if (!sms) {
     result.problems.push('The message is empty.');
     return result;

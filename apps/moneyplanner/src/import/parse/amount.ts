@@ -1,5 +1,6 @@
 import { parseAmount } from '@/lib/money';
 import type { Fils } from '@/types';
+import { normaliseDigits } from './normalize';
 
 export interface AmountToken {
   /** Signed: negative for "-45", "(45)" and "45-". */
@@ -23,7 +24,7 @@ export function detectCurrency(text: string): string | undefined {
  * Returns null when there is no number or it is ambiguous (see parseAmount).
  */
 export function parseAmountToken(raw: string): AmountToken | null {
-  let t = raw.replace(/−/g, '-').replace(/ /g, ' ').trim();
+  let t = normaliseDigits(raw).replace(/−/g, '-').replace(/ /g, ' ').trim();
   if (!t) return null;
   let marker: 'cr' | 'dr' | null = null;
   const suffix = /^(.*[\d)])\s*(cr|dr)\.?$/i.exec(t);
