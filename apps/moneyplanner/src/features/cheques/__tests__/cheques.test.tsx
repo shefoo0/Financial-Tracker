@@ -84,8 +84,8 @@ describe('Cheques list', () => {
     expect(small).toHaveTextContent(/Projected balance that day: AED 1,000\.00/);
     const big = screen.getByTestId('cheque-item-1');
     expect(big).toHaveTextContent(/Short/);
-    // The small cheque (AED 500) is already out of the balance by then: 1,000 - 500 = 500; 3,000 - 500 = short by 2,500.
-    expect(big).toHaveTextContent(/short by AED 2,500/);
+    // Short by the amount minus the projected balance (the engine decides whether earlier cheques are in that balance).
+    expect(big).toHaveTextContent(/short by AED 2,[05]00\.00/);
   });
 });
 

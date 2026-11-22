@@ -30,13 +30,15 @@ import {
 } from '@/lib/dates';
 
 import { occurrencesInRange } from './recurring';
+import { allDebtPayments } from './debts/schedule';
+import { chequesInRange } from './debts/cheques';
 
 // ---- Summaries ----
 
 /** Key used in `costsByCategory` for costs without a category. */
 export const UNCATEGORIZED = 'uncategorized';
 
-function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[]): MonthSummary {
+function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[], debtPayments: Fils = 0, cheques: Fils = 0): MonthSummary {
   let recurringIncome = 0;
   let oneTimeIncome = 0;
   let recurringCosts = 0;
@@ -61,7 +63,7 @@ function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[]): Mon
     }
   }
   const totalIncome = recurringIncome + oneTimeIncome;
-  const totalSpend = recurringCosts + oneTimeCosts;
+  const totalSpend = recurringCosts + oneTimeCosts + debtPayments + cheques;
   return {
     month,
     recurringIncome,
@@ -69,6 +71,8 @@ function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[]): Mon
     totalIncome,
     recurringCosts,
     oneTimeCosts,
+    debtPayments,
+    cheques,
     totalSpend,
     freeMoney: totalIncome - totalSpend,
     spentPct: totalIncome > 0 ? Math.round((totalSpend / totalIncome) * 1000) / 10 : null,
@@ -82,7 +86,9 @@ export function monthSummary(month: MonthKey, input: PlanInput): MonthSummary {
   const to = monthEnd(month);
   const occs = occurrencesInRange(input.recurring, input.overrides, from, to);
   const txs = input.transactions.filter((t) => monthKey(t.date) === month);
-  return summarize(month, occs, txs);
+  const debt = allDebtPayments(input, from, to).reduce((t, p) => t + p.amount, 0);
+  const chq = chequesInRange(input, from, to).reduce((t, c) => t + c.amount, 0);
+  return summarize(month, occs, txs, debt, chq);
 }
 
 /** The spreadsheet's year dashboard. */
@@ -95,7 +101,11 @@ export function yearSummary(year: number, input: PlanInput): YearSummary {
   for (const o of occs) push(occBy, monthKey(o.date), o);
   for (const t of input.transactions) push(txBy, monthKey(t.date), t);
 
-  const months = keys.map((k) => summarize(k, occBy.get(k) ?? [], txBy.get(k) ?? []));
+  const debtBy = new Map<MonthKey, Fils>();
+  for (const p of allDebtPayments(input, monthStart(keys[0]), monthEnd(keys[11]))) debtBy.set(monthKey(p.date), (debtBy.get(monthKey(p.date)) ?? 0) + p.amount);
+  const chqBy = new Map<MonthKey, Fils>();
+  for (const c of chequesInRange(input, monthStart(keys[0]), monthEnd(keys[11]))) chqBy.set(monthKey(c.date), (chqBy.get(monthKey(c.date)) ?? 0) + c.amount);
+  const months = keys.map((k) => summarize(k, occBy.get(k) ?? [], txBy.get(k) ?? [], debtBy.get(k) ?? 0, chqBy.get(k) ?? 0));
   let totalIncome = 0;
   let totalSpend = 0;
   let running = 0;
@@ -168,6 +178,15 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
     for (const t of input.transactions) {
       if (compareDates(t.date, flowFrom) < 0 || compareDates(t.date, flowTo) > 0) continue;
       add({ date: t.date, label: t.description, kind: t.kind, amount: t.amount, source: 'transaction', refId: t.id });
+    }
+  }
+
+  if (compareDates(flowFrom, flowTo) <= 0) {
+    for (const p of allDebtPayments(input, flowFrom, flowTo)) {
+      add({ date: p.date, label: p.label, kind: 'cost', amount: p.amount, source: 'debt', refId: p.debtId });
+    }
+    for (const c of chequesInRange(input, flowFrom, flowTo)) {
+      add({ date: c.date, label: `Cheque to ${c.payee}`, kind: 'cost', amount: c.amount, source: 'cheque', refId: c.id });
     }
   }
 

@@ -1,0 +1,183 @@
+// The lock screen: PIN pad, Face ID / fingerprint shortcut and "Forgot PIN?".
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
+
+import { Avatar, Button, Screen, Sheet, T, TextField } from '@/components/ui';
+import { Spacing } from '@/constants/theme';
+import { useData } from '@/data/DataProvider';
+import { useProfiles } from '@/data/profiles/ProfileProvider';
+import type { Profile } from '@/data/profiles/types';
+import { useTheme } from '@/hooks/use-theme';
+import { authenticateWithBiometrics, biometricsAvailable } from './biometrics';
+import { lockStore, PIN_MAX, PIN_MIN } from './lockStore';
+import { PinPad } from './PinPad';
+import { throttle, WAIT_MS } from './throttle';
+
+export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlocked: () => void }) {
+  const c = useTheme();
+  const { repo, bump } = useData();
+  const { profiles, switchProfile } = useProfiles();
+  const [len, setLen] = useState<number | null | undefined>(undefined);
+  const [bio, setBio] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [forgot, setForgot] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const waitMs = throttle.remaining(profile.id, now);
+  const waiting = waitMs > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    lockStore.pinLength(profile.id).then((l) => !cancelled && setLen(l));
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id]);
+
+  // Count the wait down.
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [waiting]);
+
+  const tryBiometrics = async () => {
+    if (await authenticateWithBiometrics(profile.name)) onUnlocked();
+  };
+
+  // Offer biometrics, and prompt once as the lock screen appears.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [available, pref] = await Promise.all([biometricsAvailable(), lockStore.getBiometricPref(profile.id)]);
+      if (cancelled || !available || !pref) return;
+      setBio(true);
+      if (await authenticateWithBiometrics(profile.name)) onUnlocked();
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.id]);
+
+  const submit = async (pin: string): Promise<boolean> => {
+    if (throttle.remaining(profile.id) > 0) return false;
+    if (await lockStore.verifyPin(profile.id, pin)) {
+      throttle.reset(profile.id);
+      onUnlocked();
+      return true;
+    }
+    const wait = throttle.fail(profile.id);
+    setNow(Date.now());
+    setMessage(wait ? null : `Wrong PIN. ${throttle.triesLeft(profile.id)} ${throttle.triesLeft(profile.id) === 1 ? 'try' : 'tries'} left.`);
+    return false;
+  };
+
+  const others = profiles.filter((p) => p.id !== profile.id);
+  const nameMatches = typed.trim().toLowerCase() === profile.name.trim().toLowerCase();
+
+  const switchTo = async (id: string) => {
+    setBusy(true);
+    try {
+      await switchProfile(id);
+    } catch (e) {
+      Alert.alert('Could not switch profile', e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  const deleteData = async () => {
+    setBusy(true);
+    try {
+      await repo.deleteAll();
+      await lockStore.clearPin(profile.id);
+      await repo.updateSettings({ lockEnabled: false }).catch(() => undefined);
+      throttle.reset(profile.id);
+      bump();
+      onUnlocked();
+    } catch (e) {
+      Alert.alert('Could not delete', e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  const secondsLeft = Math.ceil(Math.min(waitMs, WAIT_MS) / 1000);
+
+  return (
+    <Screen testID="lock-screen">
+      <View style={{ alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.four, paddingBottom: Spacing.four }}>
+        <Avatar name={profile.name} color={profile.color} size={56} />
+        <T variant="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
+          {profile.name}
+        </T>
+        <T tone="secondary" style={{ textAlign: 'center' }}>
+          Enter your PIN to open this profile.
+        </T>
+        <View style={{ minHeight: 40 }} accessibilityLiveRegion="polite">
+          {waiting ? (
+            <T tone="negative" testID="lock-message" style={{ textAlign: 'center' }}>
+              {`Too many wrong tries. Try again in ${secondsLeft} seconds.`}
+            </T>
+          ) : message ? (
+            <T tone="negative" testID="lock-message" style={{ textAlign: 'center' }}>
+              {message}
+            </T>
+          ) : null}
+        </View>
+        {len === undefined ? null : (
+          <PinPad
+            // A different PIN length (after a change) needs a fresh pad.
+            key={len ?? 'any'}
+            minLength={len ?? PIN_MIN}
+            maxLength={len ?? PIN_MAX}
+            submitLabel="Unlock"
+            onSubmit={submit}
+            disabled={waiting || busy}
+            extraKey={
+              bio ? (
+                <Pressable
+                  onPress={tryBiometrics}
+                  accessibilityRole="button"
+                  accessibilityLabel="Unlock with Face ID or fingerprint"
+                  testID="lock-biometric"
+                  style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: c.accent, fontSize: 13, fontWeight: '700', textAlign: 'center' }} maxFontSizeMultiplier={1.2}>
+                    {Platform.OS === 'ios' ? 'Face ID' : 'Finger-\nprint'}
+                  </Text>
+                </Pressable>
+              ) : null
+            }
+          />
+        )}
+        <Button label="Forgot PIN?" variant="plain" onPress={() => setForgot(true)} testID="lock-forgot" />
+      </View>
+
+      <Sheet visible={forgot} onClose={() => (busy ? undefined : setForgot(false))} title="Forgot your PIN?" testID="lock-forgot-sheet">
+        <View style={{ gap: Spacing.three }}>
+          <T>
+            {`The PIN can't be recovered or reset, so that nobody else can see your money. The only way back in is to delete everything in ${profile.name}: its items, balances and settings. The other profiles on this phone are not touched, and ${profile.name} stays as an empty profile.`}
+          </T>
+          {others.length > 0 ? (
+            <View style={{ gap: Spacing.two }}>
+              <T variant="label">Or open another profile</T>
+              {others.map((p, i) => (
+                <Button key={p.id} label={`Switch to ${p.name}`} variant="secondary" onPress={() => switchTo(p.id)} disabled={busy} testID={`lock-switch-${i}`} />
+              ))}
+            </View>
+          ) : null}
+          <TextField
+            label={`Type "${profile.name}" to confirm`}
+            value={typed}
+            onChangeText={setTyped}
+            hint="This cannot be undone."
+            testID="lock-confirm-input"
+          />
+          <Button label={`Delete all data in ${profile.name}`} variant="destructive" onPress={deleteData} disabled={!nameMatches || busy} testID="lock-delete-confirm" />
+          <Button label="Cancel" variant="plain" onPress={() => setForgot(false)} disabled={busy} testID="lock-forgot-cancel" />
+        </View>
+      </Sheet>
+    </Screen>
+  );
+}

@@ -258,6 +258,11 @@ export interface MonthSummary {
   totalIncome: Fils;
   recurringCosts: Fils;
   oneTimeCosts: Fils;
+  /** Scheduled loan, card and instalment payments in the month. */
+  debtPayments: Fils;
+  /** Upcoming cheques dated in the month. */
+  cheques: Fils;
+  /** Includes debtPayments and cheques. */
   totalSpend: Fils;
   /** totalIncome - totalSpend */
   freeMoney: Fils;

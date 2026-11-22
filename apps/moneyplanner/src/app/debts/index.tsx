@@ -81,7 +81,7 @@ export default function DebtsScreen() {
         <T variant="label" tone="onHero">
           Total remaining
         </T>
-        <T variant="title" tone="onHero" testID="debts-total" numberOfLines={1} adjustsFontSizeToFit>
+        <T variant="title" tone="onHero" testID="debts-total" numberOfLines={1}>
           {money(stats.totalRemaining)}
         </T>
         <View style={styles.heroStats}>
