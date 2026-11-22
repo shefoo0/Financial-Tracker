@@ -2,7 +2,7 @@
 // replaced by an adapter over Node's built-in node:sqlite (in-memory databases).
 import { createSqliteRepository } from '@/data/sqlite/sqlite-repository';
 import { MIGRATIONS, migrate } from '@/data/sqlite/schema';
-import { runRepositoryContract } from '@/data/memory/repository-contract';
+import { chq, loan, runRepositoryContract } from '@/data/memory/repository-contract';
 
 jest.mock('expo-sqlite', () => {
   const { DatabaseSync } = require('node:sqlite');
@@ -50,7 +50,8 @@ jest.mock('expo-sqlite', () => {
   const opened: any[] = [];
   return {
     openDatabaseAsync: async (name: string) => {
-      const db = make();
+      const db = (globalThis as any).__nextDb ?? make();
+      (globalThis as any).__nextDb = undefined;
       db.name = name;
       opened.push(db);
       return db;
@@ -63,6 +64,24 @@ jest.mock('expo-sqlite', () => {
 runRepositoryContract('sqlite', async () => createSqliteRepository());
 
 describe('sqlite specifics', () => {
+  it('stores type-specific debt fields in the fields column', async () => {
+    const { __opened } = require('expo-sqlite');
+    const repo = createSqliteRepository();
+    await repo.init();
+    await repo.upsertDebt(loan());
+    const row = __opened[__opened.length - 1].raw.prepare('SELECT * FROM debts').get();
+    expect(row).toMatchObject({ id: 'd-loan', type: 'loan', name: 'Car loan', archived: 0, created_at: '2026-01-02' });
+    expect(JSON.parse(row.fields)).toMatchObject({ balance: 4000000, paymentDay: 31 });
+    expect(JSON.parse(row.fields)).not.toHaveProperty('name');
+  });
+
+  it('upsertCheques is all or nothing', async () => {
+    const repo = createSqliteRepository();
+    await repo.init();
+    await expect(repo.upsertCheques([chq({ id: 'ok' }), chq({ id: null as any })])).rejects.toBeTruthy();
+    expect(await repo.listCheques()).toEqual([]);
+  });
+
   it('importAll is all or nothing', async () => {
     const repo = createSqliteRepository();
     await repo.init();
@@ -82,6 +101,47 @@ describe('sqlite specifics', () => {
     expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
     await migrate(db);
     expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
+  });
+});
+
+describe('migration v1 to v2', () => {
+  it('upgrades a v1 database, keeping its rows', async () => {
+    const { __make } = require('expo-sqlite');
+    const db = __make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\nPRAGMA user_version = 1;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('currency', '\"USD\"')").run();
+    db.raw
+      .prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')")
+      .run();
+    db.raw.prepare("INSERT INTO categories (id, name, kind, sort) VALUES ('c', 'C', 'cost', 1)").run();
+    await migrate(db);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(2);
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM transactions').get().n).toBe(1);
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM categories').get().n).toBe(1);
+    expect(db.raw.prepare("SELECT value FROM settings WHERE key = 'currency'").get().value).toBe('"USD"');
+    for (const table of ['debts', 'debt_payments', 'debt_overrides', 'cheques']) {
+      expect(db.raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n).toBe(0);
+    }
+  });
+
+  it('opens a v1 database through the repository and keeps its data', async () => {
+    const expo = require('expo-sqlite');
+    const db = expo.__make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\nPRAGMA user_version = 1;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('onboarded', 'true')").run();
+    db.raw
+      .prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')")
+      .run();
+    (globalThis as any).__nextDb = db; // the repository opens this pre-built v1 database
+    {
+      const repo = createSqliteRepository('v1.db');
+      await repo.init();
+      expect((await repo.listTransactions()).map((t) => t.id)).toEqual(['t1']);
+      expect((await repo.getSettings()).onboarded).toBe(true);
+      expect(await repo.listDebts()).toEqual([]);
+      await repo.upsertCheques([chq()]);
+      expect(await repo.listCheques()).toHaveLength(1);
+    }
   });
 });
 

@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import type { Category, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type { Category, Cheque, Debt, DebtOverride, DebtPayment, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
 import { DB_NAME, migrate } from './schema';
 
 /** The part of a database/transaction connection used for writes. */
@@ -56,6 +56,48 @@ const toTransaction = (r: Row): Transaction => ({
   planned: r.planned === 1,
 });
 
+/** Debt columns; everything else (type-specific fields and the note) lives in the `fields` JSON. */
+const DEBT_COLUMNS = ['id', 'type', 'name', 'archived', 'createdAt'];
+
+const toDebt = (r: Row): Debt => {
+  let fields: Row = {};
+  try {
+    fields = JSON.parse(r.fields);
+  } catch {
+    // a corrupt value leaves only the base columns
+  }
+  return { ...fields, id: r.id, type: r.type, name: r.name, archived: r.archived === 1, createdAt: r.created_at } as Debt;
+};
+
+const toDebtPayment = (r: Row): DebtPayment => ({
+  id: r.id,
+  debtId: r.debt_id,
+  date: r.date,
+  amount: r.amount,
+  kind: r.kind,
+  note: r.note ?? '',
+});
+
+const toDebtOverride = (r: Row): DebtOverride => ({
+  id: r.id,
+  debtId: r.debt_id,
+  originalDate: r.original_date,
+  newDate: r.new_date ?? null,
+  newAmount: r.new_amount ?? null,
+  skip: r.skip === 1,
+});
+
+const toCheque = (r: Row): Cheque => ({
+  id: r.id,
+  payee: r.payee,
+  amount: r.amount,
+  date: r.date,
+  purpose: r.purpose ?? '',
+  status: r.status,
+  seriesId: r.series_id ?? null,
+  note: r.note ?? '',
+});
+
 const writeCategory = (w: Writer, c: Category) =>
   w.runAsync(
     `INSERT INTO categories (id, name, kind, sort, archived) VALUES (?, ?, ?, ?, ?)
@@ -101,6 +143,48 @@ const writeTransaction = (w: Writer, t: Transaction) =>
     [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned)],
   );
 
+const writeDebt = (w: Writer, d: Debt) => {
+  const fields: Row = {};
+  for (const [k, v] of Object.entries(d)) if (!DEBT_COLUMNS.includes(k)) fields[k] = v;
+  return w.runAsync(
+    `INSERT INTO debts (id, type, name, fields, archived, created_at) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET type = excluded.type, name = excluded.name, fields = excluded.fields,
+       archived = excluded.archived, created_at = excluded.created_at`,
+    [d.id, d.type, d.name, JSON.stringify(fields), bool(d.archived), d.createdAt],
+  );
+};
+
+const writeDebtPayment = (w: Writer, p: DebtPayment) =>
+  w.runAsync(
+    `INSERT INTO debt_payments (id, debt_id, date, amount, kind, note) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET debt_id = excluded.debt_id, date = excluded.date, amount = excluded.amount,
+       kind = excluded.kind, note = excluded.note`,
+    [p.id, p.debtId, p.date, p.amount, p.kind, p.note],
+  );
+
+async function writeDebtOverride(w: Writer, o: DebtOverride) {
+  // Unique (debt_id, original_date): drop any other row for the same payment first.
+  await w.runAsync('DELETE FROM debt_overrides WHERE debt_id = ? AND original_date = ? AND id <> ?', [
+    o.debtId,
+    o.originalDate,
+    o.id,
+  ]);
+  await w.runAsync(
+    `INSERT INTO debt_overrides (id, debt_id, original_date, new_date, new_amount, skip) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET debt_id = excluded.debt_id, original_date = excluded.original_date,
+       new_date = excluded.new_date, new_amount = excluded.new_amount, skip = excluded.skip`,
+    [o.id, o.debtId, o.originalDate, o.newDate, o.newAmount, bool(o.skip)],
+  );
+}
+
+const writeCheque = (w: Writer, c: Cheque) =>
+  w.runAsync(
+    `INSERT INTO cheques (id, payee, amount, date, purpose, status, series_id, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET payee = excluded.payee, amount = excluded.amount, date = excluded.date,
+       purpose = excluded.purpose, status = excluded.status, series_id = excluded.series_id, note = excluded.note`,
+    [c.id, c.payee, c.amount, c.date, c.purpose, c.status, c.seriesId, c.note],
+  );
+
 async function writeSettings(w: Writer, s: Partial<Settings>) {
   for (const [key, value] of Object.entries(s)) {
     if (value === undefined) continue;
@@ -113,7 +197,7 @@ async function writeSettings(w: Writer, s: Partial<Settings>) {
 
 /** Removes every row from every data table. */
 async function clearAll(w: Writer) {
-  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions']) {
+  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques']) {
     await w.runAsync(`DELETE FROM ${table}`);
   }
 }
@@ -220,6 +304,21 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
     return (await db.getAllAsync<Row>(sql, params)).map(toTransaction);
   }
 
+  const readDebts = async (db: SQLite.SQLiteDatabase) =>
+    (await db.getAllAsync<Row>('SELECT * FROM debts ORDER BY rowid')).map(toDebt);
+  const readDebtPayments = async (db: SQLite.SQLiteDatabase, debtId?: string) =>
+    (debtId === undefined
+      ? await db.getAllAsync<Row>('SELECT * FROM debt_payments ORDER BY date, id')
+      : await db.getAllAsync<Row>('SELECT * FROM debt_payments WHERE debt_id = ? ORDER BY date, id', [debtId])
+    ).map(toDebtPayment);
+  const readDebtOverrides = async (db: SQLite.SQLiteDatabase, debtId?: string) =>
+    (debtId === undefined
+      ? await db.getAllAsync<Row>('SELECT * FROM debt_overrides ORDER BY rowid')
+      : await db.getAllAsync<Row>('SELECT * FROM debt_overrides WHERE debt_id = ? ORDER BY rowid', [debtId])
+    ).map(toDebtOverride);
+  const readCheques = async (db: SQLite.SQLiteDatabase) =>
+    (await db.getAllAsync<Row>('SELECT * FROM cheques ORDER BY date, id')).map(toCheque);
+
   return {
     async init() {
       await getDb();
@@ -298,6 +397,58 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       await write((db) => db.runAsync('DELETE FROM transactions WHERE id = ?', [id]));
     },
 
+    async listDebts() {
+      return readDebts(await getDb());
+    },
+    async upsertDebt(d) {
+      await write((db) => writeDebt(db, d));
+    },
+    async deleteDebt(id) {
+      await write((db) =>
+        transaction(db, async (txn) => {
+          await txn.runAsync('DELETE FROM debt_payments WHERE debt_id = ?', [id]);
+          await txn.runAsync('DELETE FROM debt_overrides WHERE debt_id = ?', [id]);
+          await txn.runAsync('DELETE FROM debts WHERE id = ?', [id]);
+          // Plans that sat on this card keep existing, but without the link.
+          for (const plan of (await readDebts(txn)).filter((d) => d.type === 'plan' && d.cardId === id)) {
+            await writeDebt(txn, { ...plan, cardId: null } as Debt);
+          }
+        }),
+      );
+    },
+    async listDebtPayments(debtId) {
+      return readDebtPayments(await getDb(), debtId);
+    },
+    async upsertDebtPayment(p) {
+      await write((db) => writeDebtPayment(db, p));
+    },
+    async deleteDebtPayment(id) {
+      await write((db) => db.runAsync('DELETE FROM debt_payments WHERE id = ?', [id]));
+    },
+    async listDebtOverrides(debtId) {
+      return readDebtOverrides(await getDb(), debtId);
+    },
+    async upsertDebtOverride(o) {
+      await write((db) => transaction(db, (txn) => writeDebtOverride(txn, o)));
+    },
+    async deleteDebtOverride(id) {
+      await write((db) => db.runAsync('DELETE FROM debt_overrides WHERE id = ?', [id]));
+    },
+
+    async listCheques() {
+      return readCheques(await getDb());
+    },
+    async upsertCheques(cheques) {
+      await write((db) =>
+        transaction(db, async (txn) => {
+          for (const c of cheques) await writeCheque(txn, c);
+        }),
+      );
+    },
+    async deleteCheque(id) {
+      await write((db) => db.runAsync('DELETE FROM cheques WHERE id = ?', [id]));
+    },
+
     async exportAll(): Promise<BackupData> {
       const db = await getDb();
       return {
@@ -309,6 +460,10 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
         recurring: await readRecurring(db),
         overrides: await readOverrides(db),
         transactions: await readTransactions(db),
+        debts: await readDebts(db),
+        debtPayments: await readDebtPayments(db),
+        debtOverrides: await readDebtOverrides(db),
+        cheques: await readCheques(db),
       };
     },
     async importAll(data) {
@@ -320,6 +475,11 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
           for (const r of data.recurring) await writeRecurring(txn, r);
           for (const o of data.overrides) await writeOverride(txn, o);
           for (const t of data.transactions) await writeTransaction(txn, t);
+          // Version 1 backups have no debts or cheques.
+          for (const d of data.debts ?? []) await writeDebt(txn, d);
+          for (const p of data.debtPayments ?? []) await writeDebtPayment(txn, p);
+          for (const o of data.debtOverrides ?? []) await writeDebtOverride(txn, o);
+          for (const c of data.cheques ?? []) await writeCheque(txn, c);
         }),
       );
     },

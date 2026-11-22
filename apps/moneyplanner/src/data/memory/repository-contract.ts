@@ -1,7 +1,7 @@
 // Shared contract suite: run against every Repository implementation.
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type Repository } from '@/data/repository';
-import type { OccurrenceOverride, RecurringItem, Transaction } from '@/types';
+import type { Cheque, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
 
 export const rec = (o: Partial<RecurringItem> = {}): RecurringItem => ({
   id: 'r1', kind: 'cost', name: 'Rent', categoryId: 'housing', amount: 500000,
@@ -13,6 +13,29 @@ export const ovr = (o: Partial<OccurrenceOverride> = {}): OccurrenceOverride => 
 export const txn = (o: Partial<Transaction> = {}): Transaction => ({
   id: 't1', kind: 'cost', date: '2026-03-05', description: 'Lunch', categoryId: 'dining', amount: 4550,
   note: 'with, "comma"', source: 'manual', importId: null, planned: false, ...o,
+});
+
+export const loan = (o: Partial<Loan> = {}): Loan => ({
+  id: 'd-loan', type: 'loan', name: 'Car loan', note: 'Bank, "main"', archived: false, createdAt: '2026-01-02',
+  balance: 4000000, balanceDate: '2026-02-01', monthlyPayment: 150000, paymentDay: 31, annualRatePct: 4.99, endDate: null, ...o,
+});
+export const card = (o: Partial<CreditCard> = {}): CreditCard => ({
+  id: 'd-card', type: 'card', name: 'Visa', note: '', archived: false, createdAt: '2026-01-03',
+  limit: 2000000, balance: 500000, balanceDate: '2026-02-01', statementDay: 10, dueDay: 28, minPct: 5, minFloor: 10000,
+  monthlyRatePct: 3.25, plan: 'fixed', fixedAmount: 100000, ...o,
+});
+export const plan = (o: Partial<InstalmentPlan> = {}): InstalmentPlan => ({
+  id: 'd-plan', type: 'plan', name: 'Phone', note: '', archived: false, createdAt: '2026-01-04',
+  total: 360000, monthlyAmount: 30000, firstPaymentDate: '2026-02-15', payments: 12, cardId: 'd-card', ...o,
+});
+export const dpay = (o: Partial<DebtPayment> = {}): DebtPayment => ({
+  id: 'p1', debtId: 'd-loan', date: '2026-03-01', amount: 150000, kind: 'regular', note: '', ...o,
+});
+export const dovr = (o: Partial<DebtOverride> = {}): DebtOverride => ({
+  id: 'do1', debtId: 'd-loan', originalDate: '2026-04-30', newDate: '2026-05-02', newAmount: 120000, skip: false, ...o,
+});
+export const chq = (o: Partial<Cheque> = {}): Cheque => ({
+  id: 'c1', payee: 'Landlord', amount: 500000, date: '2026-04-01', purpose: 'Rent', status: 'upcoming', seriesId: null, note: '', ...o,
 });
 
 export function runRepositoryContract(name: string, make: () => Promise<Repository>) {
@@ -245,6 +268,153 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       const s = await repo.getSettings();
       s.enabledModules.cheques = true;
       expect((await repo.getSettings()).enabledModules.cheques).toBe(false);
+    });
+
+    describe('debts and cheques', () => {
+      it('starts empty', async () => {
+        expect(await repo.listDebts()).toEqual([]);
+        expect(await repo.listDebtPayments()).toEqual([]);
+        expect(await repo.listDebtOverrides()).toEqual([]);
+        expect(await repo.listCheques()).toEqual([]);
+      });
+
+      it('round-trips each debt type, keeps creation order on edit, and deletes', async () => {
+        await repo.upsertDebt(loan());
+        await repo.upsertDebt(card());
+        await repo.upsertDebt(plan({ cardId: null, note: 'n' }));
+        await repo.upsertDebt(loan({ name: 'Car loan 2', annualRatePct: null, endDate: '2030-01-31', archived: true }));
+        const list = await repo.listDebts();
+        expect(list.map((d) => d.id)).toEqual(['d-loan', 'd-card', 'd-plan']);
+        expect(list[0]).toEqual(loan({ name: 'Car loan 2', annualRatePct: null, endDate: '2030-01-31', archived: true }));
+        expect(list[1]).toEqual(card());
+        expect(list[2]).toEqual(plan({ cardId: null, note: 'n' }));
+        await repo.deleteDebt('d-card');
+        expect((await repo.listDebts()).map((d) => d.id)).toEqual(['d-loan', 'd-plan']);
+      });
+
+      it('lists payments by date then id, optionally for one debt', async () => {
+        await repo.upsertDebt(loan());
+        await repo.upsertDebt(plan());
+        await repo.upsertDebtPayment(dpay({ id: 'b', date: '2026-03-01' }));
+        await repo.upsertDebtPayment(dpay({ id: 'a', date: '2026-03-01', kind: 'extra', note: 'bonus' }));
+        await repo.upsertDebtPayment(dpay({ id: 'c', date: '2026-02-01', kind: 'partial' }));
+        await repo.upsertDebtPayment(dpay({ id: 'e', debtId: 'd-plan', date: '2026-02-15' }));
+        expect((await repo.listDebtPayments()).map((p) => p.id)).toEqual(['c', 'e', 'a', 'b']);
+        expect((await repo.listDebtPayments('d-loan')).map((p) => p.id)).toEqual(['c', 'a', 'b']);
+        expect((await repo.listDebtPayments('d-plan')).map((p) => p.id)).toEqual(['e']);
+        await repo.upsertDebtPayment(dpay({ id: 'a', date: '2026-01-01', amount: 5 }));
+        expect((await repo.listDebtPayments('d-loan'))[0]).toEqual(dpay({ id: 'a', date: '2026-01-01', amount: 5, kind: 'regular' }));
+        await repo.deleteDebtPayment('a');
+        expect((await repo.listDebtPayments()).map((p) => p.id)).toEqual(['c', 'e', 'b']);
+      });
+
+      it('keeps one debt override per (debtId, originalDate)', async () => {
+        await repo.upsertDebtOverride(dovr());
+        await repo.upsertDebtOverride(dovr({ id: 'do-other', newDate: null, newAmount: null, skip: true }));
+        expect(await repo.listDebtOverrides()).toEqual([dovr({ id: 'do-other', newDate: null, newAmount: null, skip: true })]);
+        await repo.upsertDebtOverride(dovr({ id: 'do-other', originalDate: '2026-05-31', skip: false }));
+        await repo.upsertDebtOverride(dovr({ id: 'do3', debtId: 'd-plan' }));
+        await repo.upsertDebtOverride(dovr({ id: 'do-other', originalDate: '2026-05-31', skip: false, newAmount: 7 }));
+        expect((await repo.listDebtOverrides()).map((o) => o.id)).toEqual(['do-other', 'do3']);
+        expect((await repo.listDebtOverrides('d-loan')).map((o) => o.newAmount)).toEqual([7]);
+        await repo.deleteDebtOverride('do-other');
+        expect((await repo.listDebtOverrides()).map((o) => o.id)).toEqual(['do3']);
+      });
+
+      it('deleteDebt removes its payments and overrides and unlinks plans, leaving the rest', async () => {
+        await repo.upsertDebt(loan());
+        await repo.upsertDebt(card());
+        await repo.upsertDebt(plan());
+        await repo.upsertDebt(plan({ id: 'plan2', cardId: 'd-loan' }));
+        await repo.upsertDebtPayment(dpay({ id: 'p1', debtId: 'd-card' }));
+        await repo.upsertDebtPayment(dpay({ id: 'p2', debtId: 'd-loan' }));
+        await repo.upsertDebtOverride(dovr({ id: 'o1', debtId: 'd-card' }));
+        await repo.upsertDebtOverride(dovr({ id: 'o2', debtId: 'd-loan' }));
+        await repo.deleteDebt('d-card');
+        const debts = await repo.listDebts();
+        expect(debts.map((d) => d.id)).toEqual(['d-loan', 'd-plan', 'plan2']);
+        expect(debts.find((d) => d.id === 'd-plan')).toEqual(plan({ cardId: null }));
+        expect(debts.find((d) => d.id === 'plan2')).toEqual(plan({ id: 'plan2', cardId: 'd-loan' }));
+        expect((await repo.listDebtPayments()).map((p) => p.id)).toEqual(['p2']);
+        expect((await repo.listDebtOverrides()).map((o) => o.id)).toEqual(['o2']);
+      });
+
+      it('lists cheques by date then id, saves a batch together, and deletes', async () => {
+        await repo.upsertCheques([
+          chq({ id: 'b', date: '2026-05-01', seriesId: 's1' }),
+          chq({ id: 'a', date: '2026-05-01', seriesId: 's1', status: 'cleared', note: 'x' }),
+          chq({ id: 'z', date: '2026-04-01' }),
+        ]);
+        expect((await repo.listCheques()).map((c) => c.id)).toEqual(['z', 'a', 'b']);
+        await repo.upsertCheques([chq({ id: 'b', date: '2026-03-01', seriesId: 's1', status: 'cancelled' })]);
+        const list = await repo.listCheques();
+        expect(list.map((c) => c.id)).toEqual(['b', 'z', 'a']);
+        expect(list[0]).toEqual(chq({ id: 'b', date: '2026-03-01', seriesId: 's1', status: 'cancelled' }));
+        await repo.deleteCheque('z');
+        expect((await repo.listCheques()).map((c) => c.id)).toEqual(['b', 'a']);
+        await repo.upsertCheques([]);
+        expect(await repo.listCheques()).toHaveLength(2);
+      });
+
+      it('exports, replaces and deletes the new lists with everything else', async () => {
+        await repo.upsertDebt(loan());
+        await repo.upsertDebt(plan());
+        await repo.upsertDebtPayment(dpay());
+        await repo.upsertDebtOverride(dovr());
+        await repo.upsertCheques([chq()]);
+        const backup = await repo.exportAll();
+        expect(backup.debts).toHaveLength(2);
+        expect(backup.debtPayments).toHaveLength(1);
+        expect(backup.debtOverrides).toHaveLength(1);
+        expect(backup.cheques).toHaveLength(1);
+
+        await repo.importAll({ ...backup, debts: [card()], debtPayments: [], debtOverrides: [], cheques: [chq({ id: 'new' })] });
+        expect((await repo.listDebts()).map((d) => d.id)).toEqual(['d-card']);
+        expect(await repo.listDebtPayments()).toEqual([]);
+        expect(await repo.listDebtOverrides()).toEqual([]);
+        expect((await repo.listCheques()).map((c) => c.id)).toEqual(['new']);
+
+        // A version 1 backup has none of the new lists: they come back empty.
+        const v1: any = { ...backup, version: 1 };
+        delete v1.debts; delete v1.debtPayments; delete v1.debtOverrides; delete v1.cheques;
+        await repo.importAll(v1);
+        expect(await repo.listDebts()).toEqual([]);
+        expect(await repo.listCheques()).toEqual([]);
+
+        await repo.importAll(backup);
+        expect(await repo.listDebtPayments()).toHaveLength(1);
+        await repo.deleteAll();
+        expect(await repo.listDebts()).toEqual([]);
+        expect(await repo.listDebtPayments()).toEqual([]);
+        expect(await repo.listDebtOverrides()).toEqual([]);
+        expect(await repo.listCheques()).toEqual([]);
+      });
+
+      it('keeps every write when debt writes overlap', async () => {
+        const writes: Promise<unknown>[] = [];
+        for (let i = 0; i < 8; i++) {
+          writes.push(repo.upsertDebt(loan({ id: `l${i}` })));
+          writes.push(repo.upsertDebtPayment(dpay({ id: `p${i}`, debtId: `l${i}` })));
+          writes.push(repo.upsertDebtOverride(dovr({ id: `o${i}`, debtId: `l${i}` })));
+          writes.push(repo.upsertCheques([chq({ id: `c${i}` })]));
+        }
+        writes.push(repo.deleteDebt('l0'));
+        await Promise.all(writes);
+        expect(await repo.listDebts()).toHaveLength(7);
+        expect(await repo.listDebtPayments()).toHaveLength(7);
+        expect(await repo.listDebtOverrides()).toHaveLength(7);
+        expect(await repo.listCheques()).toHaveLength(8);
+      });
+
+      it('does not share state with callers', async () => {
+        const d = loan();
+        await repo.upsertDebt(d);
+        d.name = 'mutated';
+        const got = await repo.listDebts();
+        expect(got[0].name).toBe('Car loan');
+        got[0].name = 'again';
+        expect((await repo.listDebts())[0].name).toBe('Car loan');
+      });
     });
   });
 }

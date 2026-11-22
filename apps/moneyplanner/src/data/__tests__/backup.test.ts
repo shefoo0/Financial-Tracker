@@ -1,10 +1,10 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import { createMemoryRepository } from '@/data/memory/memory-repository';
-import { buildTransactionsCsv, exportBackup, exportTransactionsCsv, restoreBackupFromFile, csvField, filsToDecimal, parseBackup, serializeBackup } from '@/data/backup';
+import { buildChequesCsv, buildDebtsCsv, buildTransactionsCsv, exportBackup, exportTransactionsCsv, restoreBackupFromFile, csvField, filsToDecimal, parseBackup, serializeBackup } from '@/data/backup';
 import { BACKUP_VERSION } from '@/data/repository';
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
-import { ovr, rec, txn } from '@/data/memory/repository-contract';
+import { card, chq, dovr, dpay, loan, ovr, plan, rec, txn } from '@/data/memory/repository-contract';
 
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
@@ -36,7 +36,10 @@ jest.mock('expo-file-system', () => {
 });
 
 async function sample() {
-  const repo = createMemoryRepository({ recurring: [rec()], overrides: [ovr()], transactions: [txn()] });
+  const repo = createMemoryRepository({
+    recurring: [rec()], overrides: [ovr()], transactions: [txn()],
+    debts: [loan(), card(), plan()], debtPayments: [dpay()], debtOverrides: [dovr()], cheques: [chq()],
+  });
   await repo.init();
   return repo.exportAll();
 }
@@ -159,6 +162,144 @@ describe('parseBackup validation', () => {
   });
 });
 
+describe('parseBackup debts and cheques', () => {
+  let data: Awaited<ReturnType<typeof sample>>;
+  beforeEach(async () => {
+    data = await sample();
+  });
+  const text = (patch: object) => JSON.stringify({ ...data, ...patch });
+  const bad = (patch: object) => expect(() => parseBackup(text(patch))).toThrow('damaged');
+  /** The sample debts with the given ones swapped in by id (or added), so payments and plans keep valid references. */
+  const dd = (...items: any[]) => {
+    const base: any[] = [loan(), card(), plan()];
+    for (const it of items) {
+      const i = base.findIndex((x) => x.id === it?.id);
+      if (i >= 0) base[i] = it;
+      else base.push(it);
+    }
+    return { debts: base };
+  };
+  const ok = (patch: object) => expect(() => parseBackup(text(patch))).not.toThrow();
+
+  it('round-trips version 2 with all new lists', () => {
+    const parsed = parseBackup(serializeBackup(data));
+    expect(parsed).toEqual(data);
+    expect(parsed.debts).toHaveLength(3);
+    expect(parsed.cheques).toHaveLength(1);
+  });
+  it('restores a version 1 file, with the new lists empty', () => {
+    const v1: any = { ...data, version: 1 };
+    delete v1.debts; delete v1.debtPayments; delete v1.debtOverrides; delete v1.cheques;
+    const parsed = parseBackup(JSON.stringify(v1));
+    expect(parsed).toMatchObject({ debts: [], debtPayments: [], debtOverrides: [], cheques: [] });
+    expect(parsed.recurring).toHaveLength(1);
+  });
+  it('requires the new lists in a version 2 file', () => {
+    for (const k of ['debts', 'debtPayments', 'debtOverrides', 'cheques']) {
+      const v2: any = { ...data };
+      delete v2[k];
+      expect(() => parseBackup(JSON.stringify(v2))).toThrow('damaged');
+    }
+  });
+  it('rejects a future version with a clear message', () => {
+    expect(() => parseBackup(text({ version: BACKUP_VERSION + 1 }))).toThrow('newer version of the app');
+    expect(() => parseBackup(text({ version: 0 }))).toThrow('damaged');
+  });
+  it('drops unknown keys from debts', () => {
+    const parsed = parseBackup(text({ debts: [{ ...loan(), evil: 1 }] }));
+    expect(parsed.debts[0]).not.toHaveProperty('evil');
+  });
+  it('validates loans', () => {
+    ok(dd(loan({ paymentDay: 1 }), loan({ id: 'x', paymentDay: 31, balance: 0, annualRatePct: 0 })));
+    bad(dd(loan({ paymentDay: 0 })));
+    bad(dd(loan({ paymentDay: 32 })));
+    bad(dd(loan({ paymentDay: 1.5 })));
+    bad(dd(loan({ balance: -1 })));
+    bad(dd(loan({ balance: 1.5 })));
+    bad(dd(loan({ monthlyPayment: -100 })));
+    bad(dd(loan({ balanceDate: '2026-02-30' })));
+    bad(dd(loan({ endDate: 'soon' })));
+    bad(dd(loan({ annualRatePct: -1 })));
+    bad(dd(loan({ annualRatePct: '5' as any })));
+    bad(dd(loan({ createdAt: '2026-13-01' })));
+  });
+  it('validates cards', () => {
+    ok(dd(card({ minPct: 0 }), card({ id: 'y', minPct: 100, plan: 'full', fixedAmount: null })));
+    bad(dd(card({ minPct: 101 })));
+    bad(dd(card({ minPct: -1 })));
+    bad(dd(card({ statementDay: 0 })));
+    bad(dd(card({ dueDay: 32 })));
+    bad(dd(card({ limit: -5 })));
+    bad(dd(card({ minFloor: 0.5 })));
+    bad(dd(card({ plan: 'auto' as any })));
+    bad(dd(card({ fixedAmount: -1 })));
+    bad(dd(card({ monthlyRatePct: NaN })));
+    bad(dd(card({ balanceDate: '' })));
+  });
+  it('validates plans', () => {
+    ok(dd(plan({ cardId: null }), plan({ id: 'p2', cardId: 'd-card', payments: 1 })));
+    bad(dd(plan({ payments: 0 })));
+    bad(dd(plan({ payments: 2.5 })));
+    bad(dd(plan({ total: -1 })));
+    bad(dd(plan({ monthlyAmount: 1.5 })));
+    bad(dd(plan({ firstPaymentDate: '2026-02-30' })));
+    bad(dd(plan({ cardId: '' })));
+  });
+  it('validates ids, type and base fields', () => {
+    bad(dd(loan({ id: '' })));
+    bad(dd({ ...loan(), type: 'mortgage' }));
+    bad(dd({ ...loan(), archived: 'no' }));
+    bad(dd({ ...loan(), name: 5 }));
+    bad(dd({ ...loan(), note: undefined }));
+    bad({ debts: [loan(), loan(), card(), plan()] });
+    bad({ debts: 'x' });
+    bad({ debts: [null] });
+  });
+  it('requires plans to point at an existing card', () => {
+    bad(dd(plan({ cardId: 'nope' })));
+    bad(dd(loan(), plan({ cardId: 'd-loan' })));
+  });
+  it('validates payments', () => {
+    ok({ debtPayments: [dpay({ kind: 'partial', amount: 0 })] });
+    bad({ debtPayments: [dpay({ debtId: 'missing' })] });
+    bad({ debtPayments: [dpay({ amount: -1 })] });
+    bad({ debtPayments: [dpay({ amount: 1.5 })] });
+    bad({ debtPayments: [dpay({ kind: 'bonus' as any })] });
+    bad({ debtPayments: [dpay({ date: '2026-02-30' })] });
+    bad({ debtPayments: [dpay({ id: '' })] });
+    bad({ debtPayments: [dpay({ note: 1 as any })] });
+    bad({ debtPayments: [dpay(), dpay()] });
+  });
+  it('validates debt overrides', () => {
+    ok({ debtOverrides: [dovr({ skip: true, newDate: null, newAmount: null })] });
+    bad({ debtOverrides: [dovr({ debtId: 'missing' })] });
+    bad({ debtOverrides: [dovr({ originalDate: '2026-02-30' })] });
+    bad({ debtOverrides: [dovr({ newDate: '2026-04-31' })] });
+    bad({ debtOverrides: [dovr({ newDate: '2026-04-30', originalDate: '2026-04-30' })] });
+    bad({ debtOverrides: [dovr({ newAmount: -1 })] });
+    bad({ debtOverrides: [dovr({ skip: 1 as any })] });
+    bad({ debtOverrides: [dovr(), dovr({ id: 'other' })] });
+  });
+  it('validates cheques', () => {
+    ok({ cheques: [chq({ seriesId: 's', status: 'cleared', amount: 0 })] });
+    bad({ cheques: [chq({ status: 'bounced' as any })] });
+    bad({ cheques: [chq({ amount: -1 })] });
+    bad({ cheques: [chq({ amount: 0.5 })] });
+    bad({ cheques: [chq({ date: '2026-02-30' })] });
+    bad({ cheques: [chq({ seriesId: '' })] });
+    bad({ cheques: [chq({ id: '' })] });
+    bad({ cheques: [chq({ payee: 3 as any })] });
+    bad({ cheques: [chq(), chq()] });
+  });
+  it('restores into a repository', async () => {
+    const target = createMemoryRepository();
+    await target.init();
+    await target.importAll(parseBackup(serializeBackup(data)));
+    expect((await target.exportAll()).debts).toEqual(data.debts);
+    expect(await target.listCheques()).toEqual(data.cheques);
+  });
+});
+
 describe('files and sharing', () => {
   const files: Map<string, string> = require('expo-file-system').__files;
   beforeEach(() => {
@@ -236,5 +377,38 @@ describe('CSV', () => {
   });
   it('has just the header when empty', () => {
     expect(buildTransactionsCsv([], [])).toBe('Date,Type,Description,Category,Amount,Note,Planned\r\n');
+  });
+});
+
+describe('debts and cheques CSV', () => {
+  it('builds one row per debt with the columns of its type', () => {
+    const csv = buildDebtsCsv([
+      plan({ note: '=cmd' }),
+      card({ archived: true }),
+      loan({ name: 'Car, new', endDate: '2030-01-31' }),
+    ]).split('\r\n');
+    expect(csv).toEqual([
+      'Name,Type,Status,Balance,Balance date,Monthly payment,Payment day,Limit,Yearly rate %,Monthly rate %,Total,First payment,Payments,End date,Note',
+      '"Car, new",Loan,Active,40000.00,2026-02-01,1500.00,31,,4.99,,,,,2030-01-31,"Bank, ""main"""',
+      "Phone,Instalment plan,Active,,,300.00,,,,,3600.00,2026-02-15,12,,'=cmd",
+      'Visa,Credit card,Archived,5000.00,2026-02-01,,28,20000.00,,3.25,,,,,',
+      '',
+    ]);
+  });
+  it('has just the header when there are no debts or cheques', () => {
+    expect(buildDebtsCsv([]).split('\r\n')).toHaveLength(2);
+    expect(buildChequesCsv([])).toBe('Date,Payee,Amount,Purpose,Status,Note\r\n');
+  });
+  it('builds cheque rows sorted by date', () => {
+    const csv = buildChequesCsv([
+      chq({ id: 'b', date: '2026-05-01', payee: '-Evil', status: 'cleared' }),
+      chq({ id: 'a', date: '2026-04-01', purpose: 'Rent, April', note: 'x' }),
+    ]).split('\r\n');
+    expect(csv).toEqual([
+      'Date,Payee,Amount,Purpose,Status,Note',
+      '2026-04-01,Landlord,5000.00,"Rent, April",Upcoming,x',
+      "2026-05-01,'-Evil,5000.00,Rent,Cleared,",
+      '',
+    ]);
   });
 });

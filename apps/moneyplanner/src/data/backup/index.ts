@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
 import { defaultSettings } from '@/data/defaults';
 import { isValidISODate } from '@/lib/dates';
-import type { Category, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type { Category, Cheque, Debt, DebtOverride, DebtPayment, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
 
 const NOT_A_BACKUP = "This file isn't a Money Planner backup.";
 const DAMAGED = "This backup file looks damaged, so it can't be restored.";
@@ -85,6 +85,86 @@ const isTransaction = (v: unknown): v is Transaction =>
   nullOr(v.importId, isStr) &&
   isBool(v.planned);
 
+const isRate = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000;
+
+/** Checks one debt and returns it with only the known keys, or null. Cross-references are checked in parseBackup. */
+function readDebt(v: unknown): Debt | null {
+  if (!isObj(v) || !isId(v.id) || !isStr(v.name) || !isStr(v.note) || !isBool(v.archived) || !isDate(v.createdAt)) return null;
+  const base = { id: v.id, name: v.name, note: v.note, archived: v.archived, createdAt: v.createdAt };
+  if (v.type === 'loan') {
+    if (
+      !isAmount(v.balance) || !isDate(v.balanceDate) || !isAmount(v.monthlyPayment) || !inRange(v.paymentDay, 1, 31) ||
+      !nullOr(v.annualRatePct, isRate) || !nullOr(v.endDate, isDate)
+    ) {
+      return null;
+    }
+    return {
+      ...base, type: 'loan', balance: v.balance, balanceDate: v.balanceDate, monthlyPayment: v.monthlyPayment,
+      paymentDay: v.paymentDay as number, annualRatePct: v.annualRatePct as number | null, endDate: v.endDate as string | null,
+    };
+  }
+  if (v.type === 'card') {
+    if (
+      !isAmount(v.limit) || !isAmount(v.balance) || !isDate(v.balanceDate) || !inRange(v.statementDay, 1, 31) ||
+      !inRange(v.dueDay, 1, 31) || typeof v.minPct !== 'number' || !(v.minPct >= 0 && v.minPct <= 100) ||
+      !isAmount(v.minFloor) || !isRate(v.monthlyRatePct) || !(v.plan === 'full' || v.plan === 'minimum' || v.plan === 'fixed') ||
+      !nullOr(v.fixedAmount, isAmount)
+    ) {
+      return null;
+    }
+    return {
+      ...base, type: 'card', limit: v.limit, balance: v.balance, balanceDate: v.balanceDate,
+      statementDay: v.statementDay as number, dueDay: v.dueDay as number, minPct: v.minPct, minFloor: v.minFloor,
+      monthlyRatePct: v.monthlyRatePct as number, plan: v.plan, fixedAmount: v.fixedAmount as number | null,
+    };
+  }
+  if (v.type === 'plan') {
+    if (
+      !isAmount(v.total) || !isAmount(v.monthlyAmount) || !isDate(v.firstPaymentDate) ||
+      !(isInt(v.payments) && v.payments >= 1) || !nullOr(v.cardId, isId)
+    ) {
+      return null;
+    }
+    return {
+      ...base, type: 'plan', total: v.total, monthlyAmount: v.monthlyAmount, firstPaymentDate: v.firstPaymentDate,
+      payments: v.payments, cardId: v.cardId as string | null,
+    };
+  }
+  return null;
+}
+
+const isDebtPayment = (v: unknown): v is DebtPayment =>
+  isObj(v) &&
+  isId(v.id) &&
+  isId(v.debtId) &&
+  isDate(v.date) &&
+  isAmount(v.amount) &&
+  (v.kind === 'regular' || v.kind === 'extra' || v.kind === 'partial') &&
+  isStr(v.note);
+
+const isDebtOverride = (v: unknown): v is DebtOverride =>
+  isObj(v) &&
+  isId(v.id) &&
+  isId(v.debtId) &&
+  isDate(v.originalDate) &&
+  nullOr(v.newDate, isDate) &&
+  nullOr(v.newAmount, isAmount) &&
+  isBool(v.skip) &&
+  v.newDate !== v.originalDate;
+
+const isCheque = (v: unknown): v is Cheque =>
+  isObj(v) &&
+  isId(v.id) &&
+  isStr(v.payee) &&
+  isAmount(v.amount) &&
+  isDate(v.date) &&
+  isStr(v.purpose) &&
+  (v.status === 'upcoming' || v.status === 'cleared' || v.status === 'cancelled') &&
+  nullOr(v.seriesId, isId) &&
+  isStr(v.note);
+
+const hasUniqueIds = (list: { id: string }[]) => new Set(list.map((x) => x.id)).size === list.length;
+
 /** Only these keys are read from a backup; anything else is ignored. */
 function readSettings(v: unknown): Settings | null {
   if (!isObj(v)) return null;
@@ -144,7 +224,49 @@ export function parseBackup(text: string): BackupData {
   ) {
     throw new Error(DAMAGED);
   }
-  return { ...(raw as unknown as BackupData), settings };
+  // Version 1 backups have no debts or cheques: the missing lists are empty.
+  const optional = (v: unknown) => (v === undefined && raw.version === 1 ? [] : v);
+  const rawDebts = optional(raw.debts);
+  const debtPayments = optional(raw.debtPayments);
+  const debtOverrides = optional(raw.debtOverrides);
+  const cheques = optional(raw.cheques);
+  if (
+    !Array.isArray(rawDebts) ||
+    !listOk(debtPayments, isDebtPayment) ||
+    !listOk(debtOverrides, isDebtOverride) ||
+    !listOk(cheques, isCheque)
+  ) {
+    throw new Error(DAMAGED);
+  }
+  const debts: Debt[] = [];
+  for (const d of rawDebts) {
+    const debt = readDebt(d);
+    if (!debt) throw new Error(DAMAGED);
+    debts.push(debt);
+  }
+  const typeById = new Map(debts.map((d) => [d.id, d.type]));
+  const overrideKeys = new Set((debtOverrides as DebtOverride[]).map((o) => `${o.debtId}|${o.originalDate}`));
+  if (
+    !hasUniqueIds(debts) ||
+    !hasUniqueIds(debtPayments as DebtPayment[]) ||
+    !hasUniqueIds(debtOverrides as DebtOverride[]) ||
+    !hasUniqueIds(cheques as Cheque[]) ||
+    overrideKeys.size !== (debtOverrides as DebtOverride[]).length ||
+    (debtPayments as DebtPayment[]).some((p) => !typeById.has(p.debtId)) ||
+    (debtOverrides as DebtOverride[]).some((o) => !typeById.has(o.debtId)) ||
+    debts.some((d) => d.type === 'plan' && d.cardId !== null && typeById.get(d.cardId) !== 'card')
+  ) {
+    throw new Error(DAMAGED);
+  }
+  return {
+    ...(raw as unknown as BackupData),
+    version: BACKUP_VERSION,
+    settings,
+    debts,
+    debtPayments: debtPayments as DebtPayment[],
+    debtOverrides: debtOverrides as DebtOverride[],
+    cheques: cheques as Cheque[],
+  };
 }
 
 /** One CSV field, quoted when it holds a comma, quote or line break. */
@@ -178,6 +300,38 @@ export function buildTransactionsCsv(transactions: Transaction[], categories: Ca
       t.planned ? 'Yes' : 'No',
     ]);
   }
+  return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
+}
+
+/** Builds the CSV text for debts: one row per debt, with the columns that apply to its type filled in. */
+export function buildDebtsCsv(debts: Debt[]): string {
+  const rows = [
+    ['Name', 'Type', 'Status', 'Balance', 'Balance date', 'Monthly payment', 'Payment day', 'Limit', 'Yearly rate %', 'Monthly rate %', 'Total', 'First payment', 'Payments', 'End date', 'Note'],
+  ];
+  const sorted = [...debts].sort((a, b) => Number(a.archived) - Number(b.archived) || (a.createdAt === b.createdAt ? (a.id < b.id ? -1 : 1) : a.createdAt < b.createdAt ? -1 : 1));
+  for (const d of sorted) {
+    const row = Array<string>(15).fill('');
+    row[0] = safeText(d.name);
+    row[2] = d.archived ? 'Archived' : 'Active';
+    row[14] = safeText(d.note);
+    if (d.type === 'loan') {
+      Object.assign(row, { 1: 'Loan', 3: filsToDecimal(d.balance), 4: d.balanceDate, 5: filsToDecimal(d.monthlyPayment), 6: String(d.paymentDay), 8: d.annualRatePct === null ? '' : String(d.annualRatePct), 13: d.endDate ?? '' });
+    } else if (d.type === 'card') {
+      Object.assign(row, { 1: 'Credit card', 3: filsToDecimal(d.balance), 4: d.balanceDate, 6: String(d.dueDay), 7: filsToDecimal(d.limit), 9: String(d.monthlyRatePct) });
+    } else {
+      Object.assign(row, { 1: 'Instalment plan', 5: filsToDecimal(d.monthlyAmount), 10: filsToDecimal(d.total), 11: d.firstPaymentDate, 12: String(d.payments) });
+    }
+    rows.push(row);
+  }
+  return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
+}
+
+/** Builds the CSV text for cheques. Rows are sorted by date. */
+export function buildChequesCsv(cheques: Cheque[]): string {
+  const rows = [['Date', 'Payee', 'Amount', 'Purpose', 'Status', 'Note']];
+  const status = { upcoming: 'Upcoming', cleared: 'Cleared', cancelled: 'Cancelled' } as const;
+  const sorted = [...cheques].sort((a, b) => (a.date === b.date ? (a.id < b.id ? -1 : 1) : a.date < b.date ? -1 : 1));
+  for (const c of sorted) rows.push([c.date, safeText(c.payee), filsToDecimal(c.amount), safeText(c.purpose), status[c.status], safeText(c.note)]);
   return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
 }
 
@@ -251,4 +405,14 @@ export async function restoreBackupFromFile(
 export async function exportTransactionsCsv(repo: Repository): Promise<void> {
   const [transactions, categories] = await Promise.all([repo.listTransactions(), repo.listCategories()]);
   await writeAndShare(`money-planner-transactions-${dateStamp()}.csv`, buildTransactionsCsv(transactions, categories), 'text/csv', 'Save your Money Planner transactions');
+}
+
+/** Writes all debts as a CSV file and opens the share sheet. */
+export async function exportDebtsCsv(repo: Repository): Promise<void> {
+  await writeAndShare(`money-planner-debts-${dateStamp()}.csv`, buildDebtsCsv(await repo.listDebts()), 'text/csv', 'Save your Money Planner debts');
+}
+
+/** Writes all cheques as a CSV file and opens the share sheet. */
+export async function exportChequesCsv(repo: Repository): Promise<void> {
+  await writeAndShare(`money-planner-cheques-${dateStamp()}.csv`, buildChequesCsv(await repo.listCheques()), 'text/csv', 'Save your Money Planner cheques');
 }

@@ -1,11 +1,11 @@
 // In-memory repository: same behaviour as SQLite. Used by tests and the web preview.
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import type { Category, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type { Category, Cheque, Debt, DebtOverride, DebtPayment, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 
-function byDateThenId(a: Transaction, b: Transaction): number {
+function byDateThenId<T extends { date: string; id: string }>(a: T, b: T): number {
   if (a.date !== b.date) return a.date < b.date ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
@@ -22,6 +22,10 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let recurring: RecurringItem[] = [];
   let overrides: OccurrenceOverride[] = [];
   let transactions: Transaction[] = [];
+  let debts: Debt[] = [];
+  let debtPayments: DebtPayment[] = [];
+  let debtOverrides: DebtOverride[] = [];
+  let cheques: Cheque[] = [];
   let initialised = false;
 
   function reset() {
@@ -30,6 +34,10 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     recurring = [];
     overrides = [];
     transactions = [];
+    debts = [];
+    debtPayments = [];
+    debtOverrides = [];
+    cheques = [];
   }
 
   /** Defaults filled in under the given values, with the nested objects merged too (like SQLite's readSettings). */
@@ -50,6 +58,10 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     if (d.recurring) recurring = clone(d.recurring);
     if (d.overrides) overrides = clone(d.overrides);
     if (d.transactions) transactions = clone(d.transactions);
+    if (d.debts) debts = clone(d.debts);
+    if (d.debtPayments) debtPayments = clone(d.debtPayments);
+    if (d.debtOverrides) debtOverrides = clone(d.debtOverrides);
+    if (d.cheques) cheques = clone(d.cheques);
   }
 
   return {
@@ -124,6 +136,51 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       transactions = transactions.filter((t) => t.id !== id);
     },
 
+    async listDebts() {
+      return clone(debts);
+    },
+    async upsertDebt(d) {
+      upsertById(debts, clone(d));
+    },
+    async deleteDebt(id) {
+      debts = debts
+        .filter((d) => d.id !== id)
+        .map((d) => (d.type === 'plan' && d.cardId === id ? { ...d, cardId: null } : d));
+      debtPayments = debtPayments.filter((p) => p.debtId !== id);
+      debtOverrides = debtOverrides.filter((o) => o.debtId !== id);
+    },
+    async listDebtPayments(debtId) {
+      return clone(debtPayments.filter((p) => debtId === undefined || p.debtId === debtId).sort(byDateThenId));
+    },
+    async upsertDebtPayment(p) {
+      upsertById(debtPayments, clone(p));
+    },
+    async deleteDebtPayment(id) {
+      debtPayments = debtPayments.filter((p) => p.id !== id);
+    },
+    async listDebtOverrides(debtId) {
+      return clone(debtId === undefined ? debtOverrides : debtOverrides.filter((o) => o.debtId === debtId));
+    },
+    async upsertDebtOverride(o) {
+      debtOverrides = debtOverrides.filter(
+        (x) => x.id === o.id || !(x.debtId === o.debtId && x.originalDate === o.originalDate),
+      );
+      upsertById(debtOverrides, clone(o));
+    },
+    async deleteDebtOverride(id) {
+      debtOverrides = debtOverrides.filter((o) => o.id !== id);
+    },
+
+    async listCheques() {
+      return clone([...cheques].sort(byDateThenId));
+    },
+    async upsertCheques(list) {
+      for (const c of clone(list)) upsertById(cheques, c);
+    },
+    async deleteCheque(id) {
+      cheques = cheques.filter((c) => c.id !== id);
+    },
+
     async exportAll() {
       return {
         format: BACKUP_FORMAT,
@@ -134,6 +191,10 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
         recurring: clone(recurring),
         overrides: clone(overrides),
         transactions: clone(transactions).sort(byDateThenId),
+        debts: clone(debts),
+        debtPayments: clone(debtPayments).sort(byDateThenId),
+        debtOverrides: clone(debtOverrides),
+        cheques: clone(cheques).sort(byDateThenId),
       };
     },
     async importAll(data) {
