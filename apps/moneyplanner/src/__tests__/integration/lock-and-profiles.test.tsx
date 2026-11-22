@@ -10,6 +10,7 @@ import { createMemoryProfileStore } from '@/data/profiles/memory-profile-store';
 import { ProfileProvider, useProfiles } from '@/data/profiles/ProfileProvider';
 import type { BackupData } from '@/data/repository';
 import { AlertScheduler } from '@/features/alerts/AlertScheduler';
+import { GENERIC_BODY } from '@/features/alerts/plan';
 import { LockGate } from '@/features/lock/LockGate';
 import { lockStore } from '@/features/lock/lockStore';
 import { throttle } from '@/features/lock/throttle';
@@ -192,7 +193,7 @@ describe('notifications follow the open profile', () => {
     await waitFor(() => expect(N.scheduleNotificationAsync).toHaveBeenCalled(), { timeout: 4000 });
     // Partner is locked: generic wording, no payee or amount, and nothing from the first profile (the hidden alertId data is not shown).
     const text = bodies().join();
-    expect(text).toContain('A payment needs attention in Money Planner');
+    expect(text).toContain(GENERIC_BODY);
     expect(text).not.toMatch(/Garage|Landlord|AED/);
   });
 });

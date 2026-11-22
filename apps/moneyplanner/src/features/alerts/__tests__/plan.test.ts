@@ -40,6 +40,19 @@ describe('planNotifications', () => {
   });
 });
 
+describe('notifyOn today', () => {
+  const alerts = [alert('t', '2026-05-10')];
+  it('reminds in a minute when 09:00 has passed today', () => {
+    const now = new Date(2026, 4, 10, 14, 30);
+    const [n] = planNotifications(alerts, false, now);
+    expect(n.at.getTime()).toBe(now.getTime() + 60_000);
+  });
+  it('keeps 09:00 when it is still ahead, and skips earlier days', () => {
+    expect(planNotifications(alerts, false, new Date(2026, 4, 10, 7, 0))[0].at.getHours()).toBe(9);
+    expect(planNotifications(alerts, false, new Date(2026, 4, 11, 7, 0))).toEqual([]);
+  });
+});
+
 describe('helpers', () => {
   it('sorts by severity, keeping order within a level', () => {
     const out = sortBySeverity([alert('1', null, 'info'), alert('2', null, 'high'), alert('3', null, 'good'), alert('4', null, 'high')]);

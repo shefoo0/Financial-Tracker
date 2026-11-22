@@ -1,8 +1,8 @@
 // End-to-end engine checks through the screens: a form saves data, then the Plan, Debts,
 // Month and Dashboard screens (all reading the same profile repository) must agree.
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { useState, type ReactElement } from 'react';
-import { Pressable, Text } from 'react-native';
+import { useEffect, useState, type ReactElement } from 'react';
+import { Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import DashboardScreen from '@/app/(tabs)/index';
@@ -35,15 +35,17 @@ const SCREENS: Record<string, () => ReactElement> = {
   cheque: () => <ChequeScreen />,
 };
 
-let go: (name: string, p?: Record<string, string>) => void = () => undefined;
+const nav: { go: (name: string, p?: Record<string, string>) => void } = { go: () => undefined };
 
 /** Shows one screen at a time; go() swaps it like navigating (the data stays in the repository). */
 function Harness() {
   const [name, setName] = useState('plan');
-  go = (n, p = {}) => {
-    params.current = p;
-    setName(n);
-  };
+  useEffect(() => {
+    nav.go = (n, p = {}) => {
+      params.current = p;
+      setName(n);
+    };
+  }, []);
   return (
     <>
       <Text testID="harness-current">{name}</Text>
@@ -78,7 +80,7 @@ async function open(seed: Partial<BackupData>) {
 }
 
 const goTo = async (name: string, p?: Record<string, string>) => {
-  await act(async () => go(name, p));
+  await act(async () => nav.go(name, p));
 };
 
 beforeEach(() => {

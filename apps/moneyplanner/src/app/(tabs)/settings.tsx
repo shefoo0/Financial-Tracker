@@ -10,6 +10,7 @@ import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { exportBackup, exportChequesCsv, exportDebtsCsv, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
 import { AlertsSettings } from '@/features/alerts/AlertsSettings';
+import { clearProfileLock } from '@/features/lock/lockStore';
 import { LockSettings } from '@/features/lock/LockSettings';
 import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
@@ -156,6 +157,8 @@ export default function SettingsScreen() {
               onPress: () =>
                 run('Could not delete', async () => {
                   await repo.deleteAll();
+                  await clearProfileLock(active.id);
+                  await repo.updateSettings({ lockEnabled: false });
                   resetDrafts();
                   bump();
                   router.replace('/onboarding');

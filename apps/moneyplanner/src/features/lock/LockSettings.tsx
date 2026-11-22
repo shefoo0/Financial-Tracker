@@ -9,9 +9,9 @@ import { useProfiles } from '@/data/profiles/ProfileProvider';
 import type { Settings } from '@/types';
 import { biometricsAvailable } from './biometrics';
 import { useLockSession } from './LockGate';
-import { lockStore, PIN_MAX, PIN_MIN } from './lockStore';
+import { clearProfileLock, lockStore, PIN_MAX, PIN_MIN } from './lockStore';
 import { PinPad } from './PinPad';
-import { throttle } from './throttle';
+import { formatWait, throttle } from './throttle';
 
 type Mode = 'set' | 'change' | 'off';
 type Step = { kind: 'current' } | { kind: 'new' } | { kind: 'again'; first: string };
@@ -52,8 +52,9 @@ export function LockSettings({ settings, update }: { settings: Settings; update:
 
   /** Checks the current PIN (for Change and Turn off). */
   const checkCurrent = async (pin: string): Promise<boolean> => {
+    await throttle.hydrate(active.id);
     if (throttle.remaining(active.id) > 0) {
-      setMessage('Too many wrong tries. Wait a little and try again.');
+      setMessage(`Too many wrong tries. Try again in ${formatWait(throttle.remaining(active.id))}.`);
       return false;
     }
     if (!(await lockStore.verifyPin(active.id, pin))) {
@@ -64,7 +65,7 @@ export function LockSettings({ settings, update }: { settings: Settings; update:
     throttle.reset(active.id);
     if (mode === 'off') {
       try {
-        await lockStore.clearPin(active.id);
+        await clearProfileLock(active.id);
         await update({ lockEnabled: false });
         close();
       } catch (e) {

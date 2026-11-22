@@ -31,6 +31,7 @@ const backend = (): Backend => (Platform.OS === 'web' ? memoryBackend : secureBa
 /** Secure store keys allow letters, digits, '.', '-' and '_'. */
 const safe = (profileId: string) => profileId.replace(/[^A-Za-z0-9._-]/g, '_');
 const pinKey = (profileId: string) => `moneyplanner.pin.${safe(profileId)}`;
+const throttleKey = (profileId: string) => `moneyplanner.throttle.${safe(profileId)}`;
 const bioKey = (profileId: string) => `moneyplanner.bio.${safe(profileId)}`;
 
 interface StoredPin {
@@ -84,7 +85,12 @@ export const lockStore = {
   async clearPin(profileId: string): Promise<void> {
     await backend().del(pinKey(profileId));
     await backend().del(bioKey(profileId));
+    await backend().del(throttleKey(profileId));
   },
+  /** Wrong-PIN throttle state as JSON (kept so restarting the app doesn't reset it). */
+  getThrottle: (profileId: string) => backend().get(throttleKey(profileId)),
+  setThrottle: (profileId: string, json: string) => backend().set(throttleKey(profileId), json),
+  clearThrottle: (profileId: string) => backend().del(throttleKey(profileId)),
   /** Whether Face ID / fingerprint may be offered for this profile (default yes). */
   async getBiometricPref(profileId: string): Promise<boolean> {
     return (await backend().get(bioKey(profileId))) !== '0';
@@ -97,3 +103,8 @@ export const lockStore = {
     memory.clear();
   },
 };
+
+/** Removes everything the lock keeps for a profile (PIN hash, Face ID choice, wrong-PIN wait). Call it when a profile is deleted. */
+export async function clearProfileLock(profileId: string): Promise<void> {
+  await lockStore.clearPin(profileId);
+}

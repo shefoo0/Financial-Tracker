@@ -9,9 +9,9 @@ import { useProfiles } from '@/data/profiles/ProfileProvider';
 import type { Profile } from '@/data/profiles/types';
 import { useTheme } from '@/hooks/use-theme';
 import { authenticateWithBiometrics, biometricsAvailable } from './biometrics';
-import { lockStore, PIN_MAX, PIN_MIN } from './lockStore';
+import { clearProfileLock, lockStore, PIN_MAX, PIN_MIN } from './lockStore';
 import { PinPad } from './PinPad';
-import { throttle, WAIT_MS } from './throttle';
+import { formatWait, throttle } from './throttle';
 
 export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlocked: () => void }) {
   const c = useTheme();
@@ -30,6 +30,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
 
   useEffect(() => {
     let cancelled = false;
+    throttle.hydrate(profile.id).then(() => !cancelled && setNow(Date.now()));
     lockStore.pinLength(profile.id).then(
       (l) => !cancelled && setLen(l),
       () => !cancelled && setLen(null),
@@ -95,7 +96,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
     setBusy(true);
     try {
       await repo.deleteAll();
-      await lockStore.clearPin(profile.id);
+      await clearProfileLock(profile.id);
       await repo.updateSettings({ lockEnabled: false }).catch(() => undefined);
       throttle.reset(profile.id);
       bump();
@@ -106,7 +107,6 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
     }
   };
 
-  const secondsLeft = Math.ceil(Math.min(waitMs, WAIT_MS) / 1000);
 
   return (
     <Screen testID="lock-screen">
@@ -121,7 +121,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
         <View style={{ minHeight: 40 }} accessibilityLiveRegion="polite">
           {waiting ? (
             <T tone="negative" testID="lock-message" style={{ textAlign: 'center' }}>
-              {`Too many wrong tries. Try again in ${secondsLeft} seconds.`}
+              {`Too many wrong tries. Try again in ${formatWait(waitMs)}.`}
             </T>
           ) : message ? (
             <T tone="negative" testID="lock-message" style={{ textAlign: 'center' }}>
@@ -146,7 +146,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
                   accessibilityLabel="Unlock with Face ID or fingerprint"
                   testID="lock-biometric"
                   style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: c.accent, fontSize: 13, fontWeight: '700', textAlign: 'center' }} maxFontSizeMultiplier={1.2}>
+                  <Text style={{ color: c.accent, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
                     {Platform.OS === 'ios' ? 'Face ID' : 'Finger-\nprint'}
                   </Text>
                 </Pressable>

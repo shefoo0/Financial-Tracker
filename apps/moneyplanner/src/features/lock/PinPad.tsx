@@ -61,8 +61,9 @@ export function PinPad({
       accessibilityLabel={a11y}
       testID={testID}
       style={({ pressed }) => ({
-        width: KEY,
-        height: KEY,
+        minWidth: KEY,
+        minHeight: KEY,
+        paddingHorizontal: Spacing.two,
         borderRadius: KEY / 2,
         alignItems: 'center',
         justifyContent: 'center',
@@ -71,7 +72,7 @@ export function PinPad({
         borderColor: c.border,
         opacity: disabled ? 0.5 : 1,
       })}>
-      <Text style={{ fontSize: 28, fontWeight: '600', color: c.text }} maxFontSizeMultiplier={1.2}>
+      <Text style={{ fontSize: 28, fontWeight: '600', color: c.text }}>
         {content}
       </Text>
     </Pressable>
@@ -107,7 +108,7 @@ export function PinPad({
           </View>
         ))}
         <View style={{ flexDirection: 'row', gap: Spacing.four }}>
-          <View style={{ width: KEY, height: KEY, alignItems: 'center', justifyContent: 'center' }}>{extraKey}</View>
+          <View style={{ minWidth: KEY, minHeight: KEY, alignItems: 'center', justifyContent: 'center' }}>{extraKey}</View>
           {key('0', () => press('0'), '0', `${prefix}-key-0`)}
           {key('⌫', () => setPin((p) => p.slice(0, -1)), 'Delete last digit', `${prefix}-delete`, pin.length > 0)}
         </View>

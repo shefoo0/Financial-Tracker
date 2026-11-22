@@ -12,6 +12,7 @@ import type { AppAlert } from '@/types';
 import { resetRouterMock, router } from '../../../../test-support/expo-router-mock';
 import { renderWithRepo } from '../../../../test-support/render';
 import { AlertScheduler } from '../AlertScheduler';
+import { GENERIC_BODY } from '../plan';
 import { AlertsCard } from '../AlertsCard';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -76,7 +77,8 @@ describe('AlertScheduler', () => {
     await waitFor(() => expect(N.scheduleNotificationAsync).toHaveBeenCalledTimes(2), { timeout: 4000 });
     for (const [req] of N.scheduleNotificationAsync.mock.calls) {
       const content = (req as { content: { title: string; body: string } }).content;
-      expect(content.body).toBe('A payment needs attention in Money Planner');
+      expect(content.body).toBe(GENERIC_BODY);
+      expect(content.body).toBe('Something needs attention in Money Planner');
       expect(JSON.stringify(content)).not.toMatch(/AED|Title/);
     }
   });

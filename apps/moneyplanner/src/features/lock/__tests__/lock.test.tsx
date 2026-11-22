@@ -13,8 +13,8 @@ import type { BackupData } from '@/data/repository';
 import { resetRouterMock } from '../../../../test-support/expo-router-mock';
 import { recurring, renderWithRepo } from '../../../../test-support/render';
 import { LockGate } from '../LockGate';
-import { lockStore } from '../lockStore';
-import { MAX_TRIES, throttle, WAIT_MS } from '../throttle';
+import { clearProfileLock, lockStore } from '../lockStore';
+import { MAX_TRIES, throttle, WAIT_MS, WAITS_MS } from '../throttle';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('expo-router', () => require('../../../../test-support/expo-router-mock'));
@@ -128,10 +128,35 @@ describe('throttle', () => {
   });
 });
 
+describe('throttle persistence and escalation', () => {
+  it('waits longer each time and survives a restart', async () => {
+    for (let i = 0; i < MAX_TRIES; i++) throttle.fail('q', 0);
+    expect(throttle.remaining('q', 1)).toBe(WAITS_MS[0] - 1);
+    for (let i = 0; i < MAX_TRIES; i++) throttle.fail('q', WAITS_MS[0] + 5);
+    expect(throttle.remaining('q', WAITS_MS[0] + 6)).toBe(WAITS_MS[1] - 1);
+    await new Promise((r) => setTimeout(r, 0));
+    throttle._resetAll(); // app restarted: memory is gone, secure storage is not
+    expect(throttle.remaining('q', WAITS_MS[0] + 6)).toBe(0);
+    await throttle.hydrate('q');
+    expect(throttle.remaining('q', WAITS_MS[0] + 6)).toBe(WAITS_MS[1] - 1);
+  });
+
+  it('clearProfileLock removes the PIN, the Face ID choice and the wait', async () => {
+    await lockStore.setPin('z', '1234');
+    await lockStore.setBiometricPref('z', false);
+    throttle.fail('z');
+    await new Promise((r) => setTimeout(r, 0));
+    await clearProfileLock('z');
+    expect([...mockStorage.keys()].filter((k) => k.endsWith('.z'))).toEqual([]);
+  });
+});
+
 describe('LockGate', () => {
   it('shows the lock screen over a locked profile and unlocks with the right PIN', async () => {
     await renderLocked();
     expect(await screen.findByTestId('lock-screen')).toBeTruthy();
+    // The app itself is not rendered at all while locked, so no modal can show above the lock.
+    expect(screen.queryByTestId('secret')).toBeNull();
     await enter('lock', '1111');
     expect(await screen.findByText('Wrong PIN. 4 tries left.')).toBeTruthy();
     expect(screen.getByTestId('lock-dots').props.accessibilityLabel).toBe('0 of 4 digits entered');
@@ -140,7 +165,7 @@ describe('LockGate', () => {
     await fireEvent.press(screen.getByTestId('lock-delete'));
     await enter('lock', '1234');
     await waitFor(() => expect(screen.queryByTestId('lock-screen')).toBeNull());
-    expect(screen.getByTestId('secret')).toBeTruthy();
+    expect(await screen.findByTestId('secret')).toBeTruthy();
   });
 
   it('shows no lock screen when the profile is not locked', async () => {
@@ -216,7 +241,7 @@ describe('LockGate', () => {
     await fireEvent.press(await screen.findByTestId('lock-forgot'));
     await fireEvent.press(await screen.findByLabelText('Switch to Partner'));
     await waitFor(() => expect(screen.queryByTestId('lock-screen')).toBeNull());
-    expect(screen.getByTestId('secret')).toBeTruthy();
+    expect(await screen.findByTestId('secret')).toBeTruthy();
   });
 
   it('does not offer switching with a single profile', async () => {
@@ -253,7 +278,34 @@ describe('LockGate', () => {
       now += 61_000;
       await send('active');
       expect(await screen.findByTestId('lock-screen')).toBeTruthy();
+      expect(screen.queryByTestId('secret')).toBeNull();
     });
+  });
+
+  it('fails closed when the PIN cannot be read', async () => {
+    (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('keychain locked'));
+    const { repo } = await renderLocked();
+    expect(await screen.findByTestId('lock-screen')).toBeTruthy();
+    expect(screen.queryByTestId('secret')).toBeNull();
+    expect((await repo.getSettings()).lockEnabled).toBe(true);
+    expect(screen.getByTestId('lock-forgot')).toBeTruthy();
+    (SecureStore.getItemAsync as jest.Mock).mockImplementation(async (k: string) => mockStorage.get(k) ?? null);
+  });
+
+  it('covers the screen while the app is inactive, without locking', async () => {
+    const handlers: ((s: string) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation(((_t: string, h: (s: string) => void) => {
+      handlers.push(h);
+      return { remove: () => undefined };
+    }) as never);
+    await renderLocked();
+    await enter('lock', '1234');
+    await waitFor(() => expect(screen.queryByTestId('secret')).toBeTruthy());
+    await act(() => handlers.forEach((h) => h('inactive')));
+    expect(screen.getByTestId('privacy-cover')).toBeTruthy();
+    await act(() => handlers.forEach((h) => h('active')));
+    expect(screen.queryByTestId('privacy-cover')).toBeNull();
+    expect(screen.queryByTestId('lock-screen')).toBeNull();
   });
 
   it('switches off a lock whose PIN is missing (e.g. restored on another phone)', async () => {

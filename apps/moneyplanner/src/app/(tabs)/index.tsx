@@ -56,7 +56,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const { currency, buffer } = input.settings;
   const money = (v: number) => formatMoney(v, currency);
 
-  const empty = input.recurring.length === 0 && input.transactions.length === 0;
+  const empty = input.recurring.length === 0 && input.transactions.length === 0 && input.debts.length === 0 && input.cheques.length === 0;
 
   const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 12 }), [input, todayStr]);
   const ms = useMemo(() => monthSummary(month, input), [month, input]);

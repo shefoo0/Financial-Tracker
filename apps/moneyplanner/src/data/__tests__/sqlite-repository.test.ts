@@ -181,6 +181,7 @@ describe('sqlite close()', () => {
 
 describe('a full v1 database and a v1 backup in the v2 app', () => {
   const v1Database = () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const expo = require('expo-sqlite');
     const db = expo.__make();
     db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\nPRAGMA user_version = 1;\nCOMMIT;`);

@@ -1,11 +1,11 @@
 // Which alerts become notifications, and what they say. Pure.
-import { parseISODate } from '@/lib/dates';
+import { parseISODate, today } from '@/lib/dates';
 import type { AppAlert } from '@/types';
 
 export const MAX_NOTIFICATIONS = 20;
 export const NOTIFY_HOUR = 9;
 export const GENERIC_TITLE = 'Money Planner';
-export const GENERIC_BODY = 'A payment needs attention in Money Planner';
+export const GENERIC_BODY = 'Something needs attention in Money Planner';
 
 export interface PlannedNotification {
   alertId: string;
@@ -27,8 +27,12 @@ export function planNotifications(alerts: AppAlert[], locked: boolean, now: Date
     if (!a.notifyOn || seen.has(a.id)) continue;
     seen.add(a.id);
     const { year, month, day } = parseISODate(a.notifyOn);
-    const at = new Date(year, month - 1, day, NOTIFY_HOUR, 0, 0, 0);
-    if (at.getTime() <= now.getTime()) continue;
+    let at = new Date(year, month - 1, day, NOTIFY_HOUR, 0, 0, 0);
+    if (at.getTime() <= now.getTime()) {
+      // Today's 09:00 has passed: remind in a minute instead of skipping it. Earlier days are skipped.
+      if (a.notifyOn !== today(now)) continue;
+      at = new Date(now.getTime() + 60_000);
+    }
     out.push({ alertId: a.id, at, title: locked ? GENERIC_TITLE : a.title, body: locked ? GENERIC_BODY : a.message });
   }
   out.sort((x, y) => x.at.getTime() - y.at.getTime());

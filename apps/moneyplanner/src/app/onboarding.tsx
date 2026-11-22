@@ -36,7 +36,8 @@ export default function Onboarding() {
   const isFirstProfile = profiles[0]?.id === active.id;
   const currency = initial.currency;
 
-  const moduleChoices = moduleList();
+  // Alerts is not a wizard choice: its switch asks for notification permission, which lives in Settings -> Alerts.
+  const moduleChoices = moduleList().filter((m) => m.id !== 'alerts');
   const steps = wizardSteps(moduleChoices.length > 0);
   const STEPS = steps.length;
   const [index, setIndex] = useState(0);
@@ -229,6 +230,9 @@ export default function Onboarding() {
           </Card>
           <T variant="caption" tone="secondary">
             Everything can be changed later in Settings.
+          </T>
+          <T variant="caption" tone="secondary" testID="onboarding-alerts-note">
+            Turn on alerts later in Settings → Alerts.
           </T>
         </View>
       )}
