@@ -11,7 +11,7 @@ import { PaymentLog } from '@/features/debts/PaymentLog';
 import { Schedule } from '@/features/debts/Schedule';
 import { emptyDebtForm, formFromDebt, minimumPayment, TYPE_LABEL, validateDebt, type DebtErrors, type DebtForm } from '@/features/debts/form';
 import { decimalNumber } from '@/features/debts/form';
-import { pctText, whenLabel } from '@/features/debts/helpers';
+import { pctText, progressOf, whenLabel } from '@/features/debts/helpers';
 import { Bar, type DebtStat } from '@/features/debts/Parts';
 import { useDebtData, type DebtData } from '@/features/debts/useDebtData';
 import { useToday } from '@/features/dashboard/useToday';
@@ -154,7 +154,7 @@ function DebtEditor({ data, debt, initialType }: { data: DebtData; debt: Debt | 
           </Card>
         ) : null}
 
-        {debt && stat ? <Summary debt={debt} stat={stat} money={money} now={now} /> : null}
+        {debt && stat ? <Summary debt={debt} stat={stat} money={money} now={now} progress={progressOf(debt, input, stat.nextPayment?.date, now)} /> : null}
 
         <Card style={styles.group}>
           <TextField
@@ -277,7 +277,7 @@ function DebtEditor({ data, debt, initialType }: { data: DebtData; debt: Debt | 
   );
 }
 
-function Summary({ debt, stat, money, now }: { debt: Debt; stat: DebtStat; money: (n: number) => string; now: string }) {
+function Summary({ debt, stat, money, now, progress }: { debt: Debt; stat: DebtStat; money: (n: number) => string; now: string; progress: { paid: number; total: number } | null }) {
   const lines: [string, string][] = [[debt.type === 'card' ? 'Balance' : 'Remaining', money(stat.remaining)]];
   if (debt.type === 'card') {
     lines.push(['Available credit', money(stat.availableCredit ?? 0)]);
@@ -293,12 +293,12 @@ function Summary({ debt, stat, money, now }: { debt: Debt; stat: DebtStat; money
           <T variant="number">{v}</T>
         </View>
       ))}
-      {debt.type !== 'card' && stat.totalCount != null ? (
+      {debt.type !== 'card' && progress ? (
         <>
           <T variant="caption" tone="secondary">
-            {stat.paidCount} of {stat.totalCount} paid
+            {progress.paid} of {progress.total} paid
           </T>
-          <Bar value={stat.totalCount ? Math.min(1, stat.paidCount / stat.totalCount) : 0} label={`${stat.paidCount} of ${stat.totalCount} paid`} />
+          <Bar value={progress.total ? Math.min(1, progress.paid / progress.total) : 0} label={`${progress.paid} of ${progress.total} paid`} />
         </>
       ) : null}
     </Card>

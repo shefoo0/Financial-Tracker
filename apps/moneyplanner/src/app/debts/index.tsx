@@ -7,7 +7,7 @@ import { Button, Card, EmptyState, HeroCard, Pill, Screen, ScreenHeader, T } fro
 import { Spacing } from '@/constants/theme';
 import { debtStats } from '@/engine';
 import { TYPE_GLYPH } from '@/features/debts/form';
-import { pctText, ratioLevel, sortDebts } from '@/features/debts/helpers';
+import { pctText, progressOf, ratioLevel, sortDebts } from '@/features/debts/helpers';
 import { DebtGroup, DebtRow, type DebtStat } from '@/features/debts/Parts';
 import { useDebtData } from '@/features/debts/useDebtData';
 import { useToday } from '@/features/dashboard/useToday';
@@ -132,7 +132,7 @@ export default function DebtsScreen() {
           return (
             <DebtGroup key={type} title={title}>
               {list.map((d) => (
-                <DebtRow key={d.id} debt={d} stat={byId.get(d.id)} currency={currency} now={now} cardUsagePct={settings.alertThresholds.cardUsagePct} onPress={() => openDebt(d.id)} testID={`debt-item-${index++}`} />
+                <DebtRow key={d.id} debt={d} stat={byId.get(d.id)} currency={currency} now={now} cardUsagePct={settings.alertThresholds.cardUsagePct} progress={progressOf(d, data.input, byId.get(d.id)?.nextPayment?.date, now)} onPress={() => openDebt(d.id)} testID={`debt-item-${index++}`} />
               ))}
             </DebtGroup>
           );

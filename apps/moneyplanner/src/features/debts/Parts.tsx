@@ -36,6 +36,7 @@ export function DebtRow({
   currency,
   now,
   cardUsagePct,
+  progress,
   onPress,
   testID,
 }: {
@@ -44,6 +45,7 @@ export function DebtRow({
   currency: string;
   now: ISODate;
   cardUsagePct: number;
+  progress: { paid: number; total: number } | null;
   onPress: () => void;
   testID?: string;
 }) {
@@ -55,9 +57,9 @@ export function DebtRow({
   let progressValue = 0;
   let usageText: string | null = null;
   let usageHigh = false;
-  if (stat && debt.type !== 'card' && stat.totalCount != null) {
-    progressText = `${stat.paidCount} of ${stat.totalCount} paid`;
-    progressValue = fraction(stat.paidCount, stat.totalCount);
+  if (debt.type !== 'card' && progress) {
+    progressText = `${progress.paid} of ${progress.total} paid`;
+    progressValue = fraction(progress.paid, progress.total);
   }
   if (stat && debt.type === 'card') {
     const used = stat.usagePct;

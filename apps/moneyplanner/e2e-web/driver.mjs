@@ -12,6 +12,8 @@ export class Driver {
     this.page.setDefaultTimeout(5000);
     this.page.on('pageerror', (e) => this.problems.push({ at: this.current, kind: 'pageerror', text: String(e.stack || e).split('\n').slice(0, 4).join(' | ') }));
     this.page.on('console', (m) => { if (m.type() === 'error') this.problems.push({ at: this.current, kind: 'console.error', text: m.text().slice(0, 400) + (m.location()?.url ? ` @ ${m.location().url.split('/').pop()}:${m.location().lineNumber}` : '') }); });
+    // Lets a step pretend time passed (used to check the lock re-locks after a minute in the background).
+    await this.page.addInitScript(() => { window.__skew = 0; const now = Date.now.bind(Date); Date.now = () => now() + window.__skew; });
     await this.page.goto(url);
     await this.page.waitForSelector('[data-testid="onboarding-screen"]', { timeout: 20000 });
   }
@@ -66,7 +68,13 @@ export class Driver {
     if (!re.test(t)) throw new Error(`${target} shows "${t.slice(0, 120)}", expected ${re}`);
     return t;
   }
-  async body() { return (await this.page.evaluate(() => document.body.innerText)).replace(/\n+/g, ' | '); }
+  async body() {
+    return this.page.evaluate(() => {
+      const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) { const e = n.parentElement; if (e && !e.closest('[inert]') && e.offsetParent !== null && n.textContent.trim()) out.push(n.textContent.trim()); }
+      return out.join(' | ');
+    });
+  }
   async settle(ms = 120) { await this.page.waitForTimeout(ms); }
   async alertPick(text) { await this.page.evaluate((t) => { window.__alertPick = t; }, text); }
   async alerts() { return this.page.evaluate(() => window.__alerts || []); }
@@ -76,7 +84,7 @@ export class Driver {
     await this.page.screenshot({ path: file });
   }
   async dump(label = '') {
-    const ids = await this.page.evaluate(() => [...document.querySelectorAll('[data-testid]')].filter((e) => e.offsetParent !== null).map((e) => e.dataset.testid));
+    const ids = await this.page.evaluate(() => [...document.querySelectorAll('[data-testid]')].filter((e) => e.offsetParent !== null && !e.closest('[inert]')).map((e) => e.dataset.testid));
     console.log(`--- dump ${label}\nIDS: ${[...new Set(ids)].join(' ')}\nTEXT: ${(await this.body()).slice(0, 1500)}`);
   }
 }
@@ -101,7 +109,26 @@ Driver.prototype.tab = async function (name) {
 };
 /** Press the stack header's back control (or the browser back if the header has none). */
 Driver.prototype.back = async function () {
-  const b = this.page.getByRole('button', { name: /^(Back|Plan|Home|Settings|Month)$/ }).filter({ visible: true }).first();
+  const b = this.page.getByRole('link', { name: /back$/i }).and(this.page.locator(':not([inert] *)')).filter({ visible: true }).first();
   if (await b.count()) await b.click(); else await this.page.evaluate(() => history.back());
   await this.settle(300);
+};
+
+/** Tap text inside a container (by testID), e.g. an option of a dropdown list. */
+Driver.prototype.tapIn = async function (container, text) {
+  const l = this.page.locator(`[data-testid="${container}"]`).getByText(text).filter({ visible: true }).first();
+  await l.waitFor({ state: 'visible', timeout: 5000 }).catch(() => { throw new Error(`"${text}" not found in ${container} within 5s`); });
+  await l.click(); await this.settle();
+};
+
+/** Simulate the app going to the background for `ms` and coming back (web visibilitychange + shifted clock). */
+Driver.prototype.backgroundFor = async function (ms) {
+  const set = (state) => this.page.evaluate((s) => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => s });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => s === 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, state);
+  await set('hidden'); await this.settle(200);
+  await this.page.evaluate((m) => { window.__skew += m; }, ms);
+  await set('visible'); await this.settle(300);
 };

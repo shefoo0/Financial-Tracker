@@ -1,10 +1,11 @@
 // Small pure helpers for the debts screens.
+import { debtProgress } from '@/engine';
 import { diffDays } from '@/lib/dates';
-import type { AlertThresholds, Debt, Fils, ISODate } from '@/types';
+import type { AlertThresholds, Debt, Fils, ISODate, PlanInput } from '@/types';
 
 /** 'today', 'tomorrow' or 'in 5 days'. */
 export function whenLabel(date: ISODate, now: ISODate): string {
-  const n = diffDays(date, now);
+  const n = diffDays(now, date);
   return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
 }
 
@@ -28,3 +29,8 @@ export function sortDebts(list: Debt[]): Debt[] {
 export const PAYMENT_KIND_LABEL = { regular: 'Regular', extra: 'Extra', partial: 'Partial' } as const;
 
 export const sumFils = (xs: Fils[]) => xs.reduce((a, b) => a + b, 0);
+
+/** 'k of N paid' numbers from the engine, the same call Home's Coming up uses. */
+export function progressOf(debt: Debt, input: PlanInput, nextDate: ISODate | null | undefined, now: ISODate) {
+  return debtProgress(debt, input, nextDate ?? now);
+}
