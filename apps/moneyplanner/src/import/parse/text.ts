@@ -1,4 +1,4 @@
-import { addDays, compareDates, today as deviceToday } from '@/lib/dates';
+import { compareDates, today as deviceToday } from '@/lib/dates';
 import { detectCurrency, parseAmountToken } from './amount';
 import type { AmountToken } from './amount';
 import { findFullDates, matchLeadingDate, parseDateParts, partsToISO } from './date';
@@ -96,7 +96,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     .map((l) => l.replace(/^[^\w(\-+]+/, '').replace(/\s+/g, ' ').trim());
 
   const whole = lines.join('\n');
-  const isCard = /credit card|card statement|minimum (payment|amount) due|total amount due|card number|card no/i.test(whole) && !/\bdebit\b.*\bcredit\b.*\bbalance\b/i.test(whole.split('\n').slice(0, 0).join(''));
+  const isCard = /credit card|card statement|minimum (payment|amount) due|total amount due|card number|card no/i.test(whole);
   result.currency = detectCurrency(whole);
   result.account = findAccount(lines);
   const period = findPeriod(lines);
@@ -201,21 +201,17 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     if (balance === undefined || amount === null) return;
     const prev = i > 0 ? balances[i - 1] : openingBalance;
     const next = i < resolved.length - 1 ? balances[i + 1] : undefined;
-    const tryFrom = (ref: number | undefined, reverse: boolean): 'income' | 'cost' | null => {
+    const tryFrom = (ref: number | undefined, newestFirst: boolean): 'income' | 'cost' | null => {
       if (ref === undefined) return null;
       const abs = Math.abs(amount);
-      const up = reverse ? ref - abs : ref + abs; // balance if income (oldest-first), or the older balance in newest-first
-      const down = reverse ? ref + abs : ref - abs;
-      if (!reverse) {
+      if (!newestFirst) {
         if (ref + abs === balance) return 'income';
         if (ref - abs === balance) return 'cost';
       } else {
-        // newest-first: this row's balance minus its amount is the next (older) row's balance.
+        // newest first: this row's balance minus its amount is the next (older) row's balance.
         if (balance - abs === ref) return 'income';
         if (balance + abs === ref) return 'cost';
       }
-      void up;
-      void down;
       return null;
     };
     const k = tryFrom(prev, false) ?? tryFrom(next, true);
@@ -502,6 +498,5 @@ export function parseSmsText(text: string, options: ParseOptions = {}): ParseRes
   };
   result.rows.push(row);
   result.period = { from: date, to: date };
-  void addDays;
   return result;
 }
