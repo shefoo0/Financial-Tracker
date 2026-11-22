@@ -50,5 +50,6 @@ name: Add a one-time item
     id: month-screen
 - assertVisible:
     id: month-item-0
-- assertVisible: "Taxi"
+# On iPhone a row reads as one label ("Taxi, cost AED 45.00, ..."), so match the start.
+- assertVisible: "Taxi.*"
 - assertNotVisible: "Nothing in this month"
