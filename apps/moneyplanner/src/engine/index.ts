@@ -2,6 +2,8 @@
 // No React, no storage, no Date objects in outputs.
 export { expandRecurring, occurrencesInRange, monthlyEquivalent } from './recurring';
 export { UNCATEGORIZED, forecast, monthSummary, yearSummary } from './forecast';
+export { categoryLimits, monthBalances } from './limits';
+export type { CategoryLimitRow, MonthBalances } from './limits';
 export { debtSchedule, planInstalments, debtProgress, remainingOf, allDebtPayments, debtOutflows } from './debts/schedule';
 export type { DebtScheduledPayment } from './debts/schedule';
 export { chequesInRange } from './debts/cheques';

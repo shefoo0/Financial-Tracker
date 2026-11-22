@@ -117,7 +117,7 @@ describe('migration v1 to v2', () => {
       .run();
     db.raw.prepare("INSERT INTO categories (id, name, kind, sort) VALUES ('c', 'C', 'cost', 1)").run();
     await migrate(db);
-    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(2);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
     expect(db.raw.prepare('SELECT COUNT(*) AS n FROM transactions').get().n).toBe(1);
     expect(db.raw.prepare('SELECT COUNT(*) AS n FROM categories').get().n).toBe(1);
     expect(db.raw.prepare("SELECT value FROM settings WHERE key = 'currency'").get().value).toBe('"USD"');
@@ -247,5 +247,34 @@ describe('a full v1 database and a v1 backup in the v2 app', () => {
     const out = await repo.exportAll();
     expect(out.version).toBe(2);
     expect(out).toMatchObject({ debts: [], debtPayments: [], debtOverrides: [], cheques: [] });
+  });
+});
+
+describe('migration v2 to v3', () => {
+  it('adds monthly_limit to categories and keeps rows (limit null)', async () => {
+    const { __make } = require('expo-sqlite');
+    const db = __make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\n${MIGRATIONS[1]}\nPRAGMA user_version = 2;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO categories (id, name, kind, sort) VALUES ('c', 'C', 'cost', 1)").run();
+    db.raw.prepare("INSERT INTO transactions (id, kind, date, description, amount, source) VALUES ('t1', 'cost', '2026-01-01', 'Lunch', 500, 'manual')").run();
+    await migrate(db);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(3);
+    expect(db.raw.prepare("SELECT monthly_limit FROM categories WHERE id = 'c'").get().monthly_limit).toBeNull();
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM transactions').get().n).toBe(1);
+  });
+
+  it('reads a v2 database through the repository with null limits, then stores a limit', async () => {
+    const expo = require('expo-sqlite');
+    const db = expo.__make();
+    db.raw.exec(`BEGIN;\n${MIGRATIONS[0]}\n${MIGRATIONS[1]}\nPRAGMA user_version = 2;\nCOMMIT;`);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('onboarded', 'true')").run();
+    db.raw.prepare("INSERT INTO categories (id, name, kind, sort) VALUES ('c', 'C', 'cost', 1)").run();
+    (globalThis as any).__nextDb = db;
+    const repo = createSqliteRepository('v2.db');
+    await repo.init();
+    const cat = (await repo.listCategories()).find((c) => c.id === 'c')!;
+    expect(cat.monthlyLimit).toBeNull();
+    await repo.upsertCategory({ ...cat, monthlyLimit: 120000 });
+    expect((await repo.listCategories()).find((c) => c.id === 'c')!.monthlyLimit).toBe(120000);
   });
 });

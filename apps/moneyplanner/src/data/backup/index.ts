@@ -45,7 +45,7 @@ function isSchedule(v: unknown): boolean {
 }
 
 const isCategory = (v: unknown): v is Category =>
-  isObj(v) && isId(v.id) && isStr(v.name) && isKind(v.kind) && isInt(v.sort) && isBool(v.archived);
+  isObj(v) && isId(v.id) && isStr(v.name) && isKind(v.kind) && isInt(v.sort) && isBool(v.archived) && (v.monthlyLimit === undefined || nullOr(v.monthlyLimit, isAmount));
 
 const isRecurring = (v: unknown): v is RecurringItem =>
   isObj(v) &&
@@ -187,6 +187,13 @@ function readSettings(v: unknown): Settings | null {
   for (const k of Object.keys(modules) as (keyof typeof modules)[]) if (isBool(em[k])) modules[k] = em[k] as boolean;
   const thresholds = { ...base.alertThresholds };
   for (const k of Object.keys(thresholds) as (keyof typeof thresholds)[]) if (isInt(at[k])) thresholds[k] = at[k] as number;
+  const bills = { ...base.billReminders };
+  const br = v.billReminders;
+  if (isObj(br)) {
+    if (isBool(br.on)) bills.on = br.on;
+    if (isInt(br.leadDays) && br.leadDays >= 0 && br.leadDays <= 3) bills.leadDays = br.leadDays;
+    if (Array.isArray(br.muted) && br.muted.every(isStr)) bills.muted = [...br.muted];
+  }
   return {
     currency: v.currency,
     payday: v.payday as number | null,
@@ -195,6 +202,7 @@ function readSettings(v: unknown): Settings | null {
     buffer: v.buffer,
     enabledModules: modules,
     alertThresholds: thresholds,
+    billReminders: bills,
     onboarded: v.onboarded,
     // A backup from another phone must not lock the user out of this one.
     lockEnabled: false,
@@ -262,6 +270,8 @@ export function parseBackup(text: string): BackupData {
     ...(raw as unknown as BackupData),
     version: BACKUP_VERSION,
     settings,
+    // Older backups have no monthlyLimit: it is null.
+    categories: (raw.categories as Category[]).map((c) => ({ ...c, monthlyLimit: c.monthlyLimit ?? null })),
     debts,
     debtPayments: debtPayments as DebtPayment[],
     debtOverrides: debtOverrides as DebtOverride[],

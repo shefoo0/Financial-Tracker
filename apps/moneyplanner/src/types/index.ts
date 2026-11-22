@@ -18,6 +18,8 @@ export interface Category {
   kind: Kind;
   sort: number;
   archived: boolean;
+  /** Optional monthly spending limit for a cost category; null or missing means none (repositories return null). */
+  monthlyLimit?: Fils | null;
 }
 
 /**
@@ -99,6 +101,15 @@ export interface AlertThresholds {
   cardUsagePct: number;
 }
 
+/** Notifications before a bill is due (recurring costs, debt payments, cheques, planned costs). */
+export interface BillReminders {
+  on: boolean;
+  /** Days before the due date (0 = same day), reminded at 09:00. */
+  leadDays: number;
+  /** Ids of recurring items, debts, cheques and planned items the user muted. */
+  muted: string[];
+}
+
 export interface Settings {
   /** Label shown next to amounts. No conversion is done. */
   currency: string;
@@ -112,6 +123,7 @@ export interface Settings {
   buffer: Fils;
   enabledModules: Record<ModuleId, boolean>;
   alertThresholds: AlertThresholds;
+  billReminders: BillReminders;
   onboarded: boolean;
   lockEnabled: boolean;
 }

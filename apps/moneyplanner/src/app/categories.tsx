@@ -3,13 +3,14 @@ import { Stack } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, EmptyState, IconBadge, Screen, SectionHeader, Segmented, T, TextField } from '@/components/ui';
+import { Button, Card, EmptyState, IconBadge, MoneyField, Screen, SectionHeader, Segmented, T, TextField } from '@/components/ui';
 import { Palette, Radius, Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { activeCategories, buildCategory, validateCategoryName } from '@/features/settings/helpers';
 import { useTheme } from '@/hooks/use-theme';
-import type { Category, Kind } from '@/types';
+import { formatMoney } from '@/lib/money';
+import type { Category, Fils, Kind } from '@/types';
 
 type Editing = { mode: 'add' } | { mode: 'edit'; category: Category } | null;
 
@@ -17,6 +18,8 @@ export default function Categories() {
   const c = useTheme();
   const { repo } = useData();
   const submitting = useRef(false);
+  const { data: settings } = useRepoQuery((r) => r.getSettings());
+  const currency = settings?.currency ?? 'AED';
   const { data: all, error, loading, reload } = useRepoQuery((r) => r.listCategories());
   const save = useRepoMutation((r, cat: Category) => r.upsertCategory(cat));
   const remove = useRepoMutation((r, id: string) => r.removeCategory(id));
@@ -24,17 +27,22 @@ export default function Categories() {
   const [editing, setEditing] = useState<Editing>(null);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Kind>('cost');
+  const [limit, setLimit] = useState<Fils | null>(null);
+  const [limitKey, setLimitKey] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
 
   const open = (e: Editing) => {
     setEditing(e);
     setFormError(null);
+    setLimitKey((k) => k + 1);
     if (e?.mode === 'edit') {
       setName(e.category.name);
       setKind(e.category.kind);
+      setLimit(e.category.monthlyLimit ?? null);
     } else {
       setName('');
       setKind('cost');
+      setLimit(null);
     }
   };
 
@@ -49,8 +57,9 @@ export default function Categories() {
         setFormError(problem);
         return;
       }
-      if (editing.mode === 'add') await save(buildCategory(name, kind, fresh));
-      else await save({ ...editing.category, name: name.trim() });
+      const monthlyLimit = kind === 'cost' && limit != null && limit > 0 ? limit : null;
+      if (editing.mode === 'add') await save({ ...buildCategory(name, kind, fresh), monthlyLimit });
+      else await save({ ...editing.category, name: name.trim(), monthlyLimit: editing.category.kind === 'cost' ? monthlyLimit : null });
       setEditing(null);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
@@ -91,7 +100,7 @@ export default function Categories() {
                 key={cat.id}
                 onPress={() => open({ mode: 'edit', category: cat })}
                 accessibilityRole="button"
-                accessibilityLabel={`${cat.name}, ${title} category. Tap to rename or remove`}
+                accessibilityLabel={`${cat.name}, ${title} category${cat.monthlyLimit ? `, monthly limit ${formatMoney(cat.monthlyLimit, currency)}` : ''}. Tap to edit or remove`}
                 testID={`category-${cat.id}`}
                 style={({ pressed }) => [
                   {
@@ -121,8 +130,8 @@ export default function Categories() {
                 />
                 <View style={{ flex: 1 }}>
                   <T numberOfLines={2}>{cat.name}</T>
-                  <T variant="caption" tone="secondary">
-                    Tap to rename or remove
+                  <T variant="caption" tone="secondary" testID={`category-limit-${cat.id}`}>
+                    {cat.monthlyLimit ? `Limit ${formatMoney(cat.monthlyLimit, currency)} a month` : k === 'cost' ? 'No monthly limit' : 'Tap to rename or remove'}
                   </T>
                 </View>
                 <T tone="secondary">›</T>
@@ -182,7 +191,7 @@ export default function Categories() {
               alignSelf: 'center',
             }}
           >
-            <ScreenTitle variant="heading">{editing?.mode === 'edit' ? 'Rename category' : 'New category'}</ScreenTitle>
+            <ScreenTitle variant="heading">{editing?.mode === 'edit' ? 'Edit category' : 'New category'}</ScreenTitle>
             <TextField label="Name" value={name} onChangeText={setName} error={formError} testID="category-name" />
             {editing?.mode === 'add' && (
               <Segmented
@@ -194,6 +203,17 @@ export default function Categories() {
                   { value: 'cost', label: 'Cost' },
                 ]}
                 testID="category-kind"
+              />
+            )}
+            {(editing?.mode === 'add' ? kind === 'cost' : editing?.category.kind === 'cost') && (
+              <MoneyField
+                key={limitKey}
+                label="Monthly limit (optional)"
+                value={limit}
+                onChange={setLimit}
+                currency={currency}
+                hint="Shows spent and left on the Month screen. Leave empty for no limit."
+                testID="category-limit-input"
               />
             )}
             <Button label="Save" onPress={submit} testID="category-save" />

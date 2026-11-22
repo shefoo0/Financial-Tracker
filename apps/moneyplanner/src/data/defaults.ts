@@ -20,7 +20,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   ['education', 'Education', 'cost'],
   ['savings', 'Savings & Investments', 'cost'],
   ['other', 'Other', 'cost'],
-].map(([id, name, kind], sort) => ({ id, name, kind: kind as Category['kind'], sort, archived: false }));
+].map(([id, name, kind], sort) => ({ id, name, kind: kind as Category['kind'], sort, archived: false, monthlyLimit: null }));
 
 /** AED 1,000 in fils: the starting buffer, changeable in Settings. */
 export const DEFAULT_BUFFER = 100000;
@@ -34,6 +34,7 @@ export function defaultSettings(now: Date = new Date()): Settings {
     buffer: DEFAULT_BUFFER,
     enabledModules: { debts: true, cheques: false, alerts: true, import: true },
     alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
+    billReminders: { on: true, leadDays: 1, muted: [] },
     onboarded: false,
     lockEnabled: false,
   };

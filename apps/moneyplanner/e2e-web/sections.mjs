@@ -112,7 +112,15 @@ add('2 Plan: recurring items', async (d, step) => {
 
 add('3 One-time items and Month', async (d, step) => {
   await step('Month tab shows this month with Rent', async () => {
-    await d.tab('Month'); await d.see('#month-screen'); await d.see('Nov 2026'); await d.see('Groceries'); await d.shot('month-nov');
+    await d.tab('Month'); await d.see('#month-screen'); await d.see('Nov 2026'); await d.shot('month-nov');
+  });
+  await step('opening and closing balance show under the header', async () => {
+    await d.seeText('#month-opening', /Opening AED/); await d.seeText('#month-closing', /Closing AED .*projected/);
+  });
+  await step('a monthly limit on Groceries shows spent vs left on Month', async () => {
+    await d.tab('Settings'); await d.tap('#settings-categories'); await d.tap('#category-groceries');
+    await d.type('#category-limit-input', '100'); await d.tap('#category-save'); await d.seeText('#category-limit-groceries', /Limit AED 100\.00/);
+    await d.back(); await d.tab('Month'); await d.see('#month-limits'); await d.seeText('#month-limit-0', /Groceries/); await d.seeText('#month-limit-0', /left|over/); await d.shot('month-limits');
   });
   await step('add one-time spend Taxi 45', async () => {
     await d.tap('#month-add-item'); await d.see('#transaction-screen');
@@ -137,6 +145,17 @@ add('3 One-time items and Month', async (d, step) => {
   await step('delete Taxi', async () => {
     await d.tap('Taxi'); await d.alertPick('Delete'); await d.tap('#transaction-delete');
     await d.see('#month-screen'); await d.notSee('Taxi', { exact: true }); await d.clearAlerts(); await d.shot('month-after-delete');
+  });
+  await step('add via a recent chip (timed, target under 10 s)', async () => {
+    const t0 = Date.now();
+    await d.tap('#month-add-item'); await d.see('#transaction-screen');
+    await d.tap('#recent-chip-0');
+    if (!(await d.page.locator('#transaction-description').inputValue())) throw new Error('chip did not fill the description');
+    await d.type('#transaction-amount', '52');
+    await d.tap('#transaction-save-bottom'); await d.see('#month-screen'); await d.notSee('#transaction-screen');
+    const secs = (Date.now() - t0) / 1000;
+    console.log(`    chip entry took ${secs.toFixed(1)} s`);
+    if (secs > 10) throw new Error(`chip entry took ${secs.toFixed(1)} s (target under 10)`);
   });
   await step('month stepper: next, next, previous, Today', async () => {
     await d.tap('#month-next'); await d.see('Dec 2026'); await d.see('Rent'); await d.see('Paid', { exact: true }); await d.see('Moved', { exact: true }); await d.shot('month-dec');
@@ -304,6 +323,24 @@ add('6 Alerts', async (d, step) => {
   await step('Settings: the phone notifications switch is on by default; notifications say "not available in the web preview"', async () => {
     await d.tab('Settings'); await d.see('#settings-alerts'); await d.see('#settings-alerts-status'); await d.shot('settings-alerts');
   });
+  await step('Settings: Bill reminders is on; set the lead time to 2 days, then back to 1 day', async () => {
+    await d.see('#settings-bill-reminders'); await d.see('#settings-bill-lead-1');
+    await d.tap('#settings-bill-lead-2'); await d.settle(300);
+    await d.see('2 days before');
+    await d.shot('settings-bill-lead'); await d.tap('#settings-bill-lead-1'); await d.settle(300);
+  });
+  await step('Home Coming up: the bell mutes and unmutes reminders for an item', async () => {
+    await d.tab('Home'); await d.see('#dashboard-upcoming');
+    // Only costs have a bell; a run of just this section has only the salary, so there is nothing to toggle.
+    if (!(await d.has('#upcoming-bell-0'))) { await d.tab('Settings'); await d.see('#settings-alerts'); return; }
+    const bell = () => d.page.locator('[data-testid="upcoming-bell-0"]').filter({ visible: true }).first();
+    await bell().click(); await d.settle(400);
+    if (!(await bell().innerText()).includes('🔕')) throw new Error('bell did not switch the reminder off');
+    await d.shot('home-bell-muted');
+    await bell().click(); await d.settle(400);
+    if (!(await bell().innerText()).includes('🔔')) throw new Error('bell did not switch the reminder back on');
+    await d.tab('Settings'); await d.see('#settings-alerts');
+  });
   await step('set alert levels low (caution 5%, high 10%, card 20%) and save', async () => {
     await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await d.type('#settings-threshold-card', '20');
     await d.tap('#settings-thresholds-save'); await d.settle(300); await d.shot('alerts-thresholds');
@@ -402,6 +439,12 @@ add('9 Categories', async (d, step) => {
   await step('open Categories from Settings', async () => { await d.tab('Settings'); await d.tap('#settings-categories'); await d.see('#categories-screen'); await d.see('Housing'); await d.shot('categories'); });
   await step('add category "Pets"', async () => {
     await d.tap('#categories-add'); await d.type('#category-name', 'Pets'); await d.tap('#category-save'); await d.see('Pets'); await d.shot('categories-added');
+  });
+  await step('set a monthly limit on Pets, then clear it', async () => {
+    await d.tap('Pets', { exact: true }); await d.type('#category-limit-input', '250'); await d.tap('#category-save');
+    await d.see('Limit AED 250.00 a month'); await d.shot('categories-limit');
+    await d.tap('Pets', { exact: true }); await d.type('#category-limit-input', ''); await d.tap('#category-save');
+    await d.notSee('Limit AED 250.00 a month');
   });
   await step('rename Pets to "Pet care"', async () => {
     await d.tap('Pets', { exact: true }); await d.type('#category-name', 'Pet care'); await d.tap('#category-save'); await d.see('Pet care'); await d.notSee('Pets', { exact: true });

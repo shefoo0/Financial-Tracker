@@ -1,6 +1,6 @@
 import { addDays, today } from '@/lib/dates';
-import type { AppAlert } from '@/types';
-import { alertRoute, GENERIC_BODY, GENERIC_TITLE, MAX_NOTIFICATIONS, planNotifications, sortBySeverity, validateThresholds } from '../plan';
+import type { AppAlert, BillReminders } from '@/types';
+import { alertRoute, type BillDue, GENERIC_BODY, GENERIC_TITLE, MAX_NOTIFICATIONS, planNotifications, sortBySeverity, validateThresholds } from '../plan';
 
 const alert = (id: string, notifyOn: string | null, severity: AppAlert['severity'] = 'caution'): AppAlert => ({
   id,
@@ -71,5 +71,57 @@ describe('helpers', () => {
       debtHighPct: expect.any(String),
       cardUsagePct: expect.any(String),
     });
+  });
+});
+
+describe('bill reminders', () => {
+  const now = new Date(2026, 10, 22, 8, 0); // 22 Nov 2026, 08:00
+  const bill = (key: string, date: string, over: Partial<BillDue> = {}): BillDue => ({ key, refId: key, date, title: `Rent ${key}`, amount: 'AED 6,500', ...over });
+  const on = (over: Partial<BillReminders> = {}): BillReminders => ({ on: true, leadDays: 1, muted: [], ...over });
+
+  it('reminds at 09:00 on due date minus the lead days, same day included', () => {
+    for (const [lead, day] of [[0, 25], [1, 24], [2, 23], [3, 22]] as const) {
+      const [n] = planNotifications([], false, now, [bill('a', '2026-11-25')], on({ leadDays: lead }));
+      expect([n.at.getDate(), n.at.getHours(), n.at.getMinutes()]).toEqual([day, 9, 0]);
+    }
+  });
+
+  it('says what is due and when, e.g. "Rent AED 6,500 due tomorrow"', () => {
+    const [n] = planNotifications([], false, now, [bill('a', '2026-11-23', { title: 'Rent' })], on());
+    expect(n.body).toBe('Rent AED 6,500 due tomorrow');
+    const [m] = planNotifications([], false, now, [bill('a', '2026-11-26', { title: 'Rent' })], on({ leadDays: 3 }));
+    expect(m.body).toBe('Rent AED 6,500 due in 4 days');
+  });
+
+  it('when 09:00 today has passed, reminds in a minute; earlier days are skipped', () => {
+    const late = new Date(2026, 10, 22, 10, 0);
+    const [n] = planNotifications([], false, late, [bill('a', '2026-11-23')], on());
+    expect(n.at.getTime()).toBe(late.getTime() + 60_000);
+    expect(planNotifications([], false, late, [bill('a', '2026-11-22')], on())).toHaveLength(0);
+    expect(planNotifications([], false, late, [bill('a', '2026-11-23')], on({ leadDays: 2 }))).toHaveLength(0);
+  });
+
+  it('skips muted items and does nothing when reminders are off', () => {
+    const bills = [bill('a', '2026-11-25'), bill('b', '2026-11-26')];
+    expect(planNotifications([], false, now, bills, on({ muted: ['a'] })).map((n) => n.alertId)).toEqual(['bill:b']);
+    expect(planNotifications([], false, now, bills, on({ on: false }))).toHaveLength(0);
+    expect(planNotifications([], false, now, bills)).toHaveLength(0);
+  });
+
+  it('uses generic text when locked', () => {
+    const [n] = planNotifications([], true, now, [bill('a', '2026-11-25')], on());
+    expect(n.title).toBe(GENERIC_TITLE);
+    expect(n.body).toBe('A bill is due soon in Money Planner');
+  });
+
+  it('keeps 20 and gives bills and serious alerts priority over info alerts', () => {
+    const info = Array.from({ length: 10 }, (_, i) => ({ ...alert(`i${i}`, `2026-11-${23 + (i % 3)}`, 'info') }));
+    const bills = Array.from({ length: 15 }, (_, i) => bill(`b${i}`, `2026-12-${String(10 + i).padStart(2, '0')}`));
+    const out = planNotifications([...info, alert('hi', '2026-12-30', 'high')], false, now, bills, on());
+    expect(out).toHaveLength(MAX_NOTIFICATIONS);
+    expect(out.filter((n) => n.alertId.startsWith('bill:'))).toHaveLength(15);
+    expect(out.some((n) => n.alertId === 'hi')).toBe(true);
+    expect(out.filter((n) => n.alertId.startsWith('i'))).toHaveLength(4);
+    for (let i = 1; i < out.length; i++) expect(out[i].at.getTime()).toBeGreaterThanOrEqual(out[i - 1].at.getTime());
   });
 });

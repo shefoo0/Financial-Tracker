@@ -8,7 +8,7 @@ import { AppState } from 'react-native';
 import { usePlanInput } from '@/data/DataProvider';
 import { buildAlerts } from '@/engine';
 import { cancelAll, getPermission, installForegroundHandler, scheduleAt, ensureChannel } from './notifications';
-import { planNotifications } from './plan';
+import { buildBills, planNotifications } from './plan';
 import { useDay } from './useDay';
 
 const DEBOUNCE_MS = 1000;
@@ -42,7 +42,7 @@ export function AlertScheduler() {
             await cancelAll();
             return;
           }
-          const planned = planNotifications(buildAlerts(data, day), data.settings.lockEnabled, new Date());
+          const planned = planNotifications(buildAlerts(data, day), data.settings.lockEnabled, new Date(), buildBills(data, day), data.settings.billReminders);
           await ensureChannel();
           await cancelAll();
           for (const n of planned) {

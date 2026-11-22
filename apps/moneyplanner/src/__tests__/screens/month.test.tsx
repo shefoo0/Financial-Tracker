@@ -53,6 +53,41 @@ describe('Month tab', () => {
     expect(screen.getByTestId('month-item-2')).toBeTruthy();
   });
 
+  it('shows opening and closing balance', async () => {
+    await renderWithRepo(<MonthScreen />, { settings: { ...settings, startingBalance: 100000, startingBalanceDate: '2020-01-01' } });
+    expect((await screen.findByTestId('month-opening')).props.accessibilityLabel).toBe('Opening balance: AED 1,000.00');
+    expect(screen.getByTestId('month-closing').props.accessibilityLabel).toBe('Closing balance, projected: AED 1,000.00');
+    expect(screen.getByText('Closing AED 1,000.00 (projected)')).toBeTruthy();
+  });
+
+  it('shows no Limits card when no category has a limit', async () => {
+    await renderWithRepo(<MonthScreen />, { settings });
+    await screen.findByText('Nothing in this month');
+    expect(screen.queryByTestId('month-limits')).toBeNull();
+  });
+
+  it('shows spent against each limit, with left and over', async () => {
+    await renderWithRepo(<MonthScreen />, {
+      settings,
+      categories: [
+        { id: 'groceries', name: 'Groceries', kind: 'cost', sort: 1, archived: false, monthlyLimit: 100000 },
+        { id: 'dining', name: 'Dining', kind: 'cost', sort: 2, archived: false, monthlyLimit: 10000 },
+        { id: 'other', name: 'Other', kind: 'cost', sort: 3, archived: false, monthlyLimit: null },
+      ],
+      recurring: [recurring({ id: 'r', name: 'Box', kind: 'cost', amount: 20000, categoryId: 'groceries' })],
+      transactions: [
+        transaction({ id: 't1', description: 'Shop', kind: 'cost', amount: 30000, date: today(), categoryId: 'groceries' }),
+        transaction({ id: 't2', description: 'Cafe', kind: 'cost', amount: 12500, date: today(), categoryId: 'dining' }),
+      ],
+    });
+    const card = within(await screen.findByTestId('month-limits'));
+    expect(card.getByText('AED 500.00 left')).toBeTruthy();
+    expect(card.getByText('AED 25.00 over')).toBeTruthy();
+    expect(screen.getByTestId('month-limit-0').props.accessibilityLabel).toBe('Groceries: spent AED 500.00 of AED 1,000.00, AED 500.00 left');
+    expect(screen.getByTestId('month-limit-1')).toBeTruthy();
+    expect(screen.queryByTestId('month-limit-2')).toBeNull();
+  });
+
   it('opens an item when tapped', async () => {
     await renderWithRepo(<MonthScreen />, {
       settings,

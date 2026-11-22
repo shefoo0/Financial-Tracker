@@ -9,6 +9,9 @@ import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import { expandRecurring } from '@/engine';
 import { categoryOptions, emptyRecurringForm, formFromRecurring, validateRecurring, type FormErrors, type RecurringField, type RecurringForm } from '@/features/items/form';
 import { applyOverridePatch, scheduleChanged, type OverridePatch } from '@/features/items/overrides';
+import { AmountField } from '@/features/items/AmountField';
+import { RecentChips } from '@/features/items/RecentChips';
+import { lastRecurringCategory, lastTransactionCategory, recentRecurringSuggestions, usableCategory, type Suggestion } from '@/features/items/suggestions';
 import { useDiscardGuard } from '@/features/items/useDiscardGuard';
 import { describeSchedule, MONTH_NAMES, WEEKDAY_NAMES } from '@/features/items/schedule';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,7 +23,7 @@ import type { Fils, Kind, OccurrenceOverride, PlanInput, RecurringItem } from '@
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default function RecurringScreen() {
-  const params = useLocalSearchParams<{ id: string; kind?: string }>();
+  const params = useLocalSearchParams<{ id: string; kind?: string; name?: string; amount?: string; category?: string; day?: string }>();
   const id = first(params.id) ?? 'new';
   const isNew = id === 'new';
   const { data, error, reload } = usePlanInput();
@@ -50,12 +53,48 @@ export default function RecurringScreen() {
     );
   }
   const kind: Kind = first(params.kind) === 'income' ? 'income' : 'cost';
-  return <RecurringEditor key={id} input={data} item={isNew ? null : item} initialKind={kind} />;
+  // "Repeat this" from a one-time item arrives with its details in the link.
+  const amount = Number(first(params.amount));
+  const day = Number(first(params.day));
+  const prefill: Prefill | undefined =
+    isNew && first(params.name)
+      ? {
+          name: first(params.name) as string,
+          amount: Number.isInteger(amount) && amount > 0 ? amount : null,
+          categoryId: first(params.category) ?? null,
+          day: Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
+        }
+      : undefined;
+  return <RecurringEditor key={id} input={data} item={isNew ? null : item} initialKind={kind} prefill={prefill} />;
 }
 
-function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind }) {
-  const [form, setForm] = useState<RecurringForm>(() => (item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
-  const [initialForm] = useState(() => JSON.stringify(item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
+interface Prefill {
+  name: string;
+  amount: Fils | null;
+  categoryId: string | null;
+  day: number | null;
+}
+
+function RecurringEditor({ input, item, initialKind, prefill }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind; prefill?: Prefill }) {
+  const lastCategory = (kind: Kind) => lastRecurringCategory(input.recurring, kind, input.categories) ?? lastTransactionCategory(input.transactions, kind, input.categories);
+  const startForm = (): RecurringForm => {
+    if (item) return formFromRecurring(item);
+    const f = emptyRecurringForm(initialKind);
+    if (prefill) {
+      return {
+        ...f,
+        name: prefill.name,
+        amount: prefill.amount,
+        categoryId: usableCategory(prefill.categoryId, initialKind, input.categories),
+        day: prefill.day != null ? String(prefill.day) : f.day,
+      };
+    }
+    return { ...f, categoryId: lastCategory(initialKind) };
+  };
+  const [form, setForm] = useState<RecurringForm>(startForm);
+  const [initialForm] = useState(() => JSON.stringify(startForm()));
+  const [focusToken, setFocusToken] = useState(0);
+  const suggestions = useMemo(() => (item ? [] : recentRecurringSuggestions(input.recurring, input.transactions, form.kind, today())), [item, input.recurring, input.transactions, form.kind]);
   const guard = useDiscardGuard(JSON.stringify(form) !== initialForm);
   const [errors, setErrors] = useState<FormErrors<RecurringField>>({});
   const [saving, setSaving] = useState(false);
@@ -80,6 +119,11 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
       guard.cancel();
       Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
     }
+  };
+
+  const pickSuggestion = (s: Suggestion) => {
+    setForm((f) => ({ ...f, name: s.text, amount: s.amount, categoryId: usableCategory(s.categoryId, f.kind, input.categories) }));
+    setFocusToken((n) => n + 1);
   };
 
   const onSave = async () => {
@@ -142,18 +186,20 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         }}
       />
       <Screen testID="recurring-screen">
+        {!item && <RecentChips suggestions={suggestions} currency={currency} onPick={pickSuggestion} />}
         <Card style={styles.group}>
           <Segmented
             label="Type"
             value={form.kind}
-            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
+            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: item ? null : lastCategory(k) }))}
             options={[
               { value: 'income', label: 'Income' },
               { value: 'cost', label: 'Cost' },
             ]}
             testID="recurring-kind"
           />
-          <MoneyField
+          <AmountField
+            focusToken={focusToken}
             label="Amount"
             value={form.amount}
             onChange={(v) => set('amount', v)}

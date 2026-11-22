@@ -48,6 +48,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       ...p,
       enabledModules: { ...defaultSettings().enabledModules, ...(p.enabledModules ?? base.enabledModules) },
       alertThresholds: { ...defaultSettings().alertThresholds, ...(p.alertThresholds ?? base.alertThresholds) },
+      billReminders: { ...defaultSettings().billReminders, ...(p.billReminders ?? base.billReminders) },
     };
   }
 

@@ -18,6 +18,7 @@ const toCategory = (r: Row): Category => ({
   kind: r.kind,
   sort: r.sort,
   archived: r.archived === 1,
+  monthlyLimit: r.monthly_limit ?? null,
 });
 
 const toRecurring = (r: Row): RecurringItem => ({
@@ -100,9 +101,10 @@ const toCheque = (r: Row): Cheque => ({
 
 const writeCategory = (w: Writer, c: Category) =>
   w.runAsync(
-    `INSERT INTO categories (id, name, kind, sort, archived) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, kind = excluded.kind, sort = excluded.sort, archived = excluded.archived`,
-    [c.id, c.name, c.kind, c.sort, bool(c.archived)],
+    `INSERT INTO categories (id, name, kind, sort, archived, monthly_limit) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, kind = excluded.kind, sort = excluded.sort, archived = excluded.archived,
+       monthly_limit = excluded.monthly_limit`,
+    [c.id, c.name, c.kind, c.sort, bool(c.archived), c.monthlyLimit ?? null],
   );
 
 const writeRecurring = (w: Writer, r: RecurringItem) =>
@@ -275,6 +277,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       ...stored,
       enabledModules: { ...base.enabledModules, ...(stored.enabledModules ?? {}) },
       alertThresholds: { ...base.alertThresholds, ...(stored.alertThresholds ?? {}) },
+      billReminders: { ...base.billReminders, ...(stored.billReminders ?? {}) },
     };
   }
 

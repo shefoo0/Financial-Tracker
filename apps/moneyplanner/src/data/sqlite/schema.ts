@@ -93,6 +93,10 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX idx_debt_payments_debt ON debt_payments (debt_id, date);
   CREATE INDEX idx_cheques_date ON cheques (date);
   `,
+  // v3: optional monthly limit per category (fils)
+  `
+  ALTER TABLE categories ADD COLUMN monthly_limit INTEGER;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

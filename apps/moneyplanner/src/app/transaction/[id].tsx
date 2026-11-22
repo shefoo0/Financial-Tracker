@@ -3,7 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 
-import { Button, Card, DateField, EmptyState, MoneyField, Screen, SelectField, Segmented, T, TextField, ToggleRow } from '@/components/ui';
+import { Button, Card, DateField, EmptyState, Screen, SelectField, Segmented, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import {
@@ -16,8 +16,11 @@ import {
   type TransactionField,
   type TransactionForm,
 } from '@/features/items/form';
+import { AmountField } from '@/features/items/AmountField';
+import { RecentChips } from '@/features/items/RecentChips';
+import { lastTransactionCategory, recentTransactionSuggestions, usableCategory, type Suggestion } from '@/features/items/suggestions';
 import { useDiscardGuard } from '@/features/items/useDiscardGuard';
-import { isValidISODate } from '@/lib/dates';
+import { isValidISODate, parseISODate, today } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import type { Kind, PlanInput, Transaction } from '@/types';
 
@@ -66,8 +69,16 @@ export default function TransactionScreen() {
 }
 
 function TransactionEditor({ input, item, initialKind, initialDate }: { input: PlanInput; item: Transaction | null; initialKind: Kind; initialDate?: string }) {
-  const [form, setForm] = useState<TransactionForm>(() => (item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
-  const [initialForm] = useState(() => JSON.stringify(item ? formFromTransaction(item) : emptyTransactionForm(initialKind, initialDate)));
+  const startForm = () => {
+    if (item) return formFromTransaction(item);
+    // A new item starts with the category of the last item of its kind.
+    const f = emptyTransactionForm(initialKind, initialDate);
+    return { ...f, categoryId: lastTransactionCategory(input.transactions, initialKind, input.categories) };
+  };
+  const [form, setForm] = useState<TransactionForm>(startForm);
+  const [initialForm] = useState(() => JSON.stringify(startForm()));
+  const [focusToken, setFocusToken] = useState(0);
+  const suggestions = useMemo(() => (item ? [] : recentTransactionSuggestions(input.transactions, form.kind, today())), [item, input.transactions, form.kind]);
   const guard = useDiscardGuard(JSON.stringify(form) !== initialForm);
   // Until the user flips the switch, "planned" follows the date (future = planned).
   const [plannedTouched, setPlannedTouched] = useState(!!item);
@@ -78,6 +89,18 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
   const currency = input.settings.currency;
   const set = <K extends keyof TransactionForm>(key: K, value: TransactionForm[K]) => setForm((f) => ({ ...f, [key]: value }));
   const categories = useMemo(() => categoryOptions(input.categories, form.kind, form.categoryId), [input.categories, form.kind, form.categoryId]);
+
+  const pickSuggestion = (s: Suggestion) => {
+    setForm((f) => ({ ...f, description: s.text, amount: s.amount, categoryId: usableCategory(s.categoryId, f.kind, input.categories) }));
+    setFocusToken((n) => n + 1);
+  };
+
+  const onRepeat = () => {
+    if (!item) return;
+    const q = new URLSearchParams({ kind: item.kind, name: item.description, amount: String(item.amount), day: String(parseISODate(item.date).day) });
+    if (item.categoryId) q.set('category', item.categoryId);
+    router.push(`/recurring/new?${q.toString()}` as never);
+  };
 
   const onSave = async () => {
     if (saving) return;
@@ -132,18 +155,21 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
         }}
       />
       <Screen testID="transaction-screen">
+        {!item && <RecentChips suggestions={suggestions} currency={currency} onPick={pickSuggestion} />}
         <Card style={styles.group}>
           <Segmented
             label="Type"
             value={form.kind}
-            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: null }))}
+            onChange={(k) => setForm((f) => ({ ...f, kind: k, categoryId: item ? null : lastTransactionCategory(input.transactions, k, input.categories) }))}
             options={[
               { value: 'income', label: 'Income' },
               { value: 'cost', label: 'Spend' },
             ]}
             testID="transaction-kind"
           />
-          <MoneyField
+          <AmountField
+            autoFocus={!item}
+            focusToken={focusToken}
             label="Amount"
             value={form.amount}
             onChange={(v) => set('amount', v)}
@@ -199,6 +225,7 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
           <TextField label="Note (optional)" value={form.note} onChangeText={(t) => set('note', t)} multiline testID="transaction-note" />
         </Card>
         <Button label={item ? 'Save changes' : form.kind === 'income' ? 'Add income' : 'Add spend'} onPress={onSave} disabled={saving} testID="transaction-save-bottom" />
+        {item && <Button label="Repeat this every month" variant="secondary" onPress={onRepeat} testID="transaction-repeat" />}
         {item && <Button label="Delete" variant="destructive" onPress={onDelete} testID="transaction-delete" />}
       </Screen>
     </KeyboardAvoidingView>

@@ -1,12 +1,14 @@
-// Thumb-reach floating "+" button: opens a bottom sheet with the three things you can add.
+// Thumb-reach floating "+" button: opens a bottom sheet with the three things you can add (one-time item first).
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconBadge, Sheet, T } from '@/components/ui';
 import { GradientFill, hiddenFromA11y, withAlpha } from '@/components/ui/internal';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+
+import { loadLastChoice, QUICK_ADD_DEFAULT, saveLastChoice } from './lastChoice';
 
 export const QUICK_ADD_SIZE = 60;
 export const QUICK_ADD_MARGIN = 16;
@@ -27,16 +29,23 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const go = (href: string) => {
+  const [last, setLast] = useState(QUICK_ADD_DEFAULT);
+  useEffect(() => {
+    if (open) loadLastChoice().then(setLast);
+  }, [open]);
+
+  const go = (id: string, href: string) => {
+    setLast(id);
+    saveLastChoice(id);
     setOpen(false);
     router.push(href as never);
   };
   const oneTime = defaultDate ? `/transaction/new?date=${defaultDate}` : '/transaction/new';
 
   const options = [
+    { id: 'quick-add-one-time', title: 'One-time item', text: 'A single payment or amount received', glyph: '✦', color: c.accent, href: oneTime },
     { id: 'quick-add-income', title: 'Recurring income', text: 'Salary or anything that repeats', glyph: '↓', color: c.positive, href: '/recurring/new?kind=income' },
     { id: 'quick-add-cost', title: 'Recurring cost', text: 'Rent, bills and subscriptions', glyph: '↑', color: c.negative, href: '/recurring/new?kind=cost' },
-    { id: 'quick-add-one-time', title: 'One-time item', text: 'A single payment or amount received', glyph: '✦', color: c.accent, href: oneTime },
   ];
 
   return (
@@ -65,13 +74,14 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
           {options.map((o) => (
             <Pressable
               key={o.id}
-              onPress={() => go(o.href)}
+              onPress={() => go(o.id, o.href)}
               accessibilityRole="button"
               accessibilityLabel={`${o.title}. ${o.text}`}
+              accessibilityState={{ selected: o.id === last }}
               testID={o.id}
               style={({ pressed }) => [
                 styles.row,
-                { backgroundColor: pressed ? c.backgroundSelected : c.glass, borderColor: c.glassBorder },
+                { backgroundColor: pressed ? c.backgroundSelected : c.glass, borderColor: o.id === last ? c.accent : c.glassBorder, borderWidth: o.id === last ? 2 : 1 },
               ]}>
               <IconBadge glyph={o.glyph} color={o.color} size={44} />
               <View style={styles.text}>

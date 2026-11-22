@@ -58,6 +58,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   buffer: 0,
   enabledModules: { debts: false, cheques: false, alerts: false, import: false },
   alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
+  billReminders: { on: true, leadDays: 1, muted: [] },
   onboarded: true,
   lockEnabled: false,
   ...over,

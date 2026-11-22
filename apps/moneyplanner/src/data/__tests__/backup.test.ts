@@ -44,6 +44,25 @@ async function sample() {
   return repo.exportAll();
 }
 
+describe('backup category limits', () => {
+  it('keeps monthlyLimit and reads categories without it as null', async () => {
+    const data = await sample();
+    const withLimit = { ...data, categories: data.categories.map((c) => (c.id === 'groceries' ? { ...c, monthlyLimit: 90000 } : c)) };
+    const back = parseBackup(serializeBackup(withLimit));
+    expect(back.categories.find((c) => c.id === 'groceries')!.monthlyLimit).toBe(90000);
+    const old: any = JSON.parse(serializeBackup(data));
+    old.categories.forEach((c: any) => delete c.monthlyLimit);
+    expect(parseBackup(JSON.stringify(old)).categories.every((c) => c.monthlyLimit === null)).toBe(true);
+  });
+  it('rejects an invalid monthlyLimit', async () => {
+    const old: any = JSON.parse(serializeBackup(await sample()));
+    old.categories[3].monthlyLimit = 'lots';
+    expect(() => parseBackup(JSON.stringify(old))).toThrow();
+    old.categories[3].monthlyLimit = -5;
+    expect(() => parseBackup(JSON.stringify(old))).toThrow();
+  });
+});
+
 describe('parseBackup', () => {
   it('round-trips serializeBackup', async () => {
     const data = await sample();

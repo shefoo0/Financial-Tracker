@@ -5,7 +5,7 @@ import { AccessibilityInfo, PanResponder, Pressable, StyleSheet, View } from 're
 import { Button, Card, EmptyState, IconBadge, Pill, Screen, ScreenHeader, SectionHeader, Stat, StatTile, T } from '@/components/ui';
 import { Palette, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
-import { monthSummary, occurrencesInRange } from '@/engine';
+import { categoryLimits, monthBalances, monthSummary, occurrencesInRange } from '@/engine';
 import { buildMonthItems } from '@/features/dashboard/month-items';
 import { ErrorScreen, LoadingScreen } from '@/features/dashboard/Parts';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
@@ -32,6 +32,8 @@ function MonthBody({ input }: { input: PlanInput }) {
   const money = (v: number) => formatMoney(v, currency);
 
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
+  const limits = useMemo(() => categoryLimits(month, input), [month, input]);
+  const balances = useMemo(() => monthBalances(month, input, todayStr), [month, input, todayStr]);
   const items = useMemo(
     () => buildMonthItems(occurrencesInRange(input.recurring, input.overrides, monthStart(month), monthEnd(month)), input.transactions, monthStart(month), monthEnd(month), input),
     [month, input],
@@ -106,6 +108,24 @@ function MonthBody({ input }: { input: PlanInput }) {
           </Pressable>
         </View>
 
+        <View style={styles.balances} testID="month-balances">
+          <T
+            variant="caption"
+            tone="secondary"
+            testID="month-opening"
+            accessibilityLabel={`Opening balance: ${money(balances.opening)}`}
+          >{`Opening ${money(balances.opening)}`}</T>
+          <T variant="caption" tone="secondary">
+            {' · '}
+          </T>
+          <T
+            variant="caption"
+            tone="secondary"
+            testID="month-closing"
+            accessibilityLabel={`Closing balance${balances.projected ? ', projected' : ''}: ${money(balances.closing)}`}
+          >{`Closing ${money(balances.closing)}${balances.projected ? ' (projected)' : ''}`}</T>
+        </View>
+
         <View style={styles.body} testID="month-summary">
           <View style={styles.tiles}>
             <StatTile label="Income" value={formatCompact(ms.totalIncome)} tone="positive" icon="↓" testID="month-income" accessibilityLabel={`Total income: ${money(ms.totalIncome)}`} />
@@ -127,6 +147,40 @@ function MonthBody({ input }: { input: PlanInput }) {
             </View>
           </Card>
         </View>
+
+        {limits.length > 0 && (
+          <View style={styles.day} testID="month-limits">
+            <SectionHeader title="Limits" />
+            <Card style={styles.limitsCard}>
+              {limits.map((l, i) => {
+                const tone = l.pct >= 100 ? c.negative : l.pct >= 80 ? c.warning : c.positive;
+                const status = l.over ? `${money(l.spent - l.limit)} over` : `${money(l.left)} left`;
+                return (
+                  <View
+                    key={l.categoryId}
+                    style={styles.limitRow}
+                    testID={`month-limit-${i}`}
+                    accessible
+                    accessibilityLabel={`${l.name}: spent ${money(l.spent)} of ${money(l.limit)}, ${status}`}
+                  >
+                    <View style={styles.limitTop}>
+                      <T numberOfLines={2} style={styles.flex}>
+                        {l.name}
+                      </T>
+                      <T variant="number" style={{ color: tone }}>
+                        {status}
+                      </T>
+                    </View>
+                    <View style={[styles.track, { backgroundColor: c.backgroundSelected }]}>
+                      <View style={{ width: `${Math.min(100, l.pct)}%`, height: '100%', backgroundColor: tone, borderRadius: Radius.sm }} />
+                    </View>
+                    <T variant="caption" tone="secondary">{`${money(l.spent)} of ${money(l.limit)} · ${l.pct}%`}</T>
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
+        )}
 
         <SectionHeader title={`Everything in ${formatMonth(month)}`} />
         <Button label="Add one-time item" onPress={() => router.push(`/transaction/new?date=${newDate}`)} testID="month-add-item" />
@@ -204,6 +258,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  balances: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  limitsCard: { gap: Spacing.three },
+  limitRow: { gap: Spacing.one },
+  limitTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  track: { height: 8, borderRadius: Radius.sm, overflow: 'hidden' },
   tiles: { flexDirection: 'row', gap: Spacing.two },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
   day: { gap: Spacing.two },

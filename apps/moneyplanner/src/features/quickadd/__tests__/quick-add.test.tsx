@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { QuickAddButton } from '@/features/quickadd/QuickAddButton';
 
@@ -37,5 +37,16 @@ describe('QuickAddButton', () => {
     await fireEvent.press(screen.getByTestId('quick-add'));
     await fireEvent.press(await screen.findByTestId('quick-add-one-time'));
     expect(router.push).toHaveBeenCalledWith('/transaction/new?date=2026-03-01');
+  });
+
+  it('lists the one-time item first and highlights the last chosen row', async () => {
+    await renderWithRepo(<QuickAddButton />);
+    await fireEvent.press(screen.getByTestId('quick-add'));
+    const rows = await screen.findAllByTestId(/^quick-add-(income|cost|one-time)$/);
+    expect(rows[0].props.testID).toBe('quick-add-one-time');
+    expect(screen.getByTestId('quick-add-one-time').props.accessibilityState).toMatchObject({ selected: true });
+    await fireEvent.press(screen.getByTestId('quick-add-cost'));
+    await fireEvent.press(screen.getByTestId('quick-add'));
+    await waitFor(() => expect(screen.getByTestId('quick-add-cost').props.accessibilityState).toMatchObject({ selected: true }));
   });
 });

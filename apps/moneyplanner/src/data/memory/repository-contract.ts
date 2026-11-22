@@ -125,6 +125,16 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       expect(s2.alertThresholds.debtHighPct).toBe(50);
     });
 
+    it('stores, clears and exports a monthly category limit', async () => {
+      expect((await repo.listCategories()).every((c) => c.monthlyLimit === null)).toBe(true);
+      const groceries = (await repo.listCategories()).find((c) => c.id === 'groceries')!;
+      await repo.upsertCategory({ ...groceries, monthlyLimit: 150000 });
+      expect((await repo.listCategories()).find((c) => c.id === 'groceries')!.monthlyLimit).toBe(150000);
+      expect((await repo.exportAll()).categories.find((c) => c.id === 'groceries')!.monthlyLimit).toBe(150000);
+      await repo.upsertCategory({ ...groceries, monthlyLimit: null });
+      expect((await repo.listCategories()).find((c) => c.id === 'groceries')!.monthlyLimit).toBeNull();
+    });
+
     it('upserts categories and keeps them sorted', async () => {
       await repo.upsertCategory({ id: 'pets', name: 'Pets', kind: 'cost', sort: 99, archived: false });
       await repo.upsertCategory({ id: 'salary', name: 'Pay', kind: 'income', sort: 0, archived: false });

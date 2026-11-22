@@ -24,6 +24,8 @@ export interface UpcomingItem {
   progress: string | null;
   href: string;
   markPaid: MarkPaid;
+  /** Id of the recurring item, debt, cheque or planned item behind the row (what bill reminders are muted by). */
+  refId: string;
 }
 
 const EMOJI: Record<string, string> = {
@@ -61,8 +63,8 @@ export function whenLabel(date: ISODate, todayStr: ISODate): string {
   return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
 }
 
-/** The next payment of up to `limit` items in the next `days` days, soonest first. */
-export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, days = 90): UpcomingItem[] {
+/** Every unpaid payment in the next `days` days, soonest first (several per recurring item). */
+export function listUpcoming(input: PlanInput, todayStr: ISODate, days = 90): UpcomingItem[] {
   const to = addDays(todayStr, days);
   const byId = new Map(input.recurring.map((r) => [r.id, r]));
   const items: UpcomingItem[] = occurrencesInRange(input.recurring, input.overrides, todayStr, to)
@@ -84,6 +86,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
         when: whenLabel(o.date, todayStr),
         progress,
         href: `/recurring/${o.recurringId}`,
+        refId: o.recurringId,
         markPaid: { kind: 'recurring', recurringId: o.recurringId, originalDate: o.originalDate, amount: o.amount },
       };
     });
@@ -99,6 +102,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(t.date, todayStr),
       progress: null,
       href: `/transaction/${t.id}`,
+      refId: t.id,
       markPaid: { kind: 'planned', transactionId: t.id },
     });
   }
@@ -116,6 +120,7 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(p.date, todayStr),
       progress: prog ? `${Math.min(prog.paid, prog.total)} of ${prog.total} paid` : null,
       href: `/debts/${p.debtId}`,
+      refId: p.debtId,
       markPaid: { kind: 'debt', debtId: p.debtId, date: p.date, amount: p.amount },
     });
   }
@@ -130,10 +135,17 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(c.date, todayStr),
       progress: null,
       href: `/cheques/${c.id}`,
+      refId: c.id,
       markPaid: { kind: 'cheque', chequeId: c.id },
     });
   }
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
+  return items;
+}
+
+/** The next payment of up to `limit` items in the next `days` days, soonest first. */
+export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, days = 90): UpcomingItem[] {
+  const items = listUpcoming(input, todayStr, days);
   // One row per item (its next payment), so a monthly salary doesn't fill the list.
   const seen = new Set<string>();
   return items.filter((i) => !seen.has(i.href) && seen.add(i.href)).slice(0, limit);

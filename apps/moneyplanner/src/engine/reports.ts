@@ -628,6 +628,7 @@ export function sampleInput(todayStr: ISODate): PlanInput {
       buffer: 500000,
       enabledModules: { debts: true, cheques: true, alerts: true, import: false },
       alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
+      billReminders: { on: true, leadDays: 1, muted: [] },
       onboarded: true,
       lockEnabled: false,
     },

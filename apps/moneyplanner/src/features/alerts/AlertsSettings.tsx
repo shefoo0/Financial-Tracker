@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { Alert, Linking, View } from 'react-native';
 
-import { Button, Card, SectionHeader, T, TextField, ToggleRow } from '@/components/ui';
+import { Button, Card, Segmented, SectionHeader, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import type { Settings } from '@/types';
 import { usePermission } from './notifications';
-import { validateThresholds, type ThresholdDrafts, type ThresholdErrors } from './plan';
+import { LEAD_DAY_OPTIONS, leadLabel, validateThresholds, type ThresholdDrafts, type ThresholdErrors } from './plan';
 import { useAlertsSwitch } from './useAlertsSwitch';
 
 export function AlertsSettings({ settings, update }: { settings: Settings; update: (patch: Partial<Settings>) => Promise<unknown> }) {
@@ -69,6 +69,29 @@ export function AlertsSettings({ settings, update }: { settings: Settings; updat
             onPress={() => (permission.state === 'denied' && !permission.canAskAgain ? Linking.openSettings().catch(() => undefined) : alerts.onChange(true))}
             testID="settings-alerts-allow"
           />
+        ) : null}
+        <ToggleRow
+          label="Bill reminders"
+          description="A notification before each bill: recurring costs, debt payments, cheques and planned costs. Turn a single bill off with the bell on Home."
+          value={settings.billReminders.on}
+          onChange={(on) => update({ billReminders: { ...settings.billReminders, on } }).catch(() => Alert.alert('Could not save', 'Please try again.'))}
+          testID="settings-bill-reminders"
+        />
+        {settings.billReminders.on ? (
+          <View style={{ gap: Spacing.one }}>
+            <T variant="label">Remind me</T>
+            <Segmented
+              label="Remind me before a bill is due"
+              options={LEAD_DAY_OPTIONS.map((n) => ({ value: String(n), label: leadLabel(n) }))}
+              value={String(settings.billReminders.leadDays)}
+              onChange={(v) => update({ billReminders: { ...settings.billReminders, leadDays: Number(v) } }).catch(() => Alert.alert('Could not save', 'Please try again.'))}
+              testID="settings-bill-lead"
+            />
+            <T variant="caption" tone="secondary">
+              At 09:00, {settings.billReminders.leadDays === 0 ? 'on the day' : `${leadLabel(settings.billReminders.leadDays)} before`} the bill is due.
+              {settings.billReminders.muted.length ? ` ${settings.billReminders.muted.length} bill${settings.billReminders.muted.length === 1 ? '' : 's'} turned off.` : ''}
+            </T>
+          </View>
         ) : null}
         <T variant="label">Alert levels</T>
         <TextField

@@ -82,6 +82,17 @@ function DashboardBody({ input }: { input: PlanInput }) {
       bump();
     }
   };
+  const reminders = input.settings.billReminders;
+  const toggleReminder = async (u: UpcomingItem) => {
+    const muted = reminders.muted.includes(u.refId) ? reminders.muted.filter((x) => x !== u.refId) : [...reminders.muted, u.refId];
+    try {
+      await repo.updateSettings({ billReminders: { ...reminders, muted } });
+    } catch {
+      Alert.alert("Couldn't save", 'The reminder was not changed. Please try again.');
+    } finally {
+      bump();
+    }
+  };
   const onUndo = async () => {
     const u = undo;
     setUndo(null);
@@ -227,6 +238,19 @@ function DashboardBody({ input }: { input: PlanInput }) {
                   {money(u.amount)}
                 </T>
               </Pressable>
+              {reminders.on && u.kind === 'cost' ? (
+                <Pressable
+                  onPress={() => toggleReminder(u)}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: !reminders.muted.includes(u.refId) }}
+                  accessibilityLabel={`Reminder for ${u.title}`}
+                  testID={`upcoming-bell-${i}`}
+                  style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  <T maxFontSizeMultiplier={1.3} tone={reminders.muted.includes(u.refId) ? 'secondary' : 'default'}>
+                    {reminders.muted.includes(u.refId) ? '🔕' : '🔔'}
+                  </T>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={() => onPaid(u)}
                 accessibilityRole="button"

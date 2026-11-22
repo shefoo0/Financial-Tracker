@@ -54,6 +54,26 @@ describe('Categories', () => {
     await waitFor(async () => expect((await repo.listCategories()).find((c) => c.id === 'housing')!.name).toBe('Home'));
   });
 
+  it('sets, shows and clears a monthly limit on a cost category', async () => {
+    const { repo } = await renderWithRepo(<Categories />, { settings });
+    expect((await screen.findByTestId('category-limit-groceries')).props.children).toBe('No monthly limit');
+    await fireEvent.press(screen.getByTestId('category-groceries'));
+    await fireEvent.changeText(screen.getByTestId('category-limit-input'), '1500');
+    await fireEvent.press(screen.getByTestId('category-save'));
+    await waitFor(async () => expect((await repo.listCategories()).find((c) => c.id === 'groceries')!.monthlyLimit).toBe(150000));
+    await waitFor(() => expect(screen.getByTestId('category-limit-groceries').props.children).toBe('Limit AED 1,500.00 a month'));
+    await fireEvent.press(screen.getByTestId('category-groceries'));
+    await fireEvent.changeText(screen.getByTestId('category-limit-input'), '');
+    await fireEvent.press(screen.getByTestId('category-save'));
+    await waitFor(async () => expect((await repo.listCategories()).find((c) => c.id === 'groceries')!.monthlyLimit).toBeNull());
+  });
+
+  it('offers no limit field for income categories', async () => {
+    await renderWithRepo(<Categories />, { settings });
+    await fireEvent.press(await screen.findByTestId('category-salary'));
+    expect(screen.queryByTestId('category-limit-input')).toBeNull();
+  });
+
   it('removes an unused category after confirmation', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { repo } = await renderWithRepo(<Categories />, { settings });
