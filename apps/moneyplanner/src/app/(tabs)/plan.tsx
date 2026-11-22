@@ -40,7 +40,6 @@ export default function PlanScreen() {
     return (
       <Screen>
         <ScreenHeader title="Plan" />
-        <ModuleCards input={data} />
         <EmptyState
           title="Plan your regular money"
           message="Recurring items are income and costs that repeat, like your salary, rent, subscriptions or insurance. Add them once and they appear in every month, the dashboard and the forecast."
@@ -51,6 +50,8 @@ export default function PlanScreen() {
             </View>
           }
         />
+        {/* First things first: adding income and costs; debts and cheques come after. */}
+        <ModuleCards input={data} />
       </Screen>
     );
   }

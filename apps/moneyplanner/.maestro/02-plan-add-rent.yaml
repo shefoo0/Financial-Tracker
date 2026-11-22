@@ -20,6 +20,10 @@ name: Add a recurring cost
 - assertVisible: "Welcome to Money Planner"
 - tapOn: "Plan"
 - assertVisible: "Plan your regular money"
+- scrollUntilVisible:
+    element:
+      id: plan-add-cost
+    visibilityPercentage: 50
 - tapOn:
     id: plan-add-cost
 - assertVisible:

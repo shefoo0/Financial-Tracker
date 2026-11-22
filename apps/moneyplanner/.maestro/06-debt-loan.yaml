@@ -21,6 +21,10 @@ name: Add a loan
     id: dashboard-screen
 # Home shows its empty state until there is a regular item, so add Rent first.
 - tapOn: "Plan"
+- scrollUntilVisible:
+    element:
+      id: plan-add-cost
+    visibilityPercentage: 50
 - tapOn:
     id: plan-add-cost
 - tapOn:
