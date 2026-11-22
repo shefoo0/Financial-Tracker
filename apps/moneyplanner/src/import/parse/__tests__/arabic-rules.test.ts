@@ -166,3 +166,14 @@ describe('Arabic digits in the parsers', () => {
     expect(sms.rows[0]?.amount).toBe(4500);
   });
 });
+
+describe('rules match whole words', () => {
+  it('short keys do not match inside longer words', () => {
+    const rules = [{ pattern: 'DU', categoryId: 'utilities' }, { pattern: 'RTA', categoryId: 'transport' }, { pattern: 'NOL', categoryId: 'transport' }];
+    expect(matchRules('DUBAI MALL', rules)).toBeNull();
+    expect(matchRules('STARTA CAFE', rules)).toBeNull();
+    expect(matchRules('NOLAN SHOP', rules)).toBeNull();
+    expect(matchRules('POS DU MOBILE 21/11', rules)?.pattern).toBe('DU');
+    expect(matchRules('RTA-PARKING', rules)?.pattern).toBe('RTA');
+  });
+});

@@ -35,19 +35,35 @@ export async function ocrImage(uri: string): Promise<string[]> {
 }
 
 export const PAGE_BREAK = '';
+export const OCR_MAX_PAGES = 20;
+export const TRUNCATED_MESSAGE = `Only the first ${OCR_MAX_PAGES} pages were read — import the rest as a second file.`;
 
-/** Renders up to maxPages pages of a PDF and reads each. Returns all lines, pages separated by an empty line. */
-export async function ocrPdfPages(
-  uri: string,
-  maxPages = 10,
-  onProgress?: (done: number, total: number) => void,
-): Promise<string[]> {
+export interface OcrPdfResult {
+  /** All lines, pages separated by an empty line. */
+  lines: string[];
+  pagesRead: number;
+  /** The PDF has more pages than were read. */
+  truncated: boolean;
+}
+
+export interface OcrPdfOptions {
+  maxPages?: number;
+  /** Real page count when known (from the text reader), used as the progress total. */
+  totalPages?: number;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/** Renders up to maxPages (default 20) pages of a PDF and reads each. Page images are deleted afterwards. */
+export async function ocrPdfPages(uri: string, options: OcrPdfOptions = {}): Promise<OcrPdfResult> {
+  const maxPages = options.maxPages ?? OCR_MAX_PAGES;
   if (!isOcrSupported()) {
     throw new OcrError('unsupported', 'Reading scanned PDFs is not available on this device.');
   }
   const out: string[] = [];
   let done = 0;
-  for (let page = 0; page < maxPages; page++) {
+  let truncated = false;
+  const known = options.totalPages && options.totalPages > 0 ? options.totalPages : undefined;
+  for (let page = 0; ; page++) {
     let img: string | null;
     try {
       img = await ocrNative.renderPage(uri, page);
@@ -60,16 +76,23 @@ export async function ocrPdfPages(
       throw new OcrError('failed', 'The PDF pages could not be read.');
     }
     if (img === null) break;
-    let lines: string[];
+    if (page >= maxPages) {
+      // A page exists beyond the limit: only probing, so drop its image.
+      ocrNative.deleteFile(img);
+      truncated = true;
+      break;
+    }
     try {
-      lines = cleanLines(await ocrNative.recognise(img));
+      const lines = cleanLines(await ocrNative.recognise(img));
+      if (out.length > 0) out.push(PAGE_BREAK);
+      out.push(...lines);
     } catch {
       throw new OcrError('failed', 'The PDF pages could not be read.');
+    } finally {
+      ocrNative.deleteFile(img);
     }
-    if (out.length > 0) out.push(PAGE_BREAK);
-    out.push(...lines);
     done++;
-    onProgress?.(done, maxPages);
+    options.onProgress?.(done, known ? Math.min(known, maxPages) : done);
   }
-  return out;
+  return { lines: out, pagesRead: done, truncated };
 }

@@ -9,6 +9,8 @@ const tokens = (s: string) =>
     .split(' ')
     .filter((t) => t.length > 1 && !/^\d+$/.test(t));
 
+const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, '').replace(/^nodescription$/, '');
+
 /** 0-1 similarity of two descriptions: word overlap, or 1 when one contains the other. */
 export function descriptionSimilarity(a: string, b: string): number {
   const ta = tokens(a);
@@ -39,7 +41,11 @@ export function dedupe(rows: ParsedRow[], existing: Transaction[]): DedupedRow[]
       if (taken.has(t.id) || t.kind !== row.kind || t.amount !== row.amount) continue;
       const gap = Math.abs(diffDays(t.date, row.date));
       if (gap > 1) continue;
-      const sim = descriptionSimilarity(t.description, row.description);
+      let sim = descriptionSimilarity(t.description, row.description);
+      if (!tokens(t.description).length || !tokens(row.description).length) {
+        // Nothing comparable (numbers only, one letter, empty): same day and the same text, or nothing.
+        sim = gap === 0 && plain(t.description) === plain(row.description) ? 1 : 0;
+      }
       if (sim < 0.5) continue;
       const score = sim * 10 - gap;
       if (!best || score > best.score) best = { id: t.id, score };

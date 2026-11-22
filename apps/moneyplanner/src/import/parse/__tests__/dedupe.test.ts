@@ -41,3 +41,15 @@ describe('dedupe', () => {
     expect(dedupe([], [tx({})])).toEqual([]);
   });
 });
+
+describe('dedupe without comparable words', () => {
+  it('matches numeric-only and one-letter descriptions on the same day with the same text', () => {
+    expect(dedupe([row({ description: '123456' })], [tx({ description: '123456' })])[0].duplicateOf).toBe('t1');
+    expect(dedupe([row({ description: 'A' })], [tx({ description: 'A' })])[0].duplicateOf).toBe('t1');
+    expect(dedupe([row({ description: '(no description)' })], [tx({ description: '' })])[0].duplicateOf).toBe('t1');
+  });
+  it('does not match a different number, or a different day', () => {
+    expect(dedupe([row({ description: '123456' })], [tx({ description: '654321' })])[0].duplicateOf).toBeUndefined();
+    expect(dedupe([row({ description: '123456', date: '2026-11-22' })], [tx({ description: '123456' })])[0].duplicateOf).toBeUndefined();
+  });
+});

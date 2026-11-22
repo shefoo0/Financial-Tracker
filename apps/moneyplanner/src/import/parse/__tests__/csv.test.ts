@@ -121,3 +121,21 @@ describe('parseCsv', () => {
     expect(r.rows[0].confidence).toBeLessThan(0.7);
   });
 });
+
+describe('card export sign convention', () => {
+  const head = 'Card statement\nDate,Description,Amount\n';
+  it('positive = charge when the file is card-like and most rows are positive', () => {
+    const r = parseCsv(`${head}01/11/2026,SHOP,100.00\n02/11/2026,CAFE,50.00\n03/11/2026,GROCER,70.00\n04/11/2026,PAYMENT THANK YOU,-200.00\n`);
+    expect(r.rows.map((x) => x.kind)).toEqual(['cost', 'cost', 'cost', 'income']);
+    expect(r.rows.every((x) => x.confidence === 1)).toBe(true);
+  });
+  it('keeps negative = spending for bank files', () => {
+    const r = parseCsv('Date,Description,Amount\n01/11/2026,SHOP,-100.00\n02/11/2026,SALARY,500.00\n');
+    expect(r.rows.map((x) => x.kind)).toEqual(['cost', 'income']);
+  });
+  it('warns and lowers confidence when a card file is mixed', () => {
+    const r = parseCsv(`${head}01/11/2026,SHOP,100.00\n02/11/2026,CAFE,-50.00\n`);
+    expect(r.rows[0].confidence).toBeLessThanOrEqual(0.6);
+    expect(r.rows[0].warnings).toContain('Signs may be reversed — use Flip all if needed');
+  });
+});

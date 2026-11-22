@@ -4,5 +4,6 @@ import type { OcrNative } from './native';
 export const ocrNative: OcrNative = {
   isSupported: () => false,
   recognise: async () => [],
+  deleteFile: () => {},
   renderPage: async () => null,
 };

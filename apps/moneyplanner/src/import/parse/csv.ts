@@ -283,6 +283,7 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
   return parseTable(table, map, map.delimiter === '\t' ? '\t' : map.delimiter);
 }
 
+const SIGNS_REVERSED = 'Signs may be reversed — use Flip all if needed';
 const ASSUMED_SPENDING = 'The file does not say whether this is money in or out; assumed spending.';
 
 /** Parses a table of cells with a mapping. Used for CSV text and for spreadsheet sheets. `rawSeparator` joins the cells of `raw`. */
@@ -308,6 +309,25 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
     for (let i = start; i < table.length && !signed; i++) {
       const t = parseAmountToken(cell(table[i], map.amount));
       if (t && (t.fils < 0 || t.marker)) signed = true;
+    }
+  }
+  // Card exports often list charges as positive and payments as negative. Decide from the header words and the sign counts.
+  let positiveIsCost = false;
+  let signsUnsure = false;
+  if (signed && map.direction === null && map.amount !== null && map.debit === null && map.credit === null) {
+    let neg = 0;
+    let pos = 0;
+    for (let i = start; i < table.length; i++) {
+      const t = parseAmountToken(cell(table[i], map.amount));
+      if (!t || t.marker || t.fils === 0) continue;
+      if (t.fils < 0) neg++;
+      else pos++;
+    }
+    const cardLike = table.slice(0, start).some((r) => /\b(card|credit limit|statement balance|minimum payment|min payment)\b/i.test(r.join(' ')));
+    if (cardLike && neg + pos > 0) {
+      const minority = Math.min(neg, pos) / (neg + pos);
+      if (pos > neg) positiveIsCost = true;
+      if (minority > 0.4) signsUnsure = true;
     }
   }
   const singleColumn = map.debit === null && map.credit === null;
@@ -374,7 +394,10 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
         const dirText = cell(r, map.direction).toLowerCase();
         if (dirText) kind = isCreditWord(dirText) ? 'income' : 'cost';
         else if (tok.marker) kind = tok.marker === 'cr' ? 'income' : 'cost';
-        else if (signed) kind = tok.fils < 0 ? 'cost' : 'income';
+        else if (signed) {
+          kind = (tok.fils < 0) !== positiveIsCost ? 'cost' : 'income';
+          if (signsUnsure) lower(0.6, SIGNS_REVERSED);
+        }
         else lower(0.5, ASSUMED_SPENDING);
       }
     }

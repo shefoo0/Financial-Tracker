@@ -81,20 +81,29 @@ export function learnRule(description: string, categoryId: string): CategoryRule
   return { pattern: key || normaliseForRules(description).split(' ').slice(0, 3).join(' '), categoryId };
 }
 
+const wordsOf = (s: string) => s.split(/[^\p{L}\p{N}&]+/u).filter(Boolean);
+
+/** Does `words` contain `seq` as consecutive whole words? ("DU" is not in "DUBAI MALL".) */
+function containsSequence(words: string[], seq: string[]): boolean {
+  for (let i = 0; i + seq.length <= words.length; i++) if (seq.every((w, j) => words[i + j] === w)) return true;
+  return false;
+}
+
 /**
  * The user's rule that fits a description, or null. A rule fits when its pattern is contained in the
- * description (or in its cleaned merchant key); the longest pattern wins. Empty patterns never match.
+ * description as whole words (or in its cleaned merchant key); the longest pattern wins. Empty patterns never match.
  */
 export function matchRules(description: string, rules: CategoryRule[]): CategoryRule | null {
   const full = normaliseForRules(description);
   if (!full) return null;
-  const key = merchantKey(description);
+  const hay = [wordsOf(full), wordsOf(merchantKey(description))];
   let best: CategoryRule | null = null;
   let bestLen = 0;
   for (const r of rules) {
     const p = normaliseForRules(r.pattern);
     if (!p || p.length <= bestLen) continue;
-    if (full.includes(p) || key.includes(p)) {
+    const pw = wordsOf(p);
+    if (pw.length && hay.some((h) => containsSequence(h, pw))) {
       best = r;
       bestLen = p.length;
     }

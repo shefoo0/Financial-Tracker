@@ -110,6 +110,8 @@ interface MonthNumbers {
 
 /** What the Month screen shows for the current month plus `ahead` months. */
 async function month(ahead = 0): Promise<MonthNumbers> {
+  // Leave and come back, so the screen starts again at the current month with fresh data.
+  await goTo('import');
   await goTo('month');
   await screen.findByTestId('month-income');
   for (let i = 0; i < ahead; i++) await fireEvent.press(screen.getByTestId('month-next'));
@@ -208,7 +210,6 @@ describe('bank statement text with a running balance, December into January', ()
     expect(delta(await month(), nov0)).toEqual({ income: 0, spent: 0, closing: 0 });
     // December: -200 spent, +15,000 income. January: -450 spent. Balances carry forward.
     expect(delta(await month(1), dec0)).toEqual({ income: 1500000, spent: 20000, closing: 1500000 - 20000 });
-    await goTo('month'); await fireEvent.press(screen.getByTestId('month-next')); await fireEvent.press(screen.getByTestId('month-next')); console.log('LBL', ['month-opening','month-closing','month-income','month-spent'].map(labelOf));
     expect(delta(await month(2), jan0)).toEqual({ income: 0, spent: 45000, closing: 1500000 - 20000 - 45000 });
   });
 });
@@ -420,15 +421,13 @@ describe('learned rule and remembered columns', () => {
     await goTo('import');
     // Columns this odd layout can't be guessed: the user maps them by hand.
     await waitFor(() => expect(router.push).toHaveBeenCalled());
-    const first = router.push.mock.calls[0][0] as string;
-    if (first === '/import/columns') {
-      await goTo('columns');
-      await mapByHand();
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/import/review'));
-    }
+    expect(router.push).toHaveBeenCalledWith('/import/columns');
+    await goTo('columns');
+    await mapByHand();
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/import/review'));
     await goTo('review');
     expect(await screen.findByTestId('review-row-0')).toBeTruthy();
-    expect(summary()).toBe('Import 3 items · AED 75 spending · AED 10 income');
+    expect(summary()).toBe('Import 3 items · AED 75 spending · AED 1,000 income');
     // Teach CAREEM: Always put CAREEM RIDE in Entertainment & Travel.
     const idx = getSession().result!.rows.findIndex((r) => r.description === 'CAREEM RIDE 1');
     await fireEvent.press(screen.getByTestId(`review-category-${idx}`));
@@ -436,7 +435,7 @@ describe('learned rule and remembered columns', () => {
     await fireEvent.press(screen.getByTestId('rule-confirm-yes'));
     await waitFor(async () => expect(await repo.listCategoryRules()).toMatchObject([{ pattern: 'CAREEM RIDE', categoryId: 'entertainment' }]));
     await importAll();
-    expect(delta(await month(), nov0)).toEqual({ income: 1000, spent: 7500, closing: 1000 - 7500 });
+    expect(delta(await month(), nov0)).toEqual({ income: 100000, spent: 7500, closing: 100000 - 7500 });
     const template = await repo.getImportTemplate('mybank.csv');
     expect(template?.mapping).toMatchObject({ date: 1, description: 2, amount: 3 });
     const afterFirst = await month();
