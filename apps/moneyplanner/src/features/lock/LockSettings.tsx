@@ -132,7 +132,7 @@ export function LockSettings({ settings, update }: { settings: Settings; update:
             <Button label="Change PIN" variant="secondary" onPress={() => open('change')} testID="settings-lock-change" />
             {bioAvailable ? <ToggleRow label="Use Face ID / fingerprint" value={bioOn} onChange={toggleBio} testID="settings-lock-biometric" /> : null}
             <T variant="caption" tone="secondary">
-              If you forget the PIN, the only way in is to delete this profile's data. It can't be recovered.
+              If you forget the PIN, the only way in is to delete this profile&apos;s data. It can&apos;t be recovered.
             </T>
           </>
         ) : null}

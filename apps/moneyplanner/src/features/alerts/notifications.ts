@@ -26,6 +26,7 @@ export async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Money alerts',
+    // eslint-disable-next-line import/namespace
     importance: Notifications.AndroidImportance.DEFAULT,
   });
 }

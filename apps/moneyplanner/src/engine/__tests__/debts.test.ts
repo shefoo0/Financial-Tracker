@@ -388,13 +388,13 @@ describe('logged payments as outflows', () => {
   const i = input({ settings: s, debts: [l], debtPayments: logs });
 
   it('count after the starting balance date, once, and replace the month regular payment', () => {
-    const f = forecast(i, { today: '2026-02-01', days: 30, months: 1 });
+    const f = forecast(i, { today: '2026-02-01', days: 60, months: 1 });
     const ev = f.days.flatMap((d) => d.events).filter((e) => e.source === 'debt');
     expect(ev.map((e) => [e.date, e.amount, e.label])).toEqual([
       ['2026-02-10', 30000, 'Car loan payment (logged)'],
       ['2026-02-12', 5000, 'Car loan payment (logged)'],
       ['2026-02-13', 2000, 'Car loan payment (logged)'],
-      ['2026-03-15', 30000, 'Car loan payment'],
+      ['2026-03-15', 23000, 'Car loan payment'],
     ]);
     expect(monthSummary('2026-02', i).debtPayments).toBe(37000);
     expect(yearSummary(2026, i).months[1].debtPayments).toBe(37000);

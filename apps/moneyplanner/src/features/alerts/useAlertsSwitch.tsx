@@ -36,7 +36,7 @@ export function AlertsExplainerSheet({
       {stage === 'denied' ? (
         <View style={{ gap: Spacing.three }}>
           <T testID="alerts-denied-text">
-            Notifications are switched off for Money Planner on this phone, so reminders can't appear. Alerts still show on the dashboard. To get reminders, open your phone's settings, choose Notifications, and allow
+            Notifications are switched off for Money Planner on this phone, so reminders can&apos;t appear. Alerts still show on the dashboard. To get reminders, open your phone&apos;s settings, choose Notifications, and allow
             them for Money Planner.
           </T>
           <Button label="Open phone settings" onPress={onOpenSettings} testID="alerts-open-settings" />
@@ -46,7 +46,7 @@ export function AlertsExplainerSheet({
       ) : (
         <View style={{ gap: Spacing.three }}>
           <T>
-            Money Planner can remind you at 9:00 in the morning, a day or so before something happens: a balance that would drop below zero or your buffer, a card near its limit, a cheque that isn't covered, or a debt
+            Money Planner can remind you at 9:00 in the morning, a day or so before something happens: a balance that would drop below zero or your buffer, a card near its limit, a cheque that isn&apos;t covered, or a debt
             that ends.
           </T>
           <T tone="secondary">
