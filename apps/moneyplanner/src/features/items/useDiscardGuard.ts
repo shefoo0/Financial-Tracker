@@ -1,21 +1,30 @@
 // Asks "Discard changes?" before leaving a form with unsaved edits. Built on
-// expo-router's usePreventRemove, which wraps React Navigation's beforeRemove event.
+// expo-router's usePreventRemove.
 import { router, usePreventRemove } from 'expo-router';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+export interface DiscardGuard {
+  /** Call just before saving or deleting: switches the guard off while the write runs. */
+  begin(): void;
+  /** Call when the save or delete failed: the guard protects the edits again. */
+  cancel(): void;
+  /** Call after a successful save or delete: closes the form. */
+  leave(): Promise<void>;
+}
+
 /**
- * Returns `leave`: call it to close the form on purpose (after a save or a
- * delete). Switching the guard off with state is too late: the navigator only
- * learns about it after a re-render, so going back right away (or from an
- * effect) is still blocked — on iPhone the form simply stayed open after Save.
- * Instead `leave` marks the exit as intended and goes back; the guard sees the
- * mark and lets that navigation through with `repeat`. expo-router applies
- * the "no longer prevented" state on its next render, so a navigation can be
- * stopped once more right after; with the mark set, that just repeats again
- * instead of asking the user a second time.
+ * Turning the guard off is a state change that expo-router's navigator only
+ * applies on a later render, and on iPhone a modal that was still protected
+ * simply stayed open after Save. So the guard is switched off when the save
+ * STARTS (begin), the write runs meanwhile, and leave() waits two more frames
+ * before going back, by which time the navigator no longer blocks it. If the
+ * guard is still called for an exit we started, it stays quiet.
  */
-export function useDiscardGuard(dirty: boolean): () => void {
+export function useDiscardGuard(dirty: boolean): DiscardGuard {
+  const [closing, setClosing] = useState(false);
   const leaving = useRef(false);
   // The mark only covers this exit: if the navigation doesn't happen (nothing
   // to go back to, or it was cancelled), the guard protects edits again.
@@ -25,11 +34,10 @@ export function useDiscardGuard(dirty: boolean): () => void {
       leaving.current = false;
     }, 1500);
   };
-  usePreventRemove(dirty, ({ repeat }) => {
-    if (leaving.current) {
-      repeat();
-      return;
-    }
+  usePreventRemove(dirty && !closing, ({ repeat }) => {
+    // Already leaving on purpose (Save, Delete, Discard): never ask, and never
+    // repeat the navigation — on Android that went back twice and closed the app.
+    if (leaving.current) return;
     Alert.alert('Discard changes?', 'You have changes that are not saved.', [
       { text: 'Keep editing', style: 'cancel' },
       {
@@ -42,8 +50,14 @@ export function useDiscardGuard(dirty: boolean): () => void {
       },
     ]);
   });
-  return () => {
-    markLeaving();
-    router.back();
+  return {
+    begin: () => setClosing(true),
+    cancel: () => setClosing(false),
+    leave: async () => {
+      markLeaving();
+      await nextFrame();
+      await nextFrame();
+      router.back();
+    },
   };
 }

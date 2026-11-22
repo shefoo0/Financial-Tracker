@@ -17,7 +17,10 @@ name: Add a one-time item
 - tapOn:
     id: onboarding-start
 - tapOn: "Month"
-- assertVisible: "Nothing in this month"
+# The empty message sits under the month summary: scroll to it.
+- scrollUntilVisible:
+    element: "Nothing in this month"
+    direction: DOWN
 - tapOn:
     id: month-add-item
 - assertVisible:
@@ -25,7 +28,7 @@ name: Add a one-time item
 - tapOn:
     id: transaction-description
 - inputText: "Taxi"
-- hideKeyboard
+- runFlow: common/dismiss-text-keyboard.yaml
 - scrollUntilVisible:
     element:
       id: transaction-amount

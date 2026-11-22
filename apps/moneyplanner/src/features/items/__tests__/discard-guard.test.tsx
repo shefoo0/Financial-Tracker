@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert, Pressable, Text } from 'react-native';
 
 import { useDiscardGuard } from '@/features/items/useDiscardGuard';
@@ -9,11 +9,19 @@ import { preventRemove, resetRouterMock, router } from '../../../../test-support
 jest.mock('expo-router', () => require('../../../../test-support/expo-router-mock'));
 
 function Form({ dirty }: { dirty: boolean }) {
-  const leave = useDiscardGuard(dirty);
+  const guard = useDiscardGuard(dirty);
   return (
-    <Pressable testID="leave" onPress={leave}>
-      <Text>Leave</Text>
-    </Pressable>
+    <>
+      <Pressable testID="begin" onPress={guard.begin}>
+        <Text>Begin</Text>
+      </Pressable>
+      <Pressable testID="cancel" onPress={guard.cancel}>
+        <Text>Cancel</Text>
+      </Pressable>
+      <Pressable testID="leave" onPress={() => guard.leave()}>
+        <Text>Leave</Text>
+      </Pressable>
+    </>
   );
 }
 
@@ -37,19 +45,25 @@ describe('useDiscardGuard', () => {
     expect(preventRemove.current).toBe(false);
   });
 
-  it('leave() goes back, and the guard then repeats without asking', async () => {
+  it('switches the guard off while a save runs (begin) and back on if it fails (cancel)', async () => {
+    await render(<Form dirty />);
+    expect(preventRemove.current).toBe(true);
+    await fireEvent.press(screen.getByTestId('begin'));
+    expect(preventRemove.current).toBe(false);
+    await fireEvent.press(screen.getByTestId('cancel'));
+    expect(preventRemove.current).toBe(true);
+  });
+
+  it('leave() goes back once, and the guard then neither asks nor repeats', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await render(<Form dirty />);
     await fireEvent.press(screen.getByTestId('leave'));
-    expect(router.back).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(router.back).toHaveBeenCalledTimes(1));
     const e = event();
     preventRemove.callback!(e);
-    expect(e.repeat).toHaveBeenCalledTimes(1);
+    expect(e.repeat).not.toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
-    // Stopped once more right after: still repeats without asking.
-    const again = event();
-    preventRemove.callback!(again);
-    expect(again.repeat).toHaveBeenCalledTimes(1);
+    expect(router.back).toHaveBeenCalledTimes(1);
     expect(alert).not.toHaveBeenCalled();
   });
 

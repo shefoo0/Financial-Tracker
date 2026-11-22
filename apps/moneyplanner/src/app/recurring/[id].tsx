@@ -56,7 +56,7 @@ export default function RecurringScreen() {
 function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind }) {
   const [form, setForm] = useState<RecurringForm>(() => (item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
   const [initialForm] = useState(() => JSON.stringify(item ? formFromRecurring(item) : emptyRecurringForm(initialKind)));
-  const leave = useDiscardGuard(JSON.stringify(form) !== initialForm);
+  const guard = useDiscardGuard(JSON.stringify(form) !== initialForm);
   const [errors, setErrors] = useState<FormErrors<RecurringField>>({});
   const [saving, setSaving] = useState(false);
   const save = useRepoMutation((r, i: RecurringItem) => r.upsertRecurring(i));
@@ -69,13 +69,15 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
 
   const persist = async (next: RecurringItem, resetOverrides: OccurrenceOverride[]) => {
     setSaving(true);
+    guard.begin();
     try {
       await save(next);
       // The item is saved first; payments changed one by one no longer match its dates, so they go.
       for (const o of resetOverrides) await removeOverride(o.id);
-      leave();
+      await guard.leave();
     } catch {
       setSaving(false);
+      guard.cancel();
       Alert.alert("Couldn't save", 'Your changes were not saved. Please try again.');
     }
   };
@@ -109,10 +111,12 @@ function RecurringEditor({ input, item, initialKind }: { input: PlanInput; item:
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          guard.begin();
           try {
             await remove(item.id);
-            leave();
+            await guard.leave();
           } catch {
+            guard.cancel();
             Alert.alert("Couldn't delete", 'Please try again.');
           }
         },

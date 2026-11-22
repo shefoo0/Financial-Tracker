@@ -398,31 +398,44 @@ export function SelectField<V extends string>({
   return (
     <FieldShell label={label} error={error}>
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={() => setOpen((o) => !o)}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selected?.label ?? 'not chosen'}`}
+        accessibilityState={{ expanded: open }}
         testID={testID}
-        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : c.border, backgroundColor: c.backgroundElement }]}>
+        style={[styles.input, styles.pressableInput, { borderColor: error ? c.negative : open ? c.accent : c.border, backgroundColor: c.backgroundElement }]}>
         <T tone={selected ? 'default' : 'secondary'}>{selected?.label ?? placeholder}</T>
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <T tone="secondary">{open ? '▴' : '▾'}</T>
+        </View>
       </Pressable>
-      <Sheet visible={open} onClose={() => setOpen(false)} title={label}>
-        {options.map((o) => (
-          <Pressable
-            key={o.value}
-            onPress={() => {
-              onChange(o.value);
-              setOpen(false);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={o.label}
-            accessibilityState={{ selected: o.value === value }}
-            testID={testID ? `${testID}-option-${o.value}` : undefined}
-            style={[styles.option, o.value === value && { backgroundColor: c.backgroundSelected }]}>
-            <T style={o.value === value ? { fontWeight: '700' } : undefined}>{o.label}</T>
-            {o.value === value ? <T tone="accent" accessibilityLabel="Selected">✓</T> : null}
-          </Pressable>
-        ))}
-      </Sheet>
+      {/* The options open right under the field, inside the page (no pop-up):
+          pop-ups over the iPhone's modal forms didn't always close, and an
+          inline list scrolls with the page. */}
+      {open ? (
+        <View style={[styles.inlineOptions, { borderColor: c.border, backgroundColor: c.backgroundElement }]} testID={testID ? `${testID}-options` : undefined}>
+          {options.map((o) => (
+            <Pressable
+              key={o.value}
+              onPress={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={o.label}
+              accessibilityState={{ selected: o.value === value }}
+              testID={testID ? `${testID}-option-${o.value}` : undefined}
+              style={[styles.option, o.value === value && { backgroundColor: c.backgroundSelected }]}>
+              <T style={o.value === value ? { fontWeight: '700' } : undefined}>{o.label}</T>
+              {o.value === value ? (
+                <T tone="accent" accessibilityLabel="Selected">
+                  ✓
+                </T>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </FieldShell>
   );
 }
@@ -592,10 +605,11 @@ const styles = StyleSheet.create({
   button: { minHeight: 50, borderRadius: 16, overflow: 'hidden', paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
   field: { gap: Spacing.one },
   input: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },
-  pressableInput: { justifyContent: 'center' },
+  pressableInput: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   modalContainer: { flex: 1, backgroundColor: 'rgba(3,4,12,0.55)', justifyContent: 'flex-end' },
   sheet: { maxHeight: '80%', width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
   handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, opacity: 0.5, marginBottom: Spacing.three },
+  inlineOptions: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.one },
   option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.three, borderRadius: 14 },
   segmented: { flexDirection: 'row', padding: 4, gap: 4 },
   segment: { flex: 1, minHeight: 44, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.two },

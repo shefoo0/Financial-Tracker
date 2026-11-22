@@ -27,7 +27,7 @@ name: Add a recurring cost
 - tapOn:
     id: recurring-name
 - inputText: "Rent"
-- hideKeyboard
+- runFlow: common/dismiss-text-keyboard.yaml
 - tapOn:
     id: recurring-amount
 - inputText: "9500"

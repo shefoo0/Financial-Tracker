@@ -51,7 +51,7 @@ name: Screenshots of the main screens
 - tapOn:
     id: recurring-name
 - inputText: "Rent"
-- hideKeyboard
+- runFlow: ../.maestro/common/dismiss-text-keyboard.yaml
 - tapOn:
     id: recurring-amount
 - inputText: "9500"

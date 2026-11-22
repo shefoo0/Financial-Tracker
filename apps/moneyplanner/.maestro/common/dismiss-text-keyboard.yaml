@@ -1,0 +1,16 @@
+# Closes the keyboard after typing into a TEXT field.
+# Android: hideKeyboard. iPhone: press Return (Maestro's hideKeyboard on iOS
+# swipes or taps the screen, and on the forms that opened the Category field).
+# This file lives in a subfolder so the flow runner does not run it as a flow.
+appId: com.shefoo.moneyplanner
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - pressKey: Enter

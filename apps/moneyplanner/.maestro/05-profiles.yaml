@@ -25,7 +25,7 @@ name: Profiles
 - tapOn:
     id: profile-name-input
 - inputText: "Layla"
-- runFlow: common/dismiss-keyboard.yaml
+- runFlow: common/dismiss-text-keyboard.yaml
 - tapOn:
     id: profile-create
 # The new profile starts with the setup wizard.
