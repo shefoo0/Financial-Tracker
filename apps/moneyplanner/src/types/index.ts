@@ -111,7 +111,7 @@ export interface BillReminders {
 }
 
 /** Look of the dashboard balance card: solid white/black, or one of four gradients. */
-export type ChartStyle = 'plain' | 'violet' | 'ocean' | 'emerald' | 'sunset';
+export type ChartStyle = 'plain' | 'ocean' | 'emerald' | 'sunset' | 'graphite';
 
 export interface Settings {
   /** Label shown next to amounts. No conversion is done. */
@@ -360,6 +360,14 @@ export interface PlanInput {
   debtPayments: DebtPayment[];
   debtOverrides: DebtOverride[];
   cheques: Cheque[];
+  /** Known bank balances (end of day), saved whenever the user sets a balance. Optional: empty or missing means none. */
+  balanceSnapshots?: BalanceSnapshot[];
+}
+
+/** The balance the user said they had at the end of `date`. Anchors the balance history. */
+export interface BalanceSnapshot {
+  date: ISODate;
+  balance: Fils;
 }
 
 // ---- Statement import (milestone 3) ----

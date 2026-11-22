@@ -111,7 +111,10 @@ export default function SettingsScreen() {
 
   const saveBalance = () =>
     run('Could not save', async () => {
-      await update({ startingBalance: signedBalance(newBalance, overdrawn), startingBalanceDate: today() });
+      const balance = signedBalance(newBalance, overdrawn);
+      const date = today();
+      await update({ startingBalance: balance, startingBalanceDate: date });
+      await repo.upsertBalanceSnapshot({ date, balance }); // an anchor for the balance history chart
       setNewBalance(null);
       setOverdrawn(false);
       setBalanceKey((k) => k + 1);

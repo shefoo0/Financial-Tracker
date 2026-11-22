@@ -119,6 +119,13 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_transactions_import ON transactions (import_id);
   `,
+  // v5: balance snapshots (the balance the user set on a date), the anchors of the balance history chart
+  `
+  CREATE TABLE balance_snapshots (
+    date TEXT PRIMARY KEY NOT NULL,
+    balance INTEGER NOT NULL
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -64,7 +64,7 @@ export const Colors = {
   },
 } as const;
 
-export const CHART_STYLE_NAMES = ['plain', 'violet', 'ocean', 'emerald', 'sunset'] as const;
+export const CHART_STYLE_NAMES = ['plain', 'ocean', 'emerald', 'sunset', 'graphite'] as const;
 export type ChartStyleName = (typeof CHART_STYLE_NAMES)[number];
 
 /**
@@ -89,11 +89,16 @@ export const ChartStyles: Record<
   { label: string; gradient: readonly string[] | null; lines: { light: ChartLineColors; dark: ChartLineColors } }
 > = {
   plain: { label: 'Plain', gradient: null, lines: { light: { actual: '#1E3A8A', forecast: '#0B7A5E' }, dark: { actual: '#FFFFFF', forecast: '#34D399' } } },
-  violet: { label: 'Violet', gradient: ['#5B4DFF', '#8B45F0', '#C93A82'], lines: onGradientBoth },
   ocean: { label: 'Ocean', gradient: ['#1F4FD8', '#1670C7', '#0B7F8F'], lines: onGradientBoth },
   emerald: { label: 'Emerald', gradient: ['#0E7A4F', '#0A7F62', '#0A7E86'], lines: onGradientBoth },
-  sunset: { label: 'Sunset', gradient: ['#C2410C', '#CC3A4B', '#C42A78'], lines: onGradientBoth },
+  sunset: { label: 'Sunset', gradient: ['#B45309', '#C2410C', '#B91C1C'], lines: onGradientBoth },
+  graphite: { label: 'Graphite', gradient: ['#1F2937', '#374151'], lines: onGradientBoth },
 };
+
+/** A stored or restored value that is no longer a card style (e.g. the removed 'violet') becomes 'plain'. */
+export function chartStyleOf(v: unknown): ChartStyleName {
+  return typeof v === 'string' && (CHART_STYLE_NAMES as readonly string[]).includes(v) ? (v as ChartStyleName) : 'plain';
+}
 
 /** Solid card colours for the 'plain' style. */
 export const PlainCard = { light: { bg: '#FFFFFF', border: '#DCDDEB' }, dark: { bg: '#0B0D14', border: '#2C3152' } } as const;

@@ -17,10 +17,10 @@ import {
   StatTile,
   T,
 } from '@/components/ui';
-import { Radius, Spacing } from '@/constants/theme';
+import { chartStyleOf, Radius, Spacing } from '@/constants/theme';
 import { useData, usePlanInput } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
+import { balanceHistory, forecast as runForecast, monthSummary, yearSummary } from '@/engine';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
 import { categoryBars, monthShort } from '@/features/dashboard/helpers';
@@ -70,6 +70,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 12 }), [input, todayStr]);
   const ms = useMemo(() => monthSummary(month, input), [month, input]);
   const ys = useMemo(() => yearSummary(year, input), [year, input]);
+  const history = useMemo(() => balanceHistory(input, todayStr, 400), [input, todayStr]);
   const upcoming = useMemo(() => buildUpcoming(input, todayStr), [input, todayStr]);
 
   const onPaid = async (u: UpcomingItem) => {
@@ -149,8 +150,8 @@ function DashboardBody({ input }: { input: PlanInput }) {
       <Screen testID="dashboard-screen">
       {header}
 
-      <HeroCard testID="dashboard-forecast" chartStyle={input.settings.chartStyle ?? 'plain'}>
-        <ForecastHero fc={fc} todayStr={todayStr} currency={currency} buffer={buffer} chartStyle={input.settings.chartStyle ?? 'plain'} />
+      <HeroCard testID="dashboard-forecast" chartStyle={chartStyleOf(input.settings.chartStyle)}>
+        <ForecastHero fc={fc} todayStr={todayStr} currency={currency} buffer={buffer} history={history} chartStyle={chartStyleOf(input.settings.chartStyle)} />
       </HeroCard>
 
       <PaydayCard input={input} today={todayStr} />

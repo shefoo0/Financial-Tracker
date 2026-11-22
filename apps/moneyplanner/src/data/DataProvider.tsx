@@ -81,7 +81,7 @@ export function useRepoMutation<A extends unknown[], R>(write: (repo: Repository
 /** Loads everything the engine needs (debts and cheques are always included). */
 export function usePlanInput() {
   return useRepoQuery(async (r) => {
-    const [settings, categories, recurring, overrides, transactions, debts, debtPayments, debtOverrides, cheques] = await Promise.all([
+    const [settings, categories, recurring, overrides, transactions, debts, debtPayments, debtOverrides, cheques, balanceSnapshots] = await Promise.all([
       r.getSettings(),
       r.listCategories(),
       r.listRecurring(),
@@ -91,7 +91,8 @@ export function usePlanInput() {
       r.listDebtPayments(),
       r.listDebtOverrides(),
       r.listCheques(),
+      r.listBalanceSnapshots(),
     ]);
-    return { settings, categories, recurring, overrides, transactions, debts: debts.filter((d) => !d.archived), debtPayments, debtOverrides, cheques };
+    return { settings, categories, recurring, overrides, transactions, debts: debts.filter((d) => !d.archived), debtPayments, debtOverrides, cheques, balanceSnapshots };
   });
 }

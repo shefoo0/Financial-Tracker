@@ -3,7 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 
 import { T } from '@/components/ui';
 import { GradientFill } from '@/components/ui/internal';
-import { CHART_STYLE_NAMES, ChartStyles, PlainCard, Spacing } from '@/constants/theme';
+import { chartStyleOf, CHART_STYLE_NAMES, ChartStyles, PlainCard, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ChartStyle } from '@/types';
@@ -16,7 +16,7 @@ export function ChartStyleSetting({ value, onChange, testID = 'chart-style' }: {
       <T variant="label">Chart card</T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }} accessibilityRole="radiogroup">
         {CHART_STYLE_NAMES.map((name) => {
-          const on = name === (value ?? 'plain');
+          const on = name === chartStyleOf(value);
           const def = ChartStyles[name];
           return (
             <Pressable
@@ -46,7 +46,7 @@ export function ChartStyleSetting({ value, onChange, testID = 'chart-style' }: {
         })}
       </View>
       <T variant="caption" tone="secondary">
-        {ChartStyles[value ?? 'plain'].label}
+        {ChartStyles[chartStyleOf(value)].label}
       </T>
     </View>
   );

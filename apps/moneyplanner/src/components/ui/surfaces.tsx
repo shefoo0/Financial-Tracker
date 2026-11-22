@@ -2,7 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { ChartStyles, Palette, PlainCard, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
+import { chartStyleOf, ChartStyles, Palette, PlainCard, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { Glass, GradientFill, hiddenFromA11y, withAlpha } from './internal';
@@ -51,7 +51,7 @@ export function HeroCard({
   testID,
   accessibilityLabel,
   style,
-  chartStyle = 'violet',
+  chartStyle = 'ocean',
 }: {
   children: ReactNode;
   testID?: string;
@@ -62,7 +62,7 @@ export function HeroCard({
 }) {
   const c = useTheme();
   const dark = useColorScheme() === 'dark';
-  const gradient = chartStyle === 'plain' ? null : ChartStyles[chartStyle].gradient ?? c.hero;
+  const gradient = chartStyle === 'plain' ? null : ChartStyles[chartStyleOf(chartStyle)].gradient ?? c.hero;
   const plain = PlainCard[dark ? 'dark' : 'light'];
   const shadow = gradient ? withAlpha(gradient[0], 0.35) : dark ? 'rgba(0,0,0,0)' : c.shadow;
   return (

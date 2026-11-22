@@ -1,15 +1,20 @@
 // Pure helpers for the balance chart: axis ticks, labels, nearest point, series for each range.
-import { MONTHS, monthEnd, parseISODate } from '@/lib/dates';
+import { addMonthKey, MONTHS, monthEnd, monthKey, parseISODate } from '@/lib/dates';
 import { formatMoneyTrim } from '@/lib/money';
+import type { HistoryDay } from '@/engine/history';
 import type { Fils, ForecastDay, ForecastMonth, ISODate } from '@/types';
 
 export type Range = '1M' | '2M' | '6M' | '1Y';
-export const RANGES: { key: Range; label: string; spoken: string }[] = [
-  { key: '1M', label: '1M', spoken: 'next month' },
-  { key: '2M', label: '2M', spoken: 'next 2 months' },
-  { key: '6M', label: '6M', spoken: 'next 6 months' },
-  { key: '1Y', label: '1Y', spoken: 'next year' },
+/** Each range is two-sided: that long back (actual) and that long ahead (forecast). */
+export const RANGES: { key: Range; label: string; spoken: string; pastSpoken: string }[] = [
+  { key: '1M', label: '1M', spoken: 'next month', pastSpoken: 'last month' },
+  { key: '2M', label: '2M', spoken: 'next 2 months', pastSpoken: 'last 2 months' },
+  { key: '6M', label: '6M', spoken: 'next 6 months', pastSpoken: 'last 6 months' },
+  { key: '1Y', label: '1Y', spoken: 'next year', pastSpoken: 'last year' },
 ];
+
+/** Whether a point is a recorded (past) balance or a forecast (future) one. */
+export type PointKind = 'actual' | 'forecast';
 
 export interface SeriesLine {
   label: string;
@@ -25,7 +30,11 @@ export interface SeriesPoint {
   lines: SeriesLine[];
   /** Month-end points (6M / 1Y) vs single days. */
   monthly: boolean;
+  /** Past (recorded) or future (forecast). Today is the last actual point. */
+  kind: PointKind;
 }
+
+export const kindLabel = (k: PointKind) => (k === 'actual' ? 'Actual' : 'Forecast');
 
 const MINUS = '−';
 
@@ -119,33 +128,71 @@ export function speakPoint(p: SeriesPoint, currency: string): string {
   const { shown, more } = limitLines(p.lines);
   const parts = shown.map((l) => `${l.label} ${signed(l.amount)}`);
   if (more) parts.push(`and ${more} more`);
-  return `${p.title}: ${formatMoneyTrim(p.balance, currency)}.${parts.length ? ' ' + parts.join(', ') : ''}`;
+  return `${p.title}, ${p.kind}: ${formatMoneyTrim(p.balance, currency)}.${parts.length ? ' ' + parts.join(', ') : ''}`;
 }
 
-/** The points for a range: daily for 1M/2M, month-ends for 6M/1Y. */
-export function buildSeries(range: Range, days: ForecastDay[], months: ForecastMonth[]): SeriesPoint[] {
-  if (range === '1M' || range === '2M') {
-    return days.slice(0, range === '1M' ? 30 : 60).map((d) => ({
-      date: d.date,
-      balance: d.balance,
-      title: day(d.date),
-      monthly: false,
-      lines: d.events.map((e) => ({ label: e.label, amount: e.kind === 'income' ? Math.abs(e.amount) : -Math.abs(e.amount) })),
-    }));
+const lines = (events: { label: string; kind: 'income' | 'cost'; amount: Fils }[]): SeriesLine[] =>
+  events.map((e) => ({ label: e.label, amount: e.kind === 'income' ? Math.abs(e.amount) : -Math.abs(e.amount) }));
+
+/**
+ * The points for a range, past then future, joined at today (the last actual point): daily for 1M/2M (that many days
+ * back from `history` and ahead from the forecast), month-ends for 6M/1Y (the months before this one from `history`,
+ * today, then the forecast month-ends). With no (or one day of) history there are only forecast points.
+ */
+export function buildSeries(range: Range, days: ForecastDay[], months: ForecastMonth[], history: HistoryDay[] = []): SeriesPoint[] {
+  const daily = range === '1M' || range === '2M';
+  const n = range === '1M' ? 30 : range === '2M' ? 60 : range === '6M' ? 6 : 12;
+  const past: SeriesPoint[] = [];
+  if (history.length >= 2) {
+    const todayDay = history[history.length - 1];
+    if (daily) {
+      for (const h of history.slice(-n)) past.push({ date: h.date, balance: h.balance, title: day(h.date), monthly: false, kind: 'actual', lines: lines(h.events) });
+    } else {
+      const byDate = new Map(history.map((h) => [h.date, h]));
+      const current = monthKey(todayDay.date);
+      for (let k = n; k >= 1; k--) {
+        const end = monthEnd(addMonthKey(current, -k));
+        const h = byDate.get(end);
+        if (!h) continue;
+        const { year, month } = parseISODate(end);
+        past.push({
+          date: end,
+          balance: h.balance,
+          title: `End of ${MONTHS[month - 1]} ${year}`,
+          monthly: true,
+          kind: 'actual',
+          lines: [],
+        });
+      }
+      past.push({ date: todayDay.date, balance: todayDay.balance, title: 'Today', monthly: true, kind: 'actual', lines: lines(todayDay.events) });
+    }
   }
-  return months.slice(0, range === '6M' ? 6 : 12).map((m) => {
-    const { year, month } = parseISODate(monthEnd(m.month));
-    return {
-      date: monthEnd(m.month),
-      balance: m.endBalance,
-      title: `End of ${MONTHS[month - 1]} ${year}`,
-      monthly: true,
-      lines: [
-        { label: 'Income', amount: m.income },
-        { label: 'Spending', amount: -Math.abs(m.spend) },
-      ],
-    };
+  const future: SeriesPoint[] = daily
+    ? days.slice(0, n).map((d) => ({ date: d.date, balance: d.balance, title: day(d.date), monthly: false, kind: 'forecast' as const, lines: lines(d.events) }))
+    : months.slice(0, n).map((m) => {
+        const { year, month } = parseISODate(monthEnd(m.month));
+        return {
+          date: monthEnd(m.month),
+          balance: m.endBalance,
+          title: `End of ${MONTHS[month - 1]} ${year}`,
+          monthly: true,
+          kind: 'forecast' as const,
+          lines: [
+            { label: 'Income', amount: m.income },
+            { label: 'Spending', amount: -Math.abs(m.spend) },
+          ],
+        };
+      });
+  return [...past, ...future];
+}
+
+/** Index of the last actual point (today), or -1 when the series is forecast only. */
+export function todayIndexOf(points: { kind: PointKind }[]): number {
+  let i = -1;
+  points.forEach((p, k) => {
+    if (p.kind === 'actual') i = k;
   });
+  return i;
 }
 
 /** Index of the lowest balance (first one on a tie). */
@@ -157,15 +204,28 @@ export function lowestIndex(points: { balance: Fils }[]): number {
   return best;
 }
 
-/** Spoken summary of the series shown. */
-export function describeSeries(points: SeriesPoint[], rangeSpoken: string, currency: string, buffer: Fils): string {
-  if (points.length === 0) return 'No forecast data.';
-  const first = points[0].balance;
-  const last = points[points.length - 1].balance;
-  const low = points[lowestIndex(points)];
+/**
+ * Spoken summary of the series shown: the actual part (when there is one) and the forecast part. "Lowest" refers to the
+ * forecast, like the rest of the dashboard.
+ */
+export function describeSeries(points: SeriesPoint[], rangeSpoken: string, currency: string, buffer: Fils, pastSpoken = ''): string {
+  const ahead = points.filter((p) => p.kind === 'forecast');
+  const back = points.filter((p) => p.kind === 'actual');
+  if (ahead.length === 0 && back.length === 0) return 'No forecast data.';
+  const first = ahead.length ? ahead[0].balance : 0;
+  const last = ahead.length ? ahead[ahead.length - 1].balance : 0;
+  let text = '';
+  if (back.length > 0) {
+    const a = back[0];
+    const b = back[back.length - 1];
+    text += `Actual for the ${pastSpoken || 'past'}: from ${formatMoneyTrim(a.balance, currency)} on ${day(a.date)} to ${formatMoneyTrim(b.balance, currency)} today. `;
+  }
+  if (ahead.length === 0) return text.trim();
+  const low = ahead[lowestIndex(ahead)];
   const trend = last > first ? 'rising' : last < first ? 'falling' : 'flat';
-  const below = points.some((p) => p.balance < buffer);
+  const below = ahead.some((p) => p.balance < buffer);
   return (
+    text +
     `Balance forecast for the ${rangeSpoken}, ${trend}: from ${formatMoneyTrim(first, currency)} to ${formatMoneyTrim(last, currency)}. ` +
     `Lowest ${formatMoneyTrim(low.balance, currency)} on ${day(low.date)}. ` +
     (below ? `It goes below your ${formatMoneyTrim(buffer, currency)} buffer.` : 'It stays above your buffer.')

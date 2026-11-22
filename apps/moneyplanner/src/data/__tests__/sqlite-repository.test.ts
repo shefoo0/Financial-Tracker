@@ -106,6 +106,21 @@ describe('sqlite specifics', () => {
   });
 });
 
+describe('migration v4 to v5', () => {
+  it('adds balance_snapshots to a v4 database, keeping its rows', async () => {
+    const { __make } = require('expo-sqlite');
+    const db = __make();
+    const upTo4 = MIGRATIONS.slice(0, 4).map((sql, i) => `BEGIN;\n${sql}\nPRAGMA user_version = ${i + 1};\nCOMMIT;`);
+    for (const sql of upTo4) db.raw.exec(sql);
+    db.raw.prepare("INSERT INTO settings (key, value) VALUES ('currency', '\"USD\"')").run();
+    await migrate(db);
+    expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
+    expect(db.raw.prepare("SELECT value FROM settings WHERE key = 'currency'").get().value).toBe('"USD"');
+    db.raw.prepare("INSERT INTO balance_snapshots (date, balance) VALUES ('2026-11-01', 5000)").run();
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM balance_snapshots').get().n).toBe(1);
+  });
+});
+
 describe('migration v1 to v2', () => {
   it('upgrades a v1 database, keeping its rows', async () => {
     const { __make } = require('expo-sqlite');

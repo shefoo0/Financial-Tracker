@@ -9,6 +9,7 @@ import { isValidISODate } from '@/lib/dates';
 import type {
   ChartStyle,
   Category,
+  BalanceSnapshot,
   CategoryRuleRecord,
   Cheque,
   Debt,
@@ -187,6 +188,8 @@ const isImportTemplate = (v: unknown): v is ImportTemplate =>
 const isCategoryRule = (v: unknown): v is CategoryRuleRecord =>
   isObj(v) && isId(v.id) && isId(v.pattern) && isId(v.categoryId) && isStr(v.createdAt);
 
+const isSnapshot = (v: unknown): v is BalanceSnapshot => isObj(v) && isStr(v.date) && /^\d{4}-\d{2}-\d{2}$/.test(v.date) && isInt(v.balance);
+
 const hasUniqueIds = (list: { id: string }[]) => new Set(list.map((x) => x.id)).size === list.length;
 
 /** Only these keys are read from a backup; anything else is ignored. */
@@ -275,10 +278,13 @@ export function parseBackup(text: string): BackupData {
   const imports = raw.imports ?? [];
   const importTemplates = raw.importTemplates ?? [];
   const categoryRules = raw.categoryRules ?? [];
+  const balanceSnapshots = raw.balanceSnapshots ?? [];
   if (
     !listOk(imports, isImportRecord) ||
     !listOk(importTemplates, isImportTemplate) ||
     !listOk(categoryRules, isCategoryRule) ||
+    !listOk(balanceSnapshots, isSnapshot) ||
+    new Set((balanceSnapshots as BalanceSnapshot[]).map((s) => s.date)).size !== (balanceSnapshots as BalanceSnapshot[]).length ||
     !hasUniqueIds(imports as ImportRecord[]) ||
     !hasUniqueIds(categoryRules as CategoryRuleRecord[]) ||
     new Set((importTemplates as ImportTemplate[]).map((t) => t.sourceName)).size !== (importTemplates as ImportTemplate[]).length ||
@@ -319,6 +325,7 @@ export function parseBackup(text: string): BackupData {
     imports: imports as ImportRecord[],
     importTemplates: importTemplates as ImportTemplate[],
     categoryRules: categoryRules as CategoryRuleRecord[],
+    balanceSnapshots: balanceSnapshots as BalanceSnapshot[],
   };
 }
 

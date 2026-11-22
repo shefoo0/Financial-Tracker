@@ -3,6 +3,7 @@ import { AccessibilityInfo } from 'react-native';
 
 import { ForecastHero } from '../ForecastHero';
 import type { Forecast, ForecastDay, ForecastMonth } from '@/types';
+import type { HistoryDay } from '@/engine/history';
 
 const days: ForecastDay[] = Array.from({ length: 60 }, (_, i) => {
   const date = new Date(Date.UTC(2026, 11, 1 + i)).toISOString().slice(0, 10);
@@ -26,8 +27,15 @@ const months: ForecastMonth[] = Array.from({ length: 12 }, (_, i) => ({
 }));
 const fc = { from: '2026-12-01', asOf: '2026-11-30', balanceAsOf: 1000000, days, months, lowest: { date: '2026-12-02', balance: 990000 }, firstBelowBuffer: null } as unknown as Forecast;
 
-async function setup() {
-  await render(<ForecastHero fc={fc} todayStr="2026-11-30" currency="AED" buffer={200000} />);
+// 40 recorded days up to 30 Nov (a rent payment on 20 Nov).
+const history: HistoryDay[] = Array.from({ length: 40 }, (_, i) => {
+  const date = new Date(Date.UTC(2026, 10, 30 - 39 + i)).toISOString().slice(0, 10);
+  const rent = date === '2026-11-20';
+  return { date, balance: 1000000 + (39 - i) * 2000, events: rent ? [{ date, label: 'Rent', kind: 'cost' as const, amount: 650000, source: 'recurring' as const, refId: 'r' }] : [] };
+});
+
+async function setup(h?: HistoryDay[], chartStyle?: 'plain' | 'ocean') {
+  await render(<ForecastHero fc={fc} todayStr="2026-11-30" currency="AED" buffer={200000} history={h} chartStyle={chartStyle} />);
   await act(async () => {
     await fireEvent(screen.getByTestId('dashboard-balance-chart'), 'layout', { nativeEvent: { layout: { width: 340, height: 200 } } });
   });
@@ -103,15 +111,53 @@ describe('ForecastHero chart', () => {
     await act(async () => {
       await fireEvent(chart, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     });
-    expect(spy).toHaveBeenLastCalledWith('1 Dec: AED 10,000.');
+    expect(spy).toHaveBeenLastCalledWith('1 Dec, forecast: AED 10,000.');
     await act(async () => {
       for (let i = 0; i < 11; i++) await fireEvent(screen.getByTestId('dashboard-balance-chart'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     });
-    expect(spy).toHaveBeenLastCalledWith('12 Dec: AED 9,450. Rent −6,500');
+    expect(spy).toHaveBeenLastCalledWith('12 Dec, forecast: AED 9,450. Rent −6,500');
     await act(async () => {
       await fireEvent(screen.getByTestId('dashboard-balance-chart'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     });
-    expect(spy).toHaveBeenLastCalledWith(expect.stringMatching(/^11 Dec: AED 9,500/));
+    expect(spy).toHaveBeenLastCalledWith(expect.stringMatching(/^11 Dec, forecast: AED 9,500/));
     spy.mockRestore();
+  });
+
+  it('has no lowest or range-text pills', async () => {
+    await setup();
+    expect(screen.queryByText(/^Lowest/)).toBeNull();
+    expect(screen.queryByText(/^next 2 months$/)).toBeNull();
+  });
+
+  it('without history: no legend, only forecast points', async () => {
+    await setup();
+    expect(screen.queryByTestId('dashboard-balance-chart-legend')).toBeNull();
+    expect(screen.getByTestId('dashboard-balance-chart').props.accessibilityLabel).not.toMatch(/Actual/);
+  });
+
+  it('with history: legend shows Actual and Forecast, tooltips say which, summary mentions both', async () => {
+    const chart = await setup(history);
+    const legend = screen.getByTestId('dashboard-balance-chart-legend');
+    expect(legend).toHaveTextContent(/Actual/);
+    expect(legend).toHaveTextContent(/Forecast/);
+    expect(chart.props.accessibilityLabel).toMatch(/Actual for the last 2 months.*Balance forecast for the next 2 months/);
+    // 2M: 40 actual points (history is shorter than 60) then 60 forecast ones. Plot width 300, padding 8, 100 points.
+    const x = (i: number) => 8 + (i / 99) * 284;
+    await act(async () => {
+      await fireEvent(chart, 'responderGrant', touch(x(5)));
+    });
+    expect(screen.getByTestId('dashboard-balance-chart-tooltip')).toHaveTextContent(/Actual/);
+    await act(async () => {
+      await fireEvent(chart, 'responderRelease', touch(x(5)));
+      await fireEvent(chart, 'responderGrant', touch(x(70)));
+    });
+    expect(screen.getByTestId('dashboard-balance-chart-tooltip')).toHaveTextContent(/Forecast/);
+  });
+
+  it('works on a gradient card and switches ranges with history (1Y: month-ends)', async () => {
+    await setup(history, 'ocean');
+    expect(screen.getByTestId('dashboard-balance-chart-legend')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('dashboard-balance-chart-range-1Y'));
+    expect(screen.getByTestId('dashboard-balance-chart').props.accessibilityLabel).toMatch(/Actual for the last year/);
   });
 });

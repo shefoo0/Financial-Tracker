@@ -501,6 +501,27 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect((await repo.listCategoryRules()).map((r) => r.id)).toEqual(['cr3']);
       });
 
+      it('keeps one balance snapshot per date, sorted, and backs them up (older files restore with none)', async () => {
+        expect(await repo.listBalanceSnapshots()).toEqual([]);
+        await repo.upsertBalanceSnapshot({ date: '2026-05-10', balance: 900000 });
+        await repo.upsertBalanceSnapshot({ date: '2026-04-01', balance: 500000 });
+        await repo.upsertBalanceSnapshot({ date: '2026-05-10', balance: 950000 });
+        expect(await repo.listBalanceSnapshots()).toEqual([
+          { date: '2026-04-01', balance: 500000 },
+          { date: '2026-05-10', balance: 950000 },
+        ]);
+        const backup = await repo.exportAll();
+        expect(backup.balanceSnapshots).toHaveLength(2);
+        await repo.deleteAll();
+        expect(await repo.listBalanceSnapshots()).toEqual([]);
+        await repo.importAll(backup);
+        expect(await repo.listBalanceSnapshots()).toHaveLength(2);
+        const old: any = { ...backup };
+        delete old.balanceSnapshots;
+        await repo.importAll(old);
+        expect(await repo.listBalanceSnapshots()).toEqual([]);
+      });
+
       it('backs up and restores the import lists; an older file restores with them empty; delete-all clears them', async () => {
         await repo.addImport(imp());
         await repo.saveImportTemplate(tpl());

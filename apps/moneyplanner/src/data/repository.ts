@@ -3,6 +3,7 @@
 //   src/data/memory/memory-repository.ts  (tests and the web preview)
 import type {
   CategoryRuleRecord,
+  BalanceSnapshot,
   Category,
   Cheque,
   Debt,
@@ -39,6 +40,8 @@ export interface BackupData {
   imports?: ImportRecord[];
   importTemplates?: ImportTemplate[];
   categoryRules?: CategoryRuleRecord[];
+  /** Balance history anchors. Optional: older backups restore with none. */
+  balanceSnapshots?: BalanceSnapshot[];
 }
 
 export interface Repository {
@@ -104,6 +107,11 @@ export interface Repository {
   /** One rule per pattern (case-insensitive): saving a pattern again replaces the old rule. */
   upsertCategoryRule(rule: CategoryRuleRecord): Promise<void>;
   deleteCategoryRule(id: string): Promise<void>;
+
+  /** Sorted by date. */
+  listBalanceSnapshots(): Promise<BalanceSnapshot[]>;
+  /** One snapshot per date: saving a date again replaces its balance. */
+  upsertBalanceSnapshot(snapshot: BalanceSnapshot): Promise<void>;
 
   exportAll(): Promise<BackupData>;
   /** Replaces ALL data with the backup, in one transaction (all or nothing). */

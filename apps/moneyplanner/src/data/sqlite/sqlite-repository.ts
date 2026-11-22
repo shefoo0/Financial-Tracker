@@ -2,8 +2,10 @@ import * as SQLite from 'expo-sqlite';
 
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
+import { chartStyleOf } from '@/constants/theme';
 import type {
   Category,
+  BalanceSnapshot,
   CategoryRuleRecord,
   Cheque,
   Debt,
@@ -133,6 +135,11 @@ const toTemplate = (r: Row): ImportTemplate => {
 
 const toRule = (r: Row): CategoryRuleRecord => ({ id: r.id, pattern: r.pattern, categoryId: r.category_id, createdAt: r.created_at });
 
+const toSnapshot = (r: Row): BalanceSnapshot => ({ date: r.date, balance: r.balance });
+
+const writeSnapshot = (w: Writer, s: BalanceSnapshot) =>
+  w.runAsync('INSERT INTO balance_snapshots (date, balance) VALUES (?, ?) ON CONFLICT(date) DO UPDATE SET balance = excluded.balance', [s.date, s.balance]);
+
 const writeImport = (w: Writer, i: ImportRecord) =>
   w.runAsync(
     `INSERT INTO imports (id, source_name, file_kind, imported_at, row_count) VALUES (?, ?, ?, ?, ?)
@@ -258,7 +265,7 @@ async function writeSettings(w: Writer, s: Partial<Settings>) {
 
 /** Removes every row from every data table. */
 async function clearAll(w: Writer) {
-  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques', 'imports', 'import_templates', 'category_rules']) {
+  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques', 'imports', 'import_templates', 'category_rules', 'balance_snapshots']) {
     await w.runAsync(`DELETE FROM ${table}`);
   }
 }
@@ -337,6 +344,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       enabledModules: { ...base.enabledModules, ...(stored.enabledModules ?? {}) },
       alertThresholds: { ...base.alertThresholds, ...(stored.alertThresholds ?? {}) },
       billReminders: { ...base.billReminders, ...(stored.billReminders ?? {}) },
+      chartStyle: chartStyleOf(stored.chartStyle),
     };
   }
 
@@ -546,6 +554,12 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
     async upsertCategoryRule(rule) {
       await write((db) => transaction(db, (txn) => writeRule(txn, rule)));
     },
+    async listBalanceSnapshots() {
+      return (await (await getDb()).getAllAsync<Row>('SELECT * FROM balance_snapshots ORDER BY date')).map(toSnapshot);
+    },
+    async upsertBalanceSnapshot(s) {
+      await write((db) => writeSnapshot(db, s));
+    },
     async deleteCategoryRule(id) {
       await write((db) => db.runAsync('DELETE FROM category_rules WHERE id = ?', [id]));
     },
@@ -568,6 +582,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
         imports: (await db.getAllAsync<Row>('SELECT * FROM imports ORDER BY imported_at, id')).map(toImport),
         importTemplates: (await db.getAllAsync<Row>('SELECT * FROM import_templates ORDER BY source_name')).map(toTemplate),
         categoryRules: (await db.getAllAsync<Row>('SELECT * FROM category_rules ORDER BY created_at, id')).map(toRule),
+        balanceSnapshots: (await db.getAllAsync<Row>('SELECT * FROM balance_snapshots ORDER BY date')).map(toSnapshot),
       };
     },
     async importAll(data) {
@@ -596,6 +611,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
           for (const i of data.imports ?? []) await writeImport(txn, i);
           for (const t of data.importTemplates ?? []) await writeTemplate(txn, t);
           for (const r of data.categoryRules ?? []) await writeRule(txn, r);
+          for (const s of data.balanceSnapshots ?? []) await writeSnapshot(txn, s);
         }),
       );
     },

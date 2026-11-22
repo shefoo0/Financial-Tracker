@@ -110,6 +110,7 @@ export default function Onboarding() {
         buffer: DEFAULT_BUFFER,
         onboarded: true,
       });
+      await repo.upsertBalanceSnapshot({ date: todayDate, balance: finalBalance });
       bump();
       router.replace('/');
     } catch (e) {

@@ -1,8 +1,10 @@
 // In-memory repository: same behaviour as SQLite. Used by tests and the web preview.
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
+import { chartStyleOf } from '@/constants/theme';
 import type {
   Category,
+  BalanceSnapshot,
   CategoryRuleRecord,
   Cheque,
   Debt,
@@ -52,6 +54,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let imports: ImportRecord[] = [];
   let importTemplates: ImportTemplate[] = [];
   let categoryRules: CategoryRuleRecord[] = [];
+  let balanceSnapshots: BalanceSnapshot[] = [];
   let initialised = false;
 
   function reset() {
@@ -67,6 +70,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     imports = [];
     importTemplates = [];
     categoryRules = [];
+    balanceSnapshots = [];
   }
 
   /** Defaults filled in under the given values, with the nested objects merged too (like SQLite's readSettings). */
@@ -78,6 +82,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       enabledModules: { ...defaultSettings().enabledModules, ...(p.enabledModules ?? base.enabledModules) },
       alertThresholds: { ...defaultSettings().alertThresholds, ...(p.alertThresholds ?? base.alertThresholds) },
       billReminders: { ...defaultSettings().billReminders, ...(p.billReminders ?? base.billReminders) },
+      chartStyle: chartStyleOf(p.chartStyle ?? base.chartStyle),
     };
   }
 
@@ -94,6 +99,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     if (d.cheques) cheques = clone(d.cheques);
     if (d.imports) imports = clone(d.imports);
     if (d.importTemplates) importTemplates = clone(d.importTemplates);
+    if (d.balanceSnapshots) balanceSnapshots = clone(d.balanceSnapshots);
     if (d.categoryRules) categoryRules = clone(d.categoryRules).reduce<CategoryRuleRecord[]>((all, r) => putRule(all, r), []);
   }
 
@@ -245,6 +251,12 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     async upsertCategoryRule(rule) {
       categoryRules = putRule(categoryRules, clone(rule));
     },
+    async listBalanceSnapshots() {
+      return clone([...balanceSnapshots].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
+    },
+    async upsertBalanceSnapshot(s) {
+      balanceSnapshots = [...balanceSnapshots.filter((x) => x.date !== s.date), clone(s)];
+    },
     async deleteCategoryRule(id) {
       categoryRules = categoryRules.filter((r) => r.id !== id);
     },
@@ -266,6 +278,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
         imports: clone(imports),
         importTemplates: clone(importTemplates),
         categoryRules: clone(categoryRules),
+        balanceSnapshots: clone(balanceSnapshots).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
       };
     },
     async importAll(data) {

@@ -48,6 +48,34 @@ add('2 Plan: recurring items', async (d, step) => {
   await step('Home Coming up shows Rent', async () => {
     await d.tab('Home'); await d.see('#dashboard-upcoming'); await d.see('Rent', { exact: true }); await d.shot('home-with-rent');
   });
+  await step('Home chart with history: record a cost 40 days ago, the legend shows, past tooltips say Actual and future ones Forecast', async () => {
+    await d.tab('Home'); await d.tap('#quick-add'); await d.tap('#quick-add-one-time'); await d.see('#transaction-screen');
+    await d.type('#transaction-description', 'Old groceries'); await d.type('#transaction-amount', '40'); await d.type('#transaction-date', iso(-40));
+    await d.tap('#transaction-save-bottom'); await d.notSee('#transaction-screen');
+    await d.tab('Home'); await d.see('#dashboard-balance-chart'); await d.settle(300);
+    await d.see('#dashboard-balance-chart-legend');
+    await d.seeText('#dashboard-balance-chart-legend', /Actual.*Forecast/s);
+    if ((await d.page.getByText(/^Lowest /).filter({ visible: true }).count()) || (await d.page.getByText(/^next 2 months$/).filter({ visible: true }).count())) throw new Error('the Lowest / range pills should be gone');
+    const chart = d.page.locator('[data-testid="dashboard-balance-chart"]').filter({ visible: true }).first();
+    await chart.scrollIntoViewIfNeeded(); await d.settle(300);
+    const box = await chart.boundingBox(); const y = box.y + box.height / 2;
+    await d.page.mouse.click(box.x + box.width * 0.08, y); await d.settle(200);
+    await d.seeText('#dashboard-balance-chart-tooltip', /Actual/);
+    await d.shot('home-chart-actual');
+    await d.page.mouse.click(box.x + box.width * 0.85, y); await d.settle(200);
+    await d.seeText('#dashboard-balance-chart-tooltip', /Forecast/);
+    await d.shot('home-chart-forecast');
+    await d.page.mouse.click(box.x + box.width * 0.85, y); await d.settle(200); await d.notSee('#dashboard-balance-chart-tooltip');
+    const out = process.env.HIST_SHOT_DIR;
+    if (out) {
+      const shot = async (name) => { await chart.scrollIntoViewIfNeeded(); await d.settle(300); await d.page.screenshot({ path: `${out}/${name}.png` }); };
+      await shot('hist-light');
+      await d.page.emulateMedia({ colorScheme: 'dark' }); await d.settle(400); await shot('hist-dark');
+      await d.page.emulateMedia({ colorScheme: 'light' }); await d.settle(300);
+      await d.tab('Settings'); await d.see('#chart-style-ocean'); await d.tap('#chart-style-ocean'); await d.tab('Home'); await d.settle(400); await shot('hist-ocean');
+      await d.tab('Settings'); await d.tap('#chart-style-plain'); await d.tab('Home'); await d.settle(300);
+    }
+  });
   await step('Home chart: drag the mouse across it, tooltip shows a date and an amount, big number follows, then 1Y', async () => {
     await d.tab('Home'); await d.see('#dashboard-balance-chart');
     const chart = d.page.locator('[data-testid="dashboard-balance-chart"]').filter({ visible: true }).first();
