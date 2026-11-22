@@ -21,7 +21,16 @@ for flow in "$flows_dir"/*.yaml; do
     maestro "$@" hierarchy 2>/dev/null \
       | grep -oE '"(text|accessibilityText|resource-id|identifier|hintText)" *: *"[^"]+"' \
       | sed -E 's/"([^"]+)" *: *"([^"]+)"/  \1: \2/' | awk '!seen[$0]++' | head -80 || true
+    # Maestro's own reason (a missing element, a bad step) from its debug log.
+    echo "Maestro log for $name:"
+    find "$debug_dir/$name" -name 'maestro.log' -exec grep -hiE 'exception|error|failed|not found|timeout' {} + 2>/dev/null | tail -15 || true
+    # On Android, a crash of the app shows up in logcat.
+    if command -v adb >/dev/null 2>&1; then
+      echo "App crashes and JavaScript errors (logcat):"
+      { adb logcat -d -b crash; adb logcat -d -s ReactNativeJS:E ReactNative:E AndroidRuntime:E; } 2>/dev/null | tail -40 || true
+    fi
   fi
+  command -v adb >/dev/null 2>&1 && adb logcat -c 2>/dev/null || true
 done
 if [ "${#failed[@]}" -gt 0 ]; then
   echo "::error::Failed flows: ${failed[*]}"

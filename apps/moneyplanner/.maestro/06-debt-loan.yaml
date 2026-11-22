@@ -71,6 +71,8 @@ name: Add a loan
     direction: DOWN
 - tapOn:
     id: debt-day
+# The day field starts filled in: clear it first.
+- eraseText: 3
 - inputText: "15"
 - runFlow: common/dismiss-keyboard.yaml
 - scrollUntilVisible:
