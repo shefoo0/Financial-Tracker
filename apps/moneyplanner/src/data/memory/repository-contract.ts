@@ -501,6 +501,13 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect((await repo.listCategoryRules()).map((r) => r.id)).toEqual(['cr3']);
       });
 
+      it('reads a stored chart style that no longer exists (violet) as plain', async () => {
+        await repo.updateSettings({ chartStyle: 'violet' as never });
+        expect((await repo.getSettings()).chartStyle).toBe('plain');
+        await repo.updateSettings({ chartStyle: 'ocean' });
+        expect((await repo.getSettings()).chartStyle).toBe('ocean');
+      });
+
       it('keeps one balance snapshot per date, sorted, and backs them up (older files restore with none)', async () => {
         expect(await repo.listBalanceSnapshots()).toEqual([]);
         await repo.upsertBalanceSnapshot({ date: '2026-05-10', balance: 900000 });

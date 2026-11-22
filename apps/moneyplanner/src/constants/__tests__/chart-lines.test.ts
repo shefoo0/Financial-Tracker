@@ -1,4 +1,4 @@
-import { CHART_STYLE_NAMES, ChartStyles, PlainCard } from '../theme';
+import { chartStyleOf, CHART_STYLE_NAMES, ChartStyles, PlainCard } from '../theme';
 
 function lum(hex: string) {
   const ch = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
@@ -20,5 +20,16 @@ describe('chart line colours', () => {
         expect(ratio(forecast, bg)).toBeGreaterThanOrEqual(3);
       }
     }
+  });
+});
+
+describe('chartStyleOf', () => {
+  it('keeps real styles and turns the removed violet (or anything unknown) into plain', () => {
+    expect(chartStyleOf('ocean')).toBe('ocean');
+    expect(chartStyleOf('graphite')).toBe('graphite');
+    expect(chartStyleOf('violet')).toBe('plain');
+    expect(chartStyleOf(undefined)).toBe('plain');
+    expect(chartStyleOf(7)).toBe('plain');
+    expect(CHART_STYLE_NAMES).not.toContain('violet');
   });
 });
