@@ -356,3 +356,36 @@ export interface PlanInput {
   debtOverrides: DebtOverride[];
   cheques: Cheque[];
 }
+
+// ---- Statement import (milestone 3) ----
+
+/** One finished import: the transactions it saved carry its id (`Transaction.importId`). */
+export interface ImportRecord {
+  id: string;
+  /** File name, or "Shared text" for a pasted or shared SMS. */
+  sourceName: string;
+  /** csv, xlsx, ofx, pdf, image or text. */
+  fileKind: string;
+  /** ISO timestamp. */
+  importedAt: string;
+  rowCount: number;
+}
+
+/** The column layout remembered for a bank file, so the next one imports without questions. */
+export interface ImportTemplate {
+  sourceName: string;
+  /** A CsvMapping (plus the sheet number for Excel files), kept as plain JSON. */
+  mapping: Record<string, unknown>;
+  /** ISO timestamp. */
+  lastUsed: string;
+}
+
+/** "Descriptions containing this merchant go to this category", learned from the review screen. */
+export interface CategoryRuleRecord {
+  id: string;
+  /** Matched case-insensitively; unique. */
+  pattern: string;
+  categoryId: string;
+  /** ISO timestamp. */
+  createdAt: string;
+}

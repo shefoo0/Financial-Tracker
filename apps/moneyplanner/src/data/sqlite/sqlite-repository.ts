@@ -2,7 +2,20 @@ import * as SQLite from 'expo-sqlite';
 
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import type { Category, Cheque, Debt, DebtOverride, DebtPayment, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type {
+  Category,
+  CategoryRuleRecord,
+  Cheque,
+  Debt,
+  DebtOverride,
+  DebtPayment,
+  ImportRecord,
+  ImportTemplate,
+  OccurrenceOverride,
+  RecurringItem,
+  Settings,
+  Transaction,
+} from '@/types';
 import { DB_NAME, migrate } from './schema';
 
 /** The part of a database/transaction connection used for writes. */
@@ -98,6 +111,52 @@ const toCheque = (r: Row): Cheque => ({
   seriesId: r.series_id ?? null,
   note: r.note ?? '',
 });
+
+const toImport = (r: Row): ImportRecord => ({
+  id: r.id,
+  sourceName: r.source_name,
+  fileKind: r.file_kind,
+  importedAt: r.imported_at,
+  rowCount: r.row_count,
+});
+
+const toTemplate = (r: Row): ImportTemplate => {
+  let mapping: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(r.mapping);
+    if (parsed && typeof parsed === 'object') mapping = parsed;
+  } catch {
+    // a corrupt layout is ignored: the next import guesses the columns again
+  }
+  return { sourceName: r.source_name, mapping, lastUsed: r.last_used };
+};
+
+const toRule = (r: Row): CategoryRuleRecord => ({ id: r.id, pattern: r.pattern, categoryId: r.category_id, createdAt: r.created_at });
+
+const writeImport = (w: Writer, i: ImportRecord) =>
+  w.runAsync(
+    `INSERT INTO imports (id, source_name, file_kind, imported_at, row_count) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET source_name = excluded.source_name, file_kind = excluded.file_kind,
+       imported_at = excluded.imported_at, row_count = excluded.row_count`,
+    [i.id, i.sourceName, i.fileKind, i.importedAt, i.rowCount],
+  );
+
+const writeTemplate = (w: Writer, t: ImportTemplate) =>
+  w.runAsync(
+    `INSERT INTO import_templates (source_name, mapping, last_used) VALUES (?, ?, ?)
+     ON CONFLICT(source_name) DO UPDATE SET mapping = excluded.mapping, last_used = excluded.last_used`,
+    [t.sourceName, JSON.stringify(t.mapping), t.lastUsed],
+  );
+
+async function writeRule(w: Writer, r: CategoryRuleRecord) {
+  // The pattern is unique (ignoring case): another row with the same pattern is replaced.
+  await w.runAsync('DELETE FROM category_rules WHERE pattern = ? COLLATE NOCASE AND id <> ?', [r.pattern, r.id]);
+  await w.runAsync(
+    `INSERT INTO category_rules (id, pattern, category_id, created_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET pattern = excluded.pattern, category_id = excluded.category_id, created_at = excluded.created_at`,
+    [r.id, r.pattern, r.categoryId, r.createdAt],
+  );
+}
 
 const writeCategory = (w: Writer, c: Category) =>
   w.runAsync(
@@ -199,7 +258,7 @@ async function writeSettings(w: Writer, s: Partial<Settings>) {
 
 /** Removes every row from every data table. */
 async function clearAll(w: Writer) {
-  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques']) {
+  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques', 'imports', 'import_templates', 'category_rules']) {
     await w.runAsync(`DELETE FROM ${table}`);
   }
 }
@@ -399,6 +458,13 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
     async deleteTransaction(id) {
       await write((db) => db.runAsync('DELETE FROM transactions WHERE id = ?', [id]));
     },
+    async upsertTransactions(list) {
+      await write((db) =>
+        transaction(db, async (txn) => {
+          for (const t of list) await writeTransaction(txn, t);
+        }),
+      );
+    },
 
     async listDebts() {
       return readDebts(await getDb());
@@ -452,6 +518,29 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       await write((db) => db.runAsync('DELETE FROM cheques WHERE id = ?', [id]));
     },
 
+    async listImports() {
+      return (await (await getDb()).getAllAsync<Row>('SELECT * FROM imports ORDER BY imported_at, id')).map(toImport);
+    },
+    async addImport(record) {
+      await write((db) => writeImport(db, record));
+    },
+    async getImportTemplate(sourceName) {
+      const row = await (await getDb()).getFirstAsync<Row>('SELECT * FROM import_templates WHERE source_name = ?', [sourceName]);
+      return row ? toTemplate(row) : null;
+    },
+    async saveImportTemplate(template) {
+      await write((db) => writeTemplate(db, template));
+    },
+    async listCategoryRules() {
+      return (await (await getDb()).getAllAsync<Row>('SELECT * FROM category_rules ORDER BY created_at, id')).map(toRule);
+    },
+    async upsertCategoryRule(rule) {
+      await write((db) => transaction(db, (txn) => writeRule(txn, rule)));
+    },
+    async deleteCategoryRule(id) {
+      await write((db) => db.runAsync('DELETE FROM category_rules WHERE id = ?', [id]));
+    },
+
     async exportAll(): Promise<BackupData> {
       const db = await getDb();
       return {
@@ -467,6 +556,9 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
         debtPayments: await readDebtPayments(db),
         debtOverrides: await readDebtOverrides(db),
         cheques: await readCheques(db),
+        imports: (await db.getAllAsync<Row>('SELECT * FROM imports ORDER BY imported_at, id')).map(toImport),
+        importTemplates: (await db.getAllAsync<Row>('SELECT * FROM import_templates ORDER BY source_name')).map(toTemplate),
+        categoryRules: (await db.getAllAsync<Row>('SELECT * FROM category_rules ORDER BY created_at, id')).map(toRule),
       };
     },
     async importAll(data) {
@@ -491,6 +583,10 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
           for (const p of data.debtPayments ?? []) await writeDebtPayment(txn, p);
           for (const o of data.debtOverrides ?? []) await writeDebtOverride(txn, o);
           for (const c of data.cheques ?? []) await writeCheque(txn, c);
+          // Backups made before statement import have no import lists.
+          for (const i of data.imports ?? []) await writeImport(txn, i);
+          for (const t of data.importTemplates ?? []) await writeTemplate(txn, t);
+          for (const r of data.categoryRules ?? []) await writeRule(txn, r);
         }),
       );
     },

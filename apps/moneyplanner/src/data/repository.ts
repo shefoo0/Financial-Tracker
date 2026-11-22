@@ -1,7 +1,21 @@
 // The storage contract. Owned by the lead. Implementations:
 //   src/data/sqlite/sqlite-repository.ts  (on the phone)
 //   src/data/memory/memory-repository.ts  (tests and the web preview)
-import type { Category, Cheque, Debt, DebtOverride, DebtPayment, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type {
+  CategoryRuleRecord,
+  Category,
+  Cheque,
+  Debt,
+  DebtOverride,
+  DebtPayment,
+  ImportRecord,
+  ImportTemplate,
+  ISODate,
+  OccurrenceOverride,
+  RecurringItem,
+  Settings,
+  Transaction,
+} from '@/types';
 
 export const BACKUP_FORMAT = 'moneyplanner-backup';
 /** 2 adds debts, debt payments, debt overrides and cheques. Version 1 files still restore (those lists empty). */
@@ -21,6 +35,10 @@ export interface BackupData {
   debtPayments: DebtPayment[];
   debtOverrides: DebtOverride[];
   cheques: Cheque[];
+  /** Statement import (milestone 3). Optional: backups made before it restore fine (these lists stay empty). */
+  imports?: ImportRecord[];
+  importTemplates?: ImportTemplate[];
+  categoryRules?: CategoryRuleRecord[];
 }
 
 export interface Repository {
@@ -50,6 +68,8 @@ export interface Repository {
   listTransactions(range?: { from?: ISODate; to?: ISODate }): Promise<Transaction[]>;
   upsertTransaction(t: Transaction): Promise<void>;
   deleteTransaction(id: string): Promise<void>;
+  /** Saves many transactions in one transaction (an import saves its rows all or nothing). */
+  upsertTransactions(list: Transaction[]): Promise<void>;
 
   /** Archived debts included; screens filter. */
   listDebts(): Promise<Debt[]>;
@@ -70,6 +90,18 @@ export interface Repository {
   /** Saves one or more cheques in one transaction (the series helper saves several). */
   upsertCheques(cheques: Cheque[]): Promise<void>;
   deleteCheque(id: string): Promise<void>;
+
+  /** Finished imports, oldest first. */
+  listImports(): Promise<ImportRecord[]>;
+  addImport(record: ImportRecord): Promise<void>;
+  getImportTemplate(sourceName: string): Promise<ImportTemplate | null>;
+  /** One template per source name: saving replaces it. */
+  saveImportTemplate(template: ImportTemplate): Promise<void>;
+  /** Oldest first. */
+  listCategoryRules(): Promise<CategoryRuleRecord[]>;
+  /** One rule per pattern (case-insensitive): saving a pattern again replaces the old rule. */
+  upsertCategoryRule(rule: CategoryRuleRecord): Promise<void>;
+  deleteCategoryRule(id: string): Promise<void>;
 
   exportAll(): Promise<BackupData>;
   /** Replaces ALL data with the backup, in one transaction (all or nothing). */

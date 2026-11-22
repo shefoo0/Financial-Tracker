@@ -1,7 +1,21 @@
 // In-memory repository: same behaviour as SQLite. Used by tests and the web preview.
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import type { Category, Cheque, Debt, DebtOverride, DebtPayment, ISODate, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type {
+  Category,
+  CategoryRuleRecord,
+  Cheque,
+  Debt,
+  DebtOverride,
+  DebtPayment,
+  ImportRecord,
+  ImportTemplate,
+  ISODate,
+  OccurrenceOverride,
+  RecurringItem,
+  Settings,
+  Transaction,
+} from '@/types';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -16,6 +30,15 @@ function upsertById<T extends { id: string }>(list: T[], item: T): void {
   else list.push(item);
 }
 
+const samePattern = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** One rule per pattern (ignoring case): the new rule replaces any other with the same pattern. */
+function putRule(list: CategoryRuleRecord[], rule: CategoryRuleRecord): CategoryRuleRecord[] {
+  const rest = list.filter((x) => x.id === rule.id || !samePattern(x.pattern, rule.pattern));
+  upsertById(rest, rule);
+  return rest;
+}
+
 export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let settings: Settings = defaultSettings();
   let categories: Category[] = clone(DEFAULT_CATEGORIES);
@@ -26,6 +49,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let debtPayments: DebtPayment[] = [];
   let debtOverrides: DebtOverride[] = [];
   let cheques: Cheque[] = [];
+  let imports: ImportRecord[] = [];
+  let importTemplates: ImportTemplate[] = [];
+  let categoryRules: CategoryRuleRecord[] = [];
   let initialised = false;
 
   function reset() {
@@ -38,6 +64,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     debtPayments = [];
     debtOverrides = [];
     cheques = [];
+    imports = [];
+    importTemplates = [];
+    categoryRules = [];
   }
 
   /** Defaults filled in under the given values, with the nested objects merged too (like SQLite's readSettings). */
@@ -63,6 +92,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     if (d.debtPayments) debtPayments = clone(d.debtPayments);
     if (d.debtOverrides) debtOverrides = clone(d.debtOverrides);
     if (d.cheques) cheques = clone(d.cheques);
+    if (d.imports) imports = clone(d.imports);
+    if (d.importTemplates) importTemplates = clone(d.importTemplates);
+    if (d.categoryRules) categoryRules = clone(d.categoryRules).reduce<CategoryRuleRecord[]>((all, r) => putRule(all, r), []);
   }
 
   return {
@@ -136,6 +168,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     async deleteTransaction(id) {
       transactions = transactions.filter((t) => t.id !== id);
     },
+    async upsertTransactions(list) {
+      for (const t of clone(list)) upsertById(transactions, t);
+    },
 
     async listDebts() {
       return clone(debts);
@@ -182,6 +217,30 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       cheques = cheques.filter((c) => c.id !== id);
     },
 
+    async listImports() {
+      return clone([...imports].sort((a, b) => (a.importedAt === b.importedAt ? (a.id < b.id ? -1 : 1) : a.importedAt < b.importedAt ? -1 : 1)));
+    },
+    async addImport(record) {
+      upsertById(imports, clone(record));
+    },
+    async getImportTemplate(sourceName) {
+      const t = importTemplates.find((x) => x.sourceName === sourceName);
+      return t ? clone(t) : null;
+    },
+    async saveImportTemplate(template) {
+      importTemplates = importTemplates.filter((x) => x.sourceName !== template.sourceName);
+      importTemplates.push(clone(template));
+    },
+    async listCategoryRules() {
+      return clone([...categoryRules].sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? -1 : 1) : a.createdAt < b.createdAt ? -1 : 1)));
+    },
+    async upsertCategoryRule(rule) {
+      categoryRules = putRule(categoryRules, clone(rule));
+    },
+    async deleteCategoryRule(id) {
+      categoryRules = categoryRules.filter((r) => r.id !== id);
+    },
+
     async exportAll() {
       return {
         format: BACKUP_FORMAT,
@@ -196,6 +255,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
         debtPayments: clone(debtPayments).sort(byDateThenId),
         debtOverrides: clone(debtOverrides),
         cheques: clone(cheques).sort(byDateThenId),
+        imports: clone(imports),
+        importTemplates: clone(importTemplates),
+        categoryRules: clone(categoryRules),
       };
     },
     async importAll(data) {

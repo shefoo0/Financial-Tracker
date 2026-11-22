@@ -97,6 +97,28 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE categories ADD COLUMN monthly_limit INTEGER;
   `,
+  // v4 (M3): statement import: finished imports, the column layout remembered per source, learned category rules
+  `
+  CREATE TABLE imports (
+    id TEXT PRIMARY KEY NOT NULL,
+    source_name TEXT NOT NULL,
+    file_kind TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    row_count INTEGER NOT NULL
+  );
+  CREATE TABLE import_templates (
+    source_name TEXT PRIMARY KEY NOT NULL,
+    mapping TEXT NOT NULL,
+    last_used TEXT NOT NULL
+  );
+  CREATE TABLE category_rules (
+    id TEXT PRIMARY KEY NOT NULL,
+    pattern TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    category_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_transactions_import ON transactions (import_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
