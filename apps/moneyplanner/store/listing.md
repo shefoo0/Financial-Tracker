@@ -4,7 +4,7 @@ Notes for the lead (not part of the store text):
 
 - Pro (reports, statement import, one-time purchase) is NOT built yet. The descriptions below describe the app as it will be at public launch. For the closed test, use the "Release notes" section, which says plainly that these arrive in an update.
 - When Pro ships, change: nothing in the descriptions. Before that, for the closed-test listing only, you may delete the "Pro" paragraph and the "Reports and import" bullets in "Google Play full description" and the matching lines in "App Store description", so the page does not promise features testers cannot open. Also update "Release notes", "Data safety" (add the purchase line below) and the privacy policy if a purchase SDK is added.
-- Fill in `CONTACT_EMAIL` in privacy-policy.md and support.md and the privacy policy URL in the consoles.
+- Fill in `jokester-fidgety97@bravealias.com` in privacy-policy.md and support.md and the privacy policy URL in the consoles.
 - Features in the text that are still open on the PROGRESS.md release bar (bill reminders with lead time, faster entry with recent chips, optional category limits, import): remove any that are not built when you submit.
 - Not claimed anywhere: bank connection, advice, loans, a Pro price (set in the store consoles).
 
