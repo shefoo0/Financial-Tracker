@@ -171,7 +171,7 @@ function DebtEditor({ data, debt, initialType }: { data: DebtData; debt: Debt | 
               <DateField label="Balance as of" value={form.balanceDate} onChange={(d) => set('balanceDate', d)} error={errors.balanceDate} hint="Payments after this date reduce the balance." testID="debt-balance-date" />
               <MoneyField label="Monthly payment" value={form.monthly} onChange={(v) => set('monthly', v)} currency={currency} error={errors.monthly} testID="debt-monthly" />
               <TextField label="Payment day (1-31)" value={form.day} onChangeText={(t) => set('day', t)} keyboardType="number-pad" error={errors.day} hint="In shorter months it is taken on the last day." testID="debt-day" />
-              <TextField label="Yearly interest rate % (optional)" value={form.rate} onChangeText={(t) => set('rate', t)} keyboardType="decimal-pad" error={errors.rate} hint="For your reference only; it does not change the payments." testID="debt-rate" />
+              <TextField label="Yearly interest rate % (optional)" value={form.rate} onChangeText={(t) => set('rate', t)} keyboardType="decimal-pad" error={errors.rate} hint="Used to estimate interest and the last payment date." testID="debt-rate" />
               <Segmented
                 label="End date"
                 value={form.endDate ? 'date' : 'none'}
@@ -259,7 +259,7 @@ function DebtEditor({ data, debt, initialType }: { data: DebtData; debt: Debt | 
 
         {debt ? (
           <>
-            {!debt.archived ? <Schedule debt={debt} input={input} now={now} currency={currency} /> : null}
+            {!debt.archived ? <Schedule debt={debt} input={input} now={now} currency={currency} cardName={debt.type === 'plan' ? data.all.find((d) => d.id === debt.cardId)?.name : null} /> : null}
             <PaymentLog debtId={debt.id} payments={payments} currency={currency} />
             <Button
               label={debt.archived ? 'Move back to active debts' : 'Mark as paid off'}
@@ -284,7 +284,7 @@ function Summary({ debt, stat, money, now }: { debt: Debt; stat: DebtStat; money
     if (stat.usagePct != null) lines.push(['Used', pctText(stat.usagePct)]);
   }
   lines.push(['Next payment', stat.nextPayment ? `${money(stat.nextPayment.amount)} ${whenLabel(stat.nextPayment.date, now)}` : 'None scheduled']);
-  if (debt.type !== 'card') lines.push(['Last payment', stat.endDate ? formatDate(stat.endDate) : 'Not known yet']);
+  if (debt.type !== 'card') lines.push(['Last payment', stat.endDate ? `${formatDate(stat.endDate)}${(stat as { interestEstimated?: boolean }).interestEstimated ? ' (estimated)' : ''}` : 'Not known yet']);
   return (
     <Card testID="debt-summary">
       {lines.map(([k, v]) => (

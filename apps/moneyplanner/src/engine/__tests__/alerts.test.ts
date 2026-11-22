@@ -134,6 +134,12 @@ describe('buildAlerts', () => {
     expect(a[0].message).toBe('Car loan has its last payment on 15 Feb. That frees AED 300 a month from Mar 2026.');
   });
 
+  it('debt-ends says estimated when interest was used', () => {
+    const l = loan({ id: 'L4', balance: 60000, monthlyPayment: 30000, annualRatePct: 12 });
+    const a = of(buildAlerts(input({ debts: [l] }), TODAY), 'debt-ends');
+    expect(a[0].message).toMatch(/^Car loan has an estimated last payment on \d+ \w+\./);
+  });
+
   it('debt-ends for a plan, and not for a loan ending later or a card', () => {
     const p = plan({ id: 'P2', name: 'Sofa', firstPaymentDate: '2025-12-20', payments: 2, total: 80000, monthlyAmount: 40000 });
     expect(of(buildAlerts(input({ debts: [p] }), TODAY), 'debt-ends')[0]).toMatchObject({ refId: 'P2', date: '2026-01-20' });

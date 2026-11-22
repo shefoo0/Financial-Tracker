@@ -8,6 +8,7 @@ import {
   cardPaymentFor,
   debtLifetime,
   debtProgress,
+  loanHasRate,
   interestFor,
   remainingOf,
 } from './schedule';
@@ -26,6 +27,8 @@ export interface DebtStatsItem {
   usagePct: number | null;
   /** Estimated interest this month for a card on the 'minimum' plan, else null. */
   minimumInterestEstimate: Fils | null;
+  /** True when the schedule includes interest estimated from the loan's annual rate. */
+  interestEstimated: boolean;
 }
 
 export interface DebtStats {
@@ -115,6 +118,7 @@ export function debtStats(input: PlanInput, today: ISODate): DebtStats {
       availableCredit,
       usagePct,
       minimumInterestEstimate,
+      interestEstimated: loanHasRate(debt),
     });
   }
 

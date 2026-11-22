@@ -1,0 +1,100 @@
+# Plan -> Debts -> add a loan (Car loan, AED 20,000 left, AED 1,500 a month on the 15th)
+# -> listed on Debts -> shown under "Coming up" on Home. Starts from a skipped setup.
+appId: com.shefoo.moneyplanner
+name: Add a loan
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+# The number of wizard steps can vary, so go on until Start is shown.
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+# Home shows its empty state until there is a regular item, so add Rent first.
+- tapOn: "Plan"
+- tapOn:
+    id: plan-add-cost
+- tapOn:
+    id: recurring-name
+- inputText: "Rent"
+- runFlow: common/dismiss-text-keyboard.yaml
+- tapOn:
+    id: recurring-amount
+- inputText: "9500"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: recurring-save-bottom
+    direction: DOWN
+- tapOn:
+    id: recurring-save-bottom
+- assertVisible:
+    id: plan-screen
+# Debts is on by default: open it from the Plan tab.
+- tapOn:
+    id: plan-open-debts
+- assertVisible:
+    id: debts-screen
+- assertVisible: "Track what you owe"
+- tapOn:
+    id: debts-add-loan
+- assertVisible:
+    id: debt-screen
+- tapOn:
+    id: debt-name
+- inputText: "Car loan"
+- runFlow: common/dismiss-text-keyboard.yaml
+- tapOn:
+    id: debt-balance
+- inputText: "20000"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: debt-monthly
+    direction: DOWN
+- tapOn:
+    id: debt-monthly
+- inputText: "1500"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: debt-day
+    direction: DOWN
+- tapOn:
+    id: debt-day
+- inputText: "15"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: debt-save-bottom
+    direction: DOWN
+- tapOn:
+    id: debt-save-bottom
+# Back on the Debts list with the loan and its totals.
+- assertNotVisible:
+    id: debt-screen
+- assertVisible:
+    id: debts-screen
+- assertVisible: "Car loan.*"
+- assertVisible: "AED 20,000.00"
+- assertVisible: "AED 1,500.00"
+# Home: the payment is under "Coming up".
+- tapOn: "Home"
+- assertVisible:
+    id: dashboard-screen
+- scrollUntilVisible:
+    element:
+      id: dashboard-upcoming
+    direction: DOWN
+- scrollUntilVisible:
+    element: "Car loan payment.*"
+    direction: DOWN

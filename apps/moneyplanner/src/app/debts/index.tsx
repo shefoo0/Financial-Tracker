@@ -98,7 +98,7 @@ export default function DebtsScreen() {
               Debt-free date
             </T>
             <T variant="number" tone="onHero" testID="debts-free-date">
-              {stats.debtFreeDate ? formatDate(stats.debtFreeDate) : 'Not known yet'}
+              {stats.debtFreeDate ? `${formatDate(stats.debtFreeDate)}${stats.perDebt.some((p) => (p as { interestEstimated?: boolean }).interestEstimated) ? ' (estimated)' : ''}` : 'Not known yet'}
             </T>
           </View>
         </View>

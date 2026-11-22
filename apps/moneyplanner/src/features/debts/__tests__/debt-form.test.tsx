@@ -175,6 +175,15 @@ describe('Existing debt', () => {
     await waitFor(async () => expect(await repo.listDebtPayments('loan1')).toHaveLength(0));
   });
 
+  it('shows the instalments of a plan on a card, read-only', async () => {
+    params.current = { id: 'plan1' };
+    await renderWithRepo(<DebtScreen />, { settings, debts: [card(), plan({ cardId: 'card1' })] });
+    expect(await screen.findByText('Paid as part of Visa card. Change the payment on the card’s due date by logging what you paid.')).toBeTruthy();
+    expect(screen.queryByText('No payments are scheduled.')).toBeNull();
+    expect(screen.getByTestId('debt-payment-0')).toBeTruthy();
+    expect(screen.queryByTestId('debt-payment-0-skip')).toBeNull();
+  });
+
   it('marks a debt as paid off and leaves', async () => {
     params.current = { id: 'plan1' };
     const { repo } = await renderWithRepo(<DebtScreen />, { settings, debts: [plan()] });

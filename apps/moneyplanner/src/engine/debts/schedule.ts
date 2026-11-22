@@ -81,12 +81,16 @@ function loanSim(loan: Loan, input: PlanInput, to: ISODate): Sim {
   const limit = extendLimit(to, ov);
   const payments: DebtScheduledPayment[] = [];
   const first = monthKey(loan.balanceDate);
-  for (let i = 0; i < MAX_MONTHS && remaining > 0; i++) {
+  const rate = loan.annualRatePct && loan.annualRatePct > 0 ? loan.annualRatePct : 0;
+  // With a rate, stop after 30 years: a payment that doesn't beat the interest never pays it off.
+  const maxMonths = rate ? 360 : MAX_MONTHS;
+  for (let i = 0; i < maxMonths && remaining > 0; i++) {
     const month = addMonthKey(first, i);
     const orig = dayIn(month, loan.paymentDay);
     if (compareDates(orig, loan.balanceDate) <= 0) continue;
     if (compareDates(orig, limit) > 0) break;
     if (loan.endDate && compareDates(orig, loan.endDate) > 0) break;
+    if (rate) remaining += Math.round((remaining * rate) / 12 / 100);
     if (replaced.has(month)) continue;
     const o = ov.get(orig);
     if (o?.skip) continue;
@@ -240,6 +244,9 @@ export function remainingOf(debt: Debt, input: PlanInput): Fils {
   if (debt.type === 'plan') return Math.max(0, debt.total - sum(paymentsOf(input, debt.id)));
   return Math.max(0, debt.balance - sum(loggedAfter(input, debt.id, debt.balanceDate)));
 }
+
+/** True when a loan's schedule includes estimated interest (an annual rate is set). */
+export const loanHasRate = (debt: Debt): boolean => debt.type === 'loan' && !!debt.annualRatePct && debt.annualRatePct > 0;
 
 /** Result of simulating a debt to the end of its schedule (up to `to`). */
 export function debtLifetime(debt: Debt, input: PlanInput, to: ISODate): { payments: DebtScheduledPayment[]; remaining: Fils } {

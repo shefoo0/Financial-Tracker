@@ -408,3 +408,30 @@ describe('logged payments as outflows', () => {
     expect(monthSummary('2026-03', j).debtPayments).toBe(40000);
   });
 });
+
+describe('loan interest', () => {
+  it('adds monthly interest before each payment (integer fils)', () => {
+    const l = loan({ balance: 120000, monthlyPayment: 50000, annualRatePct: 12 });
+    const r = sched(l, input({ debts: [l] }));
+    // Jan: 120000+1200=121200 -> pay 50000 -> 71200; Feb: +712=71912 -> 50000 -> 21912; Mar: +219 = 22131
+    expect(pairs(r)).toEqual([
+      ['2026-01-15', 50000],
+      ['2026-02-15', 50000],
+      ['2026-03-15', 22131],
+    ]);
+  });
+
+  it('endDate still caps the schedule and the stats flag it as estimated', () => {
+    const l = loan({ balance: 120000, monthlyPayment: 50000, annualRatePct: 12, endDate: '2026-02-15' });
+    expect(sched(l, input({ debts: [l] })).length).toBe(2);
+    const s = debtStats(input({ debts: [l, loan({ id: 'L2' })] }), '2026-01-10');
+    expect(s.perDebt.map((x) => x.interestEstimated)).toEqual([true, false]);
+  });
+
+  it('a payment that does not beat the interest never finishes: null debt-free date', () => {
+    const l = loan({ balance: 10000000, monthlyPayment: 1000, annualRatePct: 12 });
+    const s = debtStats(input({ debts: [l] }), '2026-01-10');
+    expect(s.debtFreeDate).toBeNull();
+    expect(s.perDebt[0].endDate).toBeNull();
+  });
+});

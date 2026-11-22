@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Button, Card, DateField, MoneyField, SectionHeader, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useRepoMutation } from '@/data/DataProvider';
-import { debtSchedule } from '@/engine';
+import { debtSchedule, planInstalments } from '@/engine';
 import { useTheme } from '@/hooks/use-theme';
 import { addMonths, formatDate } from '@/lib/dates';
 import { newId } from '@/lib/id';
@@ -22,20 +22,25 @@ interface Row {
   override?: DebtOverride;
 }
 
-export function Schedule({ debt, input, now, currency }: { debt: Debt; input: PlanInput; now: ISODate; currency: string }) {
+export function Schedule({ debt, input, now, currency, cardName }: { debt: Debt; input: PlanInput; now: ISODate; currency: string; cardName?: string | null }) {
   const c = useTheme();
   const upsert = useRepoMutation((r, o: DebtOverride) => r.upsertDebtOverride(o));
   const del = useRepoMutation((r, id: string) => r.deleteDebtOverride(id));
   const [editing, setEditing] = useState<{ key: string; mode: 'amount' | 'date' } | null>(null);
   const [draftAmount, setDraftAmount] = useState<Fils | null>(null);
   const [draftDate, setDraftDate] = useState<ISODate | null>(null);
-  const editable = debt.type !== 'card';
+  // A plan on a card is paid as part of that card: its instalments are shown, not edited here.
+  const onCard = debt.type === 'plan' && debt.cardId != null;
+  const editable = debt.type === 'loan' || (debt.type === 'plan' && !onCard);
   const mine = useMemo(() => input.debtOverrides.filter((o) => o.debtId === debt.id), [input.debtOverrides, debt.id]);
 
   const rows = useMemo<Row[]>(() => {
     // Skips are switched off so a skipped payment can be shown with an Undo.
     const open: PlanInput = { ...input, debtOverrides: input.debtOverrides.map((o) => (o.debtId === debt.id ? { ...o, skip: false } : o)) };
-    const all = debtSchedule(debt, open, now, addMonths(now, 12 * 10));
+    const all =
+      debt.type === 'plan' && debt.cardId != null
+        ? planInstalments(debt, open).payments.filter((p) => p.date >= now)
+        : debtSchedule(debt, open, now, addMonths(now, 12 * 10));
     const out: Row[] = [];
     let live = 0;
     for (const p of all) {
@@ -141,7 +146,11 @@ export function Schedule({ debt, input, now, currency }: { debt: Debt; input: Pl
             );
           })
         )}
-        {!editable ? (
+        {onCard ? (
+          <T variant="caption" tone="secondary" testID="debt-schedule-card-note">
+            Paid as part of {cardName ?? 'its card'}. Change the payment on the card’s due date by logging what you paid.
+          </T>
+        ) : !editable ? (
           <T variant="caption" tone="secondary">
             Card payments follow the repayment plan above. To record what you really paid, add it to the payment log.
           </T>

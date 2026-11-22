@@ -1,0 +1,96 @@
+# Switch on the Cheques module -> Plan -> Cheques -> add a series of 4 cheques every
+# 3 months -> 4 upcoming rows -> mark one cleared. Starts from a skipped setup.
+appId: com.shefoo.moneyplanner
+name: Add a cheque series
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- assertVisible:
+    id: dashboard-screen
+# Cheques is off by default: switch it on in Settings (the Plan tab shows its card afterwards).
+- tapOn: "Settings"
+- assertVisible:
+    id: settings-screen
+- scrollUntilVisible:
+    element:
+      id: settings-module-cheques
+    direction: DOWN
+- tapOn:
+    id: settings-module-cheques
+- tapOn: "Plan"
+- tapOn:
+    id: plan-open-cheques
+- assertVisible:
+    id: cheques-screen
+- assertVisible: "No cheques yet"
+- tapOn:
+    id: cheques-add-series
+- assertVisible:
+    id: cheque-series-screen
+- tapOn:
+    id: series-payee
+- inputText: "Landlord"
+- runFlow: common/dismiss-text-keyboard.yaml
+- tapOn:
+    id: series-amount
+- inputText: "4000"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: series-count
+    direction: DOWN
+- tapOn:
+    id: series-count
+- eraseText: 5
+- inputText: "4"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: series-every
+    direction: DOWN
+- tapOn:
+    id: series-every
+- eraseText: 5
+- inputText: "3"
+- runFlow: common/dismiss-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: series-save
+    direction: DOWN
+- assertVisible:
+    id: series-preview-3
+- tapOn:
+    id: series-save
+# The list shows the four upcoming cheques.
+- assertVisible:
+    id: cheques-screen
+- assertVisible:
+    id: cheque-item-0
+- scrollUntilVisible:
+    element:
+      id: cheque-item-3
+    direction: DOWN
+- assertNotVisible:
+    id: cheque-item-4
+# Mark the first one cleared: three remain upcoming.
+- scrollUntilVisible:
+    element:
+      id: cheque-clear-0
+    direction: UP
+- tapOn:
+    id: cheque-clear-0
+- assertNotVisible:
+    id: cheque-clear-3
+- assertVisible:
+    id: cheque-clear-0

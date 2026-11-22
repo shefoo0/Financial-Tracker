@@ -115,7 +115,7 @@ export function buildAlerts(input: PlanInput, today: ISODate): AppAlert[] {
           kind: 'debt-ends',
           severity: 'good',
           title: `${debt.name} ends on ${shortDate(end)}`,
-          message: `${debt.name} has its last payment on ${shortDate(end)}. That frees ${money(freed)} a month from ${formatMonth(addMonthKey(monthKey(end), 1))}.`,
+          message: `${debt.name} ${item.interestEstimated ? 'has an estimated last payment' : 'has its last payment'} on ${shortDate(end)}. That frees ${money(freed)} a month from ${formatMonth(addMonthKey(monthKey(end), 1))}.`,
           date: end,
           refId: debt.id,
         });
