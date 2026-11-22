@@ -5,7 +5,20 @@ import * as Sharing from 'expo-sharing';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
 import { defaultSettings } from '@/data/defaults';
 import { isValidISODate } from '@/lib/dates';
-import type { Category, Cheque, Debt, DebtOverride, DebtPayment, OccurrenceOverride, RecurringItem, Settings, Transaction } from '@/types';
+import type {
+  Category,
+  CategoryRuleRecord,
+  Cheque,
+  Debt,
+  DebtOverride,
+  DebtPayment,
+  ImportRecord,
+  ImportTemplate,
+  OccurrenceOverride,
+  RecurringItem,
+  Settings,
+  Transaction,
+} from '@/types';
 
 const NOT_A_BACKUP = "This file isn't a Money Planner backup.";
 const DAMAGED = "This backup file looks damaged, so it can't be restored.";
@@ -163,6 +176,15 @@ const isCheque = (v: unknown): v is Cheque =>
   nullOr(v.seriesId, isId) &&
   isStr(v.note);
 
+const isImportRecord = (v: unknown): v is ImportRecord =>
+  isObj(v) && isId(v.id) && isStr(v.sourceName) && isStr(v.fileKind) && isStr(v.importedAt) && isInt(v.rowCount) && v.rowCount >= 0;
+
+const isImportTemplate = (v: unknown): v is ImportTemplate =>
+  isObj(v) && isId(v.sourceName) && isObj(v.mapping) && isStr(v.lastUsed);
+
+const isCategoryRule = (v: unknown): v is CategoryRuleRecord =>
+  isObj(v) && isId(v.id) && isId(v.pattern) && isId(v.categoryId) && isStr(v.createdAt);
+
 const hasUniqueIds = (list: { id: string }[]) => new Set(list.map((x) => x.id)).size === list.length;
 
 /** Only these keys are read from a backup; anything else is ignored. */
@@ -246,6 +268,21 @@ export function parseBackup(text: string): BackupData {
   ) {
     throw new Error(DAMAGED);
   }
+  // Statement import lists (added after backup version 2 first shipped): a file without them restores with them empty.
+  const imports = raw.imports ?? [];
+  const importTemplates = raw.importTemplates ?? [];
+  const categoryRules = raw.categoryRules ?? [];
+  if (
+    !listOk(imports, isImportRecord) ||
+    !listOk(importTemplates, isImportTemplate) ||
+    !listOk(categoryRules, isCategoryRule) ||
+    !hasUniqueIds(imports as ImportRecord[]) ||
+    !hasUniqueIds(categoryRules as CategoryRuleRecord[]) ||
+    new Set((importTemplates as ImportTemplate[]).map((t) => t.sourceName)).size !== (importTemplates as ImportTemplate[]).length ||
+    new Set((categoryRules as CategoryRuleRecord[]).map((r) => r.pattern.toLowerCase())).size !== (categoryRules as CategoryRuleRecord[]).length
+  ) {
+    throw new Error(DAMAGED);
+  }
   const debts: Debt[] = [];
   for (const d of rawDebts) {
     const debt = readDebt(d);
@@ -276,6 +313,9 @@ export function parseBackup(text: string): BackupData {
     debtPayments: debtPayments as DebtPayment[],
     debtOverrides: debtOverrides as DebtOverride[],
     cheques: cheques as Cheque[],
+    imports: imports as ImportRecord[],
+    importTemplates: importTemplates as ImportTemplate[],
+    categoryRules: categoryRules as CategoryRuleRecord[],
   };
 }
 
