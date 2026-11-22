@@ -1,0 +1,67 @@
+# Lock: set a PIN in Settings, restart the app -> the lock screen covers it -> the PIN opens it.
+appId: com.shefoo.moneyplanner
+name: Lock with a PIN
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: onboarding-next
+- repeat:
+    while:
+      notVisible:
+        id: onboarding-start
+    commands:
+      - tapOn:
+          id: onboarding-next
+- tapOn:
+    id: onboarding-start
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: settings-lock-toggle
+    direction: DOWN
+- tapOn:
+    id: settings-lock-toggle
+- assertVisible:
+    id: pin-prompt
+- tapOn:
+    id: pin-key-1
+- tapOn:
+    id: pin-key-2
+- tapOn:
+    id: pin-key-3
+- tapOn:
+    id: pin-key-4
+- tapOn:
+    id: pin-submit
+- tapOn:
+    id: pin-key-1
+- tapOn:
+    id: pin-key-2
+- tapOn:
+    id: pin-key-3
+- tapOn:
+    id: pin-key-4
+- tapOn:
+    id: pin-submit
+- scrollUntilVisible:
+    element:
+      id: settings-lock-change
+    direction: DOWN
+# Restart without clearing data: the profile opens locked.
+- stopApp
+- launchApp
+- assertVisible:
+    id: lock-screen
+- assertNotVisible:
+    id: dashboard-screen
+- tapOn:
+    id: lock-key-1
+- tapOn:
+    id: lock-key-2
+- tapOn:
+    id: lock-key-3
+- tapOn:
+    id: lock-key-4
+- assertVisible:
+    id: dashboard-screen

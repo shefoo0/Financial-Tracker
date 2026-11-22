@@ -21,7 +21,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [~] Milestone 2 — Debts, cheques, alerts, lock (decisions in spec "Milestone 2 decisions")
   - [x] Lead: types, repository interface, schema v2, plan input, expo-notifications/local-authentication/secure-store/crypto + app.json plugins
   - [x] D data · [x] T6 engine (logged payments after the balance date count as outflows) · [x] T7 debts screens · [x] T8 cheques screens · [x] T9 alerts + lock · [x] lead wiring (Plan cards, routes, dashboard alerts, lock gate + scheduler, modules on, CSV buttons)
-  - [ ] review · [ ] tests · [ ] fix loop · [ ] Android + iPhone test runs
+  - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [~] Android + iPhone test runs
 - [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
