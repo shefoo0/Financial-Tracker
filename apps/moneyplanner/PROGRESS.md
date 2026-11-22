@@ -22,7 +22,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Lead: types, repository interface, schema v2, plan input, expo-notifications/local-authentication/secure-store/crypto + app.json plugins
   - [x] D data · [x] T6 engine (logged payments after the balance date count as outflows) · [x] T7 debts screens · [x] T8 cheques screens · [x] T9 alerts + lock · [x] lead wiring (Plan cards, routes, dashboard alerts, lock gate + scheduler, modules on, CSV buttons)
   - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [~] Android + iPhone test runs
-- [~] Milestone 3 — Import and OCR: [x] T10 parsers (+xlsx, Arabic, learned rules) · T11 · T12 · T13 · review · tests · Android test build
+- [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [ ] device runs · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
 ## Release bar: beat the competition (developer, 2026-11-22)
