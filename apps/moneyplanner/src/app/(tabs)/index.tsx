@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
-import { BalanceChart, BarList } from '@/components/charts';
+import { BarList, ForecastHero } from '@/components/charts';
 import {
   Button,
   Card,
@@ -17,13 +17,13 @@ import {
   StatTile,
   T,
 } from '@/components/ui';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useData, usePlanInput } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { forecast as runForecast, monthSummary, yearSummary } from '@/engine';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
-import { balanceLabel, categoryBars, describeBalanceTrend, monthShort, shortDate } from '@/features/dashboard/helpers';
+import { categoryBars, monthShort } from '@/features/dashboard/helpers';
 import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
 import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
 import { useToday } from '@/features/dashboard/useToday';
@@ -150,40 +150,7 @@ function DashboardBody({ input }: { input: PlanInput }) {
       {header}
 
       <HeroCard testID="dashboard-forecast">
-        <T variant="caption" tone="onHero" style={{ letterSpacing: 1, fontWeight: '700' }}>
-          {balanceLabel(fc.asOf, todayStr).toUpperCase()}
-        </T>
-        <T
-          variant="title"
-          tone="onHero"
-          maxFontSizeMultiplier={1.4}
-          style={{ fontSize: 36, lineHeight: 44, fontVariant: ['tabular-nums'] }}
-          accessibilityLabel={`${balanceLabel(fc.asOf, todayStr)}: ${money(fc.balanceAsOf)}`}>
-          {formatMoneyTrim(fc.balanceAsOf, currency)}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
-          <View style={{ backgroundColor: Colors.dark.glass, borderRadius: Radius.pill, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one }}>
-            <T variant="caption" tone="onHero">
-              Lowest {money(fc.lowest.balance)} · {shortDate(fc.lowest.date)}
-            </T>
-          </View>
-          <View style={{ backgroundColor: Colors.dark.glass, borderRadius: Radius.pill, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one }}>
-            <T variant="caption" tone="onHero">
-              next 60 days
-            </T>
-          </View>
-        </View>
-        <BalanceChart
-          variant="onHero"
-          days={fc.days}
-          buffer={buffer}
-          lowestDate={fc.lowest.date}
-          accessibilityLabel={describeBalanceTrend(fc.days, fc.lowest, currency, buffer)}
-          testID="dashboard-balance-chart"
-        />
-        <T variant="caption" tone="onHero">
-          Dashed line: your {money(buffer)} buffer
-        </T>
+        <ForecastHero fc={fc} todayStr={todayStr} currency={currency} buffer={buffer} />
       </HeroCard>
 
       <PaydayCard input={input} today={todayStr} />

@@ -48,6 +48,33 @@ add('2 Plan: recurring items', async (d, step) => {
   await step('Home Coming up shows Rent', async () => {
     await d.tab('Home'); await d.see('#dashboard-upcoming'); await d.see('Rent', { exact: true }); await d.shot('home-with-rent');
   });
+  await step('Home chart: drag the mouse across it, tooltip shows a date and an amount, big number follows, then 1Y', async () => {
+    await d.tab('Home'); await d.see('#dashboard-balance-chart');
+    const chart = d.page.locator('[data-testid="dashboard-balance-chart"]').filter({ visible: true }).first();
+    await chart.scrollIntoViewIfNeeded(); await d.settle(300);
+    const box = await chart.boundingBox();
+    const y = box.y + box.height / 2;
+    await d.page.mouse.move(box.x + box.width * 0.2, y); await d.page.mouse.down();
+    await d.page.mouse.move(box.x + box.width * 0.55, y, { steps: 12 }); await d.settle(200);
+    await d.seeText('#dashboard-balance-chart-tooltip', /\d{1,2} [A-Z][a-z]{2}.*AED [\d,]+/);
+    await d.seeText('#dashboard-balance-caption', /^\d{1,2} [A-Z]{3}$/);
+    await d.shot('home-chart-scrub');
+    const out = process.env.CHART_SHOT_DIR;
+    if (out) {
+      await d.page.screenshot({ path: `${out}/chart-light.png` });
+      await d.page.emulateMedia({ colorScheme: 'dark' }); await d.settle(400);
+      await d.page.screenshot({ path: `${out}/chart-dark.png` });
+      await d.page.emulateMedia({ colorScheme: 'light' }); await d.settle(300);
+    }
+    await d.page.mouse.up(); await d.settle(200);
+    await d.notSee('#dashboard-balance-chart-tooltip'); await d.seeText('#dashboard-balance-caption', /BALANCE TODAY/);
+    await d.tap('#dashboard-balance-chart-range-1Y'); await d.settle(300);
+    await d.page.mouse.click(box.x + box.width * 0.4, y); await d.settle(200);
+    await d.seeText('#dashboard-balance-chart-tooltip', /End of [A-Z][a-z]{2} \d{4}.*AED [\d,]+/);
+    await d.shot('home-chart-1y');
+    await d.page.mouse.click(box.x + box.width * 0.4, y); await d.settle(200); await d.notSee('#dashboard-balance-chart-tooltip');
+    await d.tap('#dashboard-balance-chart-range-2M');
+  });
   await step('Coming up: Paid on Rent records it (row moves to the next month), Undo brings it back', async () => {
     const rentRow = () => d.page.locator('[data-testid^="dashboard-upcoming-"]').filter({ hasText: 'Rent' }).filter({ visible: true }).first();
     const before = (await rentRow().innerText()).replace(/\s+/g, ' ');
