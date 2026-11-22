@@ -134,7 +134,7 @@ interface DebtBase {
 /** A loan paid in equal monthly payments. */
 export interface Loan extends DebtBase {
   type: 'loan';
-  /** Remaining balance on `balanceDate` (after any payment on that day). */
+  /** Balance on `balanceDate`, before any payment logged in the app on that day. */
   balance: Fils;
   balanceDate: ISODate;
   monthlyPayment: Fils;
@@ -151,7 +151,7 @@ export type CardPlan = 'full' | 'minimum' | 'fixed';
 export interface CreditCard extends DebtBase {
   type: 'card';
   limit: Fils;
-  /** Balance owed on `balanceDate`. */
+  /** Balance on `balanceDate`, before any payment logged in the app on that day. */
   balance: Fils;
   balanceDate: ISODate;
   /** Day the statement is issued (1-31) and day the payment is due (1-31). */

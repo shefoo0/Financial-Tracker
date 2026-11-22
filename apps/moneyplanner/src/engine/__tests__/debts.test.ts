@@ -1,4 +1,4 @@
-import { debtSchedule, debtStats, forecast, monthSummary, yearSummary, planInstalments } from '../index';
+import { debtProgress, debtSchedule, debtStats, forecast, monthSummary, yearSummary, planInstalments } from '../index';
 import { card, cheque, dov, income, input, loan, pay, plan, settings } from '../test-fixtures';
 
 const sched = (d: Parameters<typeof debtSchedule>[0], i: ReturnType<typeof input>, from = '2026-01-01', to = '2026-12-31') =>
@@ -50,9 +50,12 @@ describe('loans', () => {
     expect(sched(l, input({ debts: [l], debtPayments: [partial] })).reduce((s, p) => s + p.amount, 0)).toBe(90000);
   });
 
-  it('ignores logged payments on or before the balance date', () => {
+  it('a payment logged on the balance date reduces the balance; earlier ones do not', () => {
     const l = loan();
-    const old = pay({ kind: 'extra', date: '2026-01-01', amount: 40000 });
+    const same = pay({ kind: 'extra', date: '2026-01-01', amount: 40000 });
+    expect(sched(l, input({ debts: [l], debtPayments: [same] })).reduce((s, p) => s + p.amount, 0)).toBe(60000);
+    expect(debtStats(input({ debts: [l], debtPayments: [same] }), '2026-01-01').totalRemaining).toBe(60000);
+    const old = pay({ kind: 'extra', date: '2025-12-31', amount: 40000 });
     expect(sched(l, input({ debts: [l], debtPayments: [old] })).reduce((s, p) => s + p.amount, 0)).toBe(100000);
   });
 
@@ -433,5 +436,41 @@ describe('loan interest', () => {
     const s = debtStats(input({ debts: [l] }), '2026-01-10');
     expect(s.debtFreeDate).toBeNull();
     expect(s.perDebt[0].endDate).toBeNull();
+  });
+});
+
+describe('monthly payments and progress (walkthrough fixes)', () => {
+  it('monthly payments stay typical after the payment day has passed', () => {
+    const l = loan({ paymentDay: 5, balanceDate: '2026-01-01' });
+    const s = debtStats(input({ debts: [l], recurring: [income(100000)] }), '2026-01-20');
+    expect(s.monthlyDebtPayments).toBe(30000);
+    expect(s.debtToIncomePct).toBe(30);
+  });
+
+  it('uses the next payment when the debt has none this month, and counts a logged regular once', () => {
+    const started = loan({ paymentDay: 5, balanceDate: '2026-01-20' });
+    expect(debtStats(input({ debts: [started] }), '2026-01-20').monthlyDebtPayments).toBe(30000);
+    const l = loan({ paymentDay: 5 });
+    const logged = pay({ date: '2026-02-04', amount: 30000 });
+    expect(debtStats(input({ debts: [l], debtPayments: [logged] }), '2026-02-20').monthlyDebtPayments).toBe(30000);
+  });
+
+  it('debtProgress counts a logged payment on a plan on a card once: 1 of 6 paid', () => {
+    const c = card({ balance: 0 });
+    const p = plan({ cardId: 'C1', total: 600000, monthlyAmount: 100000, payments: 6, firstPaymentDate: '2026-06-10' });
+    const logged = pay({ debtId: 'P1', date: '2026-01-05', amount: 100000, kind: 'regular' });
+    const i = input({ debts: [c, p], debtPayments: [logged] });
+    expect(debtProgress(p, i, '2026-01-10')).toEqual({ paid: 1, total: 6 });
+    const item = debtStats(i, '2026-01-10').perDebt.find((x) => x.debtId === 'P1');
+    expect(item).toMatchObject({ paidCount: 1, totalCount: 6 });
+    const standalone = plan({ total: 600000, monthlyAmount: 100000, payments: 6, firstPaymentDate: '2026-06-10' });
+    expect(debtProgress(standalone, input({ debts: [standalone], debtPayments: [{ ...logged }] }), '2026-01-10')).toEqual({ paid: 1, total: 6 });
+  });
+
+  it('debtProgress for a loan counts logged regular payments', () => {
+    const l = loan({ endDate: '2026-04-15' });
+    const i = input({ debts: [l], debtPayments: [pay({ date: '2026-01-14' })] });
+    expect(debtProgress(l, i, '2026-02-01')).toEqual({ paid: 1, total: 4 });
+    expect(debtProgress(card(), i, '2026-02-01')).toBeNull();
   });
 });

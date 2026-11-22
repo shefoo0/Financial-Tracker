@@ -57,9 +57,9 @@ function dayIn(month: string, day: number): ISODate {
 
 const sum = (xs: { amount: Fils }[]) => xs.reduce((s, x) => s + x.amount, 0);
 
-/** Logged payments of a debt dated after `after` (they reduce the remaining balance). */
+/** Logged payments of a debt dated on or after `after` (they reduce the remaining balance). */
 function loggedAfter(input: PlanInput, debtId: string, after: ISODate): DebtPayment[] {
-  return paymentsOf(input, debtId).filter((p) => compareDates(p.date, after) > 0);
+  return paymentsOf(input, debtId).filter((p) => compareDates(p.date, after) >= 0);
 }
 
 /** Months (YYYY-MM) that have a logged 'regular' payment: that month's scheduled payment is replaced. */

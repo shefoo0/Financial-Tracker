@@ -66,15 +66,19 @@ export function debtStats(input: PlanInput, today: ISODate): DebtStats {
     const linked = debt.type === 'plan' && isLinked(debt, debts);
     const own = [...life.payments].sort((x, y) => compareDates(x.date, y.date));
 
-    // This month's payments (linked plans are paid through their card, so not counted twice).
+    const next = own.find((p) => compareDates(p.date, today) >= 0) ?? null;
+    // Typical monthly amount: everything scheduled anywhere in this calendar month (already past
+    // ones too) plus regular payments logged this month, which replace their scheduled ones, so
+    // each is counted once. A debt with none this month uses its next scheduled payment.
+    // Linked plans are paid through their card, so they aren't counted twice.
     if (!linked) {
-      monthly += own.filter((p) => compareDates(p.date, from) >= 0 && compareDates(p.date, to) <= 0).reduce((s, p) => s + p.amount, 0);
-      monthly += (input.debtPayments ?? [])
+      let thisMonth = own.filter((p) => compareDates(p.date, from) >= 0 && compareDates(p.date, to) <= 0).reduce((s, p) => s + p.amount, 0);
+      thisMonth += (input.debtPayments ?? [])
         .filter((p) => p.debtId === debt.id && p.kind === 'regular' && monthKey(p.date) === monthKey(today))
         .reduce((s, p) => s + p.amount, 0);
+      monthly += thisMonth > 0 ? thisMonth : (next?.amount ?? 0);
     }
 
-    const next = own.find((p) => compareDates(p.date, today) >= 0) ?? null;
     const lastPay = own.length ? own[own.length - 1].date : null;
     let endDate: ISODate | null = null;
     if (remaining > 0) {
@@ -94,7 +98,7 @@ export function debtStats(input: PlanInput, today: ISODate): DebtStats {
         p.debtId === debt.id &&
         p.kind === 'regular' &&
         compareDates(p.date, today) <= 0 &&
-        (debt.type === 'plan' || compareDates(p.date, debt.balanceDate) > 0),
+        (debt.type === 'plan' || compareDates(p.date, debt.balanceDate) >= 0),
     ).length;
     const paidCount = progress ? progress.paid : own.filter((p) => compareDates(p.date, today) <= 0).length + loggedRegular;
 
