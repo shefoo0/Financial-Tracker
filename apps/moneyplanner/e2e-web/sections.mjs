@@ -76,6 +76,54 @@ add('2 Plan: recurring items', async (d, step) => {
     await d.tap('Rent'); await d.see('#recurring-screen'); await d.see('Upcoming', { exact: true });
     await d.tap('#occurrence-skip-0'); await d.see('#occurrence-unskip-0'); await d.shot('rent-skipped');
     await d.tap('#occurrence-unskip-0'); await d.see('#occurrence-skip-0');
-    await d.tap('#occurrence-move-0');
+    await d.tap('#occurrence-move-0'); await d.type('#occurrence-date-input-0', '2026-12-03'); await d.tap('#occurrence-date-apply-0');
+    await d.see('Moved'); await d.shot('rent-moved');
+    await d.tap('#occurrence-amount-1'); await d.type('#occurrence-amount-input-1', '9000'); await d.tap('#occurrence-amount-apply-1');
+    await d.see('9,000.00');
+    await d.tap('#occurrence-paid-0'); await d.see('Mark unpaid');
+  });
+  await step('leave the form without a prompt (nothing unsaved)', async () => {
+    await d.clearAlerts(); await d.back(); await d.see('#plan-screen');
+    if ((await d.alerts()).length) throw new Error('asked to discard although nothing was edited in the form');
+  });
+});
+
+add('3 One-time items and Month', async (d, step) => {
+  await step('Month tab shows this month with Rent', async () => {
+    await d.tab('Month'); await d.see('#month-screen'); await d.see('November 2026'); await d.see('Rent'); await d.shot('month-nov');
+  });
+  await step('add one-time spend Taxi 45', async () => {
+    await d.tap('#month-add-item'); await d.see('#transaction-screen');
+    await d.type('#transaction-description', 'Taxi'); await d.type('#transaction-amount', '45');
+    await d.tap('#transaction-save-bottom'); await d.see('#month-screen'); await d.notSee('#transaction-screen');
+    await d.see('Taxi'); await d.seeText('#month-spent', /45/); await d.shot('month-with-taxi');
+  });
+  await step('add one-time income Bonus 500 (planned)', async () => {
+    await d.tap('#month-add-item'); await d.tap('#transaction-kind-income');
+    await d.type('#transaction-description', 'Bonus'); await d.type('#transaction-amount', '500');
+    await d.tap('#transaction-save-bottom'); await d.see('Bonus');
+  });
+  await step('edit Taxi to 60', async () => {
+    await d.tap('Taxi'); await d.see('#transaction-screen'); await d.type('#transaction-amount', '60');
+    await d.tap('#transaction-save-bottom'); await d.see('#month-screen'); await d.seeText('#month-spent', /60/);
+  });
+  await step('discard prompt on a one-time item', async () => {
+    await d.clearAlerts(); await d.tap('Taxi'); await d.type('#transaction-amount', '99'); await d.back();
+    if (!(await d.alerts()).some((a) => a.title === 'Discard changes?')) throw new Error('no Discard changes? prompt');
+    await d.alertPick('Discard'); await d.back(); await d.see('#month-screen'); await d.seeText('#month-spent', /60/); await d.clearAlerts();
+  });
+  await step('delete Taxi', async () => {
+    await d.tap('Taxi'); await d.alertPick('Delete'); await d.tap('#transaction-delete');
+    await d.see('#month-screen'); await d.notSee('Taxi', { exact: true }); await d.clearAlerts(); await d.shot('month-after-delete');
+  });
+  await step('month stepper: next, next, previous, Today', async () => {
+    await d.tap('#month-next'); await d.see('December 2026'); await d.see('Rent'); await d.shot('month-dec');
+    await d.tap('#month-next'); await d.see('January 2027');
+    await d.tap('#month-prev'); await d.see('December 2026');
+    await d.tap('#month-today'); await d.see('November 2026');
+  });
+  await step('past month is empty or lists items without error', async () => {
+    await d.tap('#month-prev'); await d.tap('#month-prev'); await d.tap('#month-prev'); await d.see('August 2026');
+    await d.shot('month-aug'); await d.tap('#month-today'); await d.see('November 2026');
   });
 });
