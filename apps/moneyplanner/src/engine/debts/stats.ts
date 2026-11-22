@@ -78,8 +78,12 @@ export function debtStats(input: PlanInput, today: ISODate): DebtStats {
     if (remaining > 0) {
       if (life.remaining <= 0 && lastPay) endDate = lastPay;
       else if (debt.type === 'loan' && debt.endDate) endDate = debt.endDate;
-      if (!endDate) allFinish = false;
-      else if (!last || compareDates(endDate, last) > 0) last = endDate;
+    }
+    // The debt-free date follows the last payment actually made; a card pays its linked plans.
+    if (!linked) {
+      if (remaining > 0 && !endDate) allFinish = false;
+      const finish = endDate ?? (life.remaining <= 0 ? lastPay : null);
+      if (finish && (!last || compareDates(finish, last) > 0)) last = finish;
     }
 
     const progress = debtProgress(debt, input, addDays(today, 1));

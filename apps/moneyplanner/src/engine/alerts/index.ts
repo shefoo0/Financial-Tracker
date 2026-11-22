@@ -1,11 +1,16 @@
 // Alert rules (pure): facts about the next 60 days, never advice.
 import type { AlertKind, AppAlert, Debt, Fils, ISODate, PlanInput } from '@/types';
-import { addDays, addMonthKey, compareDates, formatMonth, monthKey } from '@/lib/dates';
+import { MONTHS, addDays, addMonthKey, compareDates, formatMonth, monthKey, parseISODate } from '@/lib/dates';
 import { formatMoneyTrim } from '@/lib/money';
 import { forecast } from '../forecast';
 import { activeDebts } from '../debts/schedule';
 import { debtStats } from '../debts/stats';
-import { shortDate } from '@/features/dashboard/helpers';
+
+/** '2026-03-14' -> '14 Mar'. */
+const shortDate = (d: ISODate): string => {
+  const { month, day } = parseISODate(d);
+  return `${day} ${MONTHS[month - 1]}`;
+};
 
 /** How many days ahead alerts look. */
 export const ALERT_DAYS = 60;

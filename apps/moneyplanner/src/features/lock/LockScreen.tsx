@@ -30,7 +30,10 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
 
   useEffect(() => {
     let cancelled = false;
-    lockStore.pinLength(profile.id).then((l) => !cancelled && setLen(l));
+    lockStore.pinLength(profile.id).then(
+      (l) => !cancelled && setLen(l),
+      () => !cancelled && setLen(null),
+    );
     return () => {
       cancelled = true;
     };
@@ -51,7 +54,7 @@ export function LockScreen({ profile, onUnlocked }: { profile: Profile; onUnlock
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [available, pref] = await Promise.all([biometricsAvailable(), lockStore.getBiometricPref(profile.id)]);
+      const [available, pref] = await Promise.all([biometricsAvailable(), lockStore.getBiometricPref(profile.id).catch(() => false)]);
       if (cancelled || !available || !pref) return;
       setBio(true);
       if (await authenticateWithBiometrics(profile.name)) onUnlocked();

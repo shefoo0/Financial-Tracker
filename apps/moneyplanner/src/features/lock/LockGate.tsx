@@ -53,7 +53,7 @@ export function LockGate({ children }: { children: ReactNode }) {
 
   const pinChecked = pin?.key === pinKey;
   // Lock is on in the settings but its PIN is gone (e.g. a backup restored on another phone): nothing can unlock it, so switch it off.
-  const orphaned = lockEnabled === true && pinChecked && !pin.has;
+  const orphaned = lockEnabled === true && pinChecked && !pin?.has;
   useEffect(() => {
     if (orphaned) repo.updateSettings({ lockEnabled: false }).then(bump, () => undefined);
   }, [orphaned, repo, bump]);

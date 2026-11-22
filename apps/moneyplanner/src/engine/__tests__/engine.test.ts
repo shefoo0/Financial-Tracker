@@ -68,6 +68,10 @@ const input = (over: Partial<PlanInput> = {}): PlanInput => ({
   recurring: [],
   overrides: [],
   transactions: [],
+  debts: [],
+  debtPayments: [],
+  debtOverrides: [],
+  cheques: [],
   ...over,
 });
 const dates = (os: { date: string }[]) => os.map((o) => o.date);

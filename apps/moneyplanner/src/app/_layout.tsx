@@ -69,6 +69,10 @@ export default function RootLayout() {
           <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'One-time item' }} />
           <Stack.Screen name="categories" options={{ title: 'Categories' }} />
           <Stack.Screen name="profiles" options={{ title: 'Profiles' }} />
+          <Stack.Screen name="debts/index" options={{ title: '', headerBackTitle: 'Plan' }} />
+          <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
+          <Stack.Screen name="cheques/index" options={{ title: '', headerBackTitle: 'Plan' }} />
+          <Stack.Screen name="cheques/[id]" options={{ presentation: 'modal', title: 'Cheque' }} />
         </Stack>
       </Themed>
     </ProfileProvider>

@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, IconBadge, Screen, ScreenHeader, SectionHeade
 import { Palette, Radius, Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
 import { expandRecurring, monthlyEquivalent } from '@/engine';
+import { ModuleCards } from '@/features/plan/ModuleCards';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { describeEnd, describeSchedule } from '@/features/items/schedule';
 import { useTheme } from '@/hooks/use-theme';
@@ -39,6 +40,7 @@ export default function PlanScreen() {
     return (
       <Screen>
         <ScreenHeader title="Plan" />
+        <ModuleCards input={data} />
         <EmptyState
           title="Plan your regular money"
           message="Recurring items are income and costs that repeat, like your salary, rent, subscriptions or insurance. Add them once and they appear in every month, the dashboard and the forecast."
@@ -77,6 +79,7 @@ export default function PlanScreen() {
     <View style={styles.flex}>
     <Screen testID="plan-screen">
       <ScreenHeader title="Plan" subtitle="Income and costs that repeat" />
+      <ModuleCards input={data} />
       {sections.map((s) => {
         const items = recurring
           .filter((r) => r.kind === s.kind)

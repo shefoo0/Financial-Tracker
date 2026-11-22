@@ -9,6 +9,8 @@ import { Spacing } from '@/constants/theme';
 import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { exportBackup, exportTransactionsCsv, restoreBackupFromFile } from '@/data/backup';
+import { AlertsSettings } from '@/features/alerts/AlertsSettings';
+import { LockSettings } from '@/features/lock/LockSettings';
 import { AppearanceSetting } from '@/features/profiles/AppearanceSetting';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
 import {
@@ -62,7 +64,8 @@ export default function SettingsScreen() {
   }
 
   const cur = settings.currency;
-  const moduleChoices = moduleList();
+  // Alerts has its own section below (switch, permission explainer, levels).
+  const moduleChoices = moduleList().filter((m) => m.id !== 'alerts');
 
   // Start the text boxes from the saved values again (after Restore or Delete all).
   const resetDrafts = () => {
@@ -255,6 +258,9 @@ export default function SettingsScreen() {
           </Card>
         </>
       )}
+
+      <AlertsSettings settings={settings} update={update} />
+      <LockSettings settings={settings} update={update} />
 
       <SectionHeader title="Categories" />
       <Card>

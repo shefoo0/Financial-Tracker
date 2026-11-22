@@ -1,4 +1,5 @@
-import type { Fils, ISODate, Kind, Occurrence, Transaction } from '@/types';
+import { allDebtPayments, chequesInRange } from '@/engine';
+import type { Fils, ISODate, Kind, Occurrence, PlanInput, Transaction } from '@/types';
 
 export interface MonthItem {
   key: string;
@@ -10,8 +11,17 @@ export interface MonthItem {
   href: string;
 }
 
-/** Merges recurring occurrences and one-time items of a month, sorted by date (then name). */
-export function buildMonthItems(occurrences: Occurrence[], transactions: Transaction[], from: ISODate, to: ISODate): MonthItem[] {
+/**
+ * Merges recurring occurrences and one-time items of a month, sorted by date (then name).
+ * Pass the plan input to include debt payments and upcoming cheques too.
+ */
+export function buildMonthItems(
+  occurrences: Occurrence[],
+  transactions: Transaction[],
+  from: ISODate,
+  to: ISODate,
+  input?: PlanInput,
+): MonthItem[] {
   const items: MonthItem[] = [
     ...occurrences.map((o) => ({
       key: `r-${o.recurringId}-${o.originalDate}`,
@@ -33,6 +43,28 @@ export function buildMonthItems(occurrences: Occurrence[], transactions: Transac
         badges: t.planned ? ['Planned'] : [],
         href: `/transaction/${t.id}`,
       })),
+    ...(input
+      ? allDebtPayments(input, from, to).map((p) => ({
+          key: `d-${p.debtId}-${p.originalDate}`,
+          date: p.date,
+          title: p.label,
+          kind: 'cost' as Kind,
+          amount: p.amount,
+          badges: p.date !== p.originalDate ? ['Moved'] : [],
+          href: `/debts/${p.debtId}`,
+        }))
+      : []),
+    ...(input
+      ? chequesInRange(input, from, to).map((c) => ({
+          key: `c-${c.id}`,
+          date: c.date,
+          title: `Cheque to ${c.payee}`,
+          kind: 'cost' as Kind,
+          amount: c.amount,
+          badges: c.purpose ? [c.purpose] : [],
+          href: `/cheques/${c.id}`,
+        }))
+      : []),
   ];
   return items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
 }

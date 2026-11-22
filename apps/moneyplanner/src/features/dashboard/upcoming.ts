@@ -1,5 +1,5 @@
 // "Coming up": the next recurring occurrences and planned one-time items from today.
-import { occurrencesInRange } from '@/engine';
+import { allDebtPayments, chequesInRange, debtProgress, occurrencesInRange } from '@/engine';
 import { Palette } from '@/constants/theme';
 import { addDays, diffDays } from '@/lib/dates';
 import type { Category, Fils, ISODate, Kind, PlanInput } from '@/types';
@@ -90,6 +90,35 @@ export function buildUpcoming(input: PlanInput, todayStr: ISODate, limit = 5, da
       when: whenLabel(t.date, todayStr),
       progress: null,
       href: `/transaction/${t.id}`,
+    });
+  }
+  const debtById = new Map((input.debts ?? []).map((d) => [d.id, d]));
+  for (const p of allDebtPayments(input, todayStr, to)) {
+    const debt = debtById.get(p.debtId);
+    const prog = debt ? debtProgress(debt, input, p.date) : null;
+    items.push({
+      key: `d-${p.debtId}-${p.originalDate}`,
+      date: p.date,
+      title: p.label,
+      kind: 'cost',
+      amount: p.amount,
+      categoryId: 'loans-cards',
+      when: whenLabel(p.date, todayStr),
+      progress: prog ? `${Math.min(prog.paid, prog.total)} of ${prog.total} paid` : null,
+      href: `/debts/${p.debtId}`,
+    });
+  }
+  for (const c of chequesInRange(input, todayStr, to)) {
+    items.push({
+      key: `c-${c.id}`,
+      date: c.date,
+      title: `Cheque to ${c.payee}`,
+      kind: 'cost',
+      amount: c.amount,
+      categoryId: null,
+      when: whenLabel(c.date, todayStr),
+      progress: null,
+      href: `/cheques/${c.id}`,
     });
   }
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.title.localeCompare(b.title)));
