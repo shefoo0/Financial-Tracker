@@ -6,7 +6,7 @@
 // accessibility label. Tap targets are at least 44pt tall. Text scales with the
 // system font size.
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import {
   InputAccessoryView,
   Keyboard,
@@ -43,7 +43,7 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
       <AuroraBackground />
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']} testID={testID}>
         {scroll ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
             {inner}
           </ScrollView>
         ) : (
@@ -201,8 +201,12 @@ export function TextField({
   const [focused, setFocused] = useState(false);
   // iPhone number pads have no Return key, so numeric fields get a "Done" bar.
   const numericOnIOS = Platform.OS === 'ios' && (keyboardType === 'decimal-pad' || keyboardType === 'number-pad');
+  // Each field brings its own bar: one shared bar rendered at the app's root
+  // never showed over the forms, which open as iPhone modals.
+  const doneBarId = 'done' + useId().replace(/[^a-zA-Z0-9]/g, '');
   return (
     <FieldShell label={label} error={error} hint={hint}>
+      {numericOnIOS ? <DoneBar nativeID={doneBarId} /> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -211,7 +215,7 @@ export function TextField({
         multiline={multiline}
         keyboardType={keyboardType}
         returnKeyType={multiline ? 'default' : 'done'}
-        inputAccessoryViewID={numericOnIOS ? KEYBOARD_DONE_ID : undefined}
+        inputAccessoryViewID={numericOnIOS ? doneBarId : undefined}
         accessibilityLabel={label}
         testID={testID}
         onFocus={() => setFocused(true)}
@@ -222,24 +226,13 @@ export function TextField({
   );
 }
 
-const KEYBOARD_DONE_ID = 'keyboard-done-bar';
-
-/**
- * The "Done" bar shown above iPhone number pads (see TextField). Render it once
- * near the root of the app; it does nothing on Android and the web.
- */
-export function KeyboardDoneBar() {
+/** The "Done" bar above an iPhone number pad (which has no Return key). */
+function DoneBar({ nativeID }: { nativeID: string }) {
   const c = useTheme();
-  if (Platform.OS !== 'ios') return null;
   return (
-    <InputAccessoryView nativeID={KEYBOARD_DONE_ID}>
+    <InputAccessoryView nativeID={nativeID}>
       <View style={[styles.doneBar, { backgroundColor: c.backgroundElement, borderTopColor: c.border }]}>
-        <Pressable
-          onPress={() => Keyboard.dismiss()}
-          accessibilityRole="button"
-          accessibilityLabel="Done"
-          testID="keyboard-done"
-          style={styles.doneButton}>
+        <Pressable onPress={() => Keyboard.dismiss()} accessibilityRole="button" accessibilityLabel="Done" testID="keyboard-done" style={styles.doneButton}>
           <T variant="label" tone="accent">
             Done
           </T>
@@ -247,6 +240,11 @@ export function KeyboardDoneBar() {
       </View>
     </InputAccessoryView>
   );
+}
+
+/** @deprecated Numeric fields now render their own Done bar; kept so old imports still work. */
+export function KeyboardDoneBar() {
+  return null;
 }
 
 /**

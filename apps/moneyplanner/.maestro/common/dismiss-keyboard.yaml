@@ -20,3 +20,5 @@ appId: com.shefoo.moneyplanner
       - tapOn:
           text: "Done"
           optional: true
+      # Fallback: scrolling the form closes the keyboard too (keyboardDismissMode on-drag).
+      - scroll

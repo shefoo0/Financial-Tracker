@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
-import { Button, EmptyState, KeyboardDoneBar, Screen } from '@/components/ui';
+import { Button, EmptyState, Screen } from '@/components/ui';
 import { Colors } from '@/constants/theme';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -62,7 +62,6 @@ export default function RootLayout() {
       )}>
       <Themed>
         <HideSplash />
-        <KeyboardDoneBar />
         <Stack screenOptions={{ headerBackTitle: 'Back', headerShadowVisible: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
