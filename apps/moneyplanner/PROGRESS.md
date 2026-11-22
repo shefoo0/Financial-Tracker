@@ -22,7 +22,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Lead: types, repository interface, schema v2, plan input, expo-notifications/local-authentication/secure-store/crypto + app.json plugins
   - [x] D data · [x] T6 engine (logged payments after the balance date count as outflows) · [x] T7 debts screens · [x] T8 cheques screens · [x] T9 alerts + lock · [x] lead wiring (Plan cards, routes, dashboard alerts, lock gate + scheduler, modules on, CSV buttons)
   - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [~] Android + iPhone test runs
-- [ ] Milestone 3 — Import and OCR: T10 · T11 · T12 · T13 · review · tests · Android test build
+- [~] Milestone 3 — Import and OCR: [x] T10 parsers (+xlsx, Arabic, learned rules) · T11 · T12 · T13 · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
 ## Release bar: beat the competition (developer, 2026-11-22)
@@ -35,10 +35,10 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - [x] **"Mark paid" in one tap** from Coming up (bills, card payments, cheques) — users ask for a "Pay bill" button.
 - [x] **Never lose data**: automatic local backup (last 7 days, rotated) plus a monthly "save a backup file" reminder; restore from the automatic copies in Settings.
 - [x] **Quarterly and yearly reports** (spec §13, Pro; free users see a labelled sample report) with PDF export — no competitor offers company-style personal reports.
-- [ ] **Bill reminders** for every upcoming bill, instalment and cheque, with a lead time (default 1 day before, 09:00), per item on/off — the most loved thing in 5-star reviews (ideas/2026-11-22-what-users-love-finance.md: 39 hits; TimelyBills' whole base).
-- [ ] **Faster entry**: recent-item chips and last-used category on the add forms, "repeat this" templates — under 10 seconds per item (55 "fast/easy" hits; widget praise is really about speed).
-- [ ] **Optional monthly limit per category** with "spent vs left" on Month (≈29 mentions/wishes) — optional, no envelope or zero-based rules.
-- [ ] **Opening and closing balance per month** on Month (small, asked for by Wallet/EveryDollar users).
+- [x] **Bill reminders** for every upcoming bill, instalment and cheque, with a lead time (default 1 day before, 09:00), per item on/off — the most loved thing in 5-star reviews (ideas/2026-11-22-what-users-love-finance.md: 39 hits; TimelyBills' whole base).
+- [x] **Faster entry**: recent-item chips and last-used category on the add forms, "repeat this" templates — under 10 seconds per item (55 "fast/easy" hits; widget praise is really about speed).
+- [x] **Optional monthly limit per category** with "spent vs left" on Month (≈29 mentions/wishes) — optional, no envelope or zero-based rules.
+- [x] **Opening and closing balance per month** on Month (small, asked for by Wallet/EveryDollar users).
 - [x] Daily allowance ("about AED x a day") — already in the payday card.
 - Later (v1.1 / after launch): month calendar grid; Android home-screen widget (needs native code; few mentions).
 - [ ] First use in under 60 seconds to a useful forecast (time the wizard in the walkthrough).
@@ -48,8 +48,8 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 
 ## Launch plan (developer, 2026-11-22)
 - Start the Google Play **closed test** (12+ testers, 14 days) right after milestone 2 passes on the phones; keep building M3 (import) and M4 (Pro purchase) and ship them to testers as updates; apply for production after 14 days.
-- [ ] Developer: create and verify the personal Play developer account (in progress); collect 12+ testers' Gmail addresses.
-- [ ] Release kit: store listing (5-star review words), icon, feature graphic, phone screenshots, privacy + support pages from a small PUBLIC repo (GitHub Pages; the code repo stays private), Data safety / content rating / financial features answers, signed AAB.
+- [ ] Developer: Play developer account ON HOLD (personal accounts show the full legal name; developer is checking options); collect 12+ testers' Gmail addresses.
+- [~] Release kit: [x] store listing, [x] icon, [x] feature graphic, [x] privacy/support text; [ ] phone screenshots, privacy + support pages from a small PUBLIC repo (GitHub Pages; the code repo stays private), Data safety / content rating / financial features answers, signed AAB.
 
 ## Decisions
 - Bundle ID `com.shefoo.moneyplanner`, read from `com.<Shefoo>.moneyplanner` (IDs are lowercase, no `<>`); needs the developer's confirmation, because it's permanent after the first upload.
