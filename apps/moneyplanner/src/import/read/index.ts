@@ -117,7 +117,7 @@ function parseTextual(text: string): ParseResult {
 
 const SMS_OPENER =
   /^(?:dear\b|hi\b|hello\b|aed\s*[\d,]|you have\b|your (?:a\/c|account|card|credit|debit)|(?:a )?(?:purchase|payment|transaction|txn|cash withdrawal|withdrawal|deposit|salary)\b|(?:a\/c|acct|account|card)\s*(?:no|ending|xx|\*|x)|thank you\b|spent\b|debited\b|credited\b|otp\b)/i;
-const AMOUNT_TOKEN = /(?:AED|Dhs?\.?|USD|SAR|EUR|GBP)\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:AED|Dhs?\b)/gi;
+const AMOUNT_TOKEN = /(?:AED|Dhs?\.?|USD|SAR|EUR|GBP)\s*\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s*(?:AED|Dhs?\b)/gi;
 
 /** Splits pasted text into separate bank messages: blank lines first, then lines that start like a new SMS. */
 export function splitMessages(text: string): string[] {

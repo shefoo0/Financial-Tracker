@@ -132,7 +132,7 @@ async function readIt(input: ImportInput, next: '/import/review' | '/import/colu
   router.push.mockClear();
   setSession({ incoming: input });
   await goTo('import');
-  await waitFor(() => expect(router.push).toHaveBeenCalledWith(next));
+  try { await waitFor(() => expect(router.push).toHaveBeenCalledWith(next)); } catch (e) { console.log('DBG', (readImport as jest.Mock).mock.calls.length, JSON.stringify(await Promise.all((readImport as jest.Mock).mock.results.map((r) => r.value))).slice(0, 600)); throw e; }
   await goTo(next === '/import/review' ? 'review' : 'columns');
 }
 

@@ -2,7 +2,7 @@
 // an "Unlock Pro" button, and no import actions: their files are never read.
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button, Card, Screen, ScreenHeader, T, TextField } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
@@ -11,10 +11,11 @@ import { useTheme } from '@/hooks/use-theme';
 import type { ImportInput } from '@/import/read';
 import { usePro } from '@/lib/pro';
 
+import { deleteInputFile, discardShared } from './cleanup';
 import { startReading, type ReadStep } from './flow';
 import { ImportIntro } from './ImportIntro';
 import { ImportProLocked } from './ProLocked';
-import { setSession, useSession } from './session';
+import { getSession, setSession, useSession } from './session';
 import { choosePhoto, pickFile, takePhoto, type Picked } from './sources';
 
 function PasswordPrompt({ wrong, onSubmit, onCancel }: { wrong: boolean; onSubmit: (password: string) => void; onCancel: () => void }) {
@@ -52,36 +53,63 @@ function PasswordPrompt({ wrong, onSubmit, onCancel }: { wrong: boolean; onSubmi
 }
 
 export default function ImportScreen() {
-  const { isPro } = usePro();
+  const { isPro, loading: proLoading } = usePro();
   const { repo } = useData();
   const session = useSession();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [password, setPassword] = useState<{ input: ImportInput; wrong: boolean } | null>(null);
+  const [password, setPassword] = useState<{ input: ImportInput; wrong: boolean; shared: boolean } | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [sms, setSms] = useState('');
 
-  const go = (step: ReadStep, input: ImportInput) => {
-    setPassword(step.kind === 'password' ? { input, wrong: step.wrongPassword } : null);
+  const go = (step: ReadStep, input: ImportInput, shared: boolean) => {
+    setPassword(step.kind === 'password' ? { input, wrong: step.wrongPassword, shared } : null);
     if (step.kind === 'review') router.push('/import/review');
     else if (step.kind === 'columns') router.push('/import/columns');
     else if (step.kind === 'message') setMessage(step.message);
   };
 
-  const read = async (input: ImportInput, pw?: string) => {
+  /** Rows waiting in a review are only replaced after a yes. */
+  const confirmReplace = () =>
+    new Promise<boolean>((resolve) => {
+      if (!getSession().result) return resolve(true);
+      Alert.alert(
+        'Replace the current import?',
+        'You have rows waiting for review. Starting a new import discards them.',
+        [
+          { text: 'Keep current', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Replace', style: 'destructive', onPress: () => resolve(true) },
+        ],
+        { onDismiss: () => resolve(false) },
+      );
+    });
+
+  /** Files are copies in the cache: removed as soon as reading has ended (a protected PDF is kept until its password is tried). */
+  const finish = (input: ImportInput, shared: boolean) => {
+    deleteInputFile(input);
+    if (shared) discardShared();
+  };
+
+  const read = async (input: ImportInput, pw?: string, shared = false) => {
+    if (pw === undefined && !(await confirmReplace())) {
+      finish(input, shared);
+      return;
+    }
     setMessage(null);
     setBusy('Reading…');
+    let step: ReadStep | null = null;
     try {
-      const step = await startReading({
+      step = await startReading({
         repo,
         isPro,
         input,
         password: pw,
         onProgress: (p) => setBusy(p.step === 'ocr' && p.total ? `Reading page ${Math.min((p.done ?? 0) + 1, p.total)} of ${p.total}…` : 'Reading…'),
       });
-      go(step, input);
+      go(step, input, shared);
     } finally {
       setBusy(null);
+      if (step?.kind !== 'password') finish(input, shared);
     }
   };
 
@@ -96,13 +124,15 @@ export default function ImportScreen() {
   const handled = useRef<ImportInput | null>(null);
   useEffect(() => {
     const incoming = session.incoming;
-    if (!incoming || handled.current === incoming) return;
+    // Wait until we know whether this is a Pro phone.
+    if (!incoming || proLoading || handled.current === incoming) return;
     handled.current = incoming;
     setSession({ incoming: null });
     // Start after this render, not inside the effect.
-    if (isPro) Promise.resolve().then(() => read(incoming));
+    if (isPro) Promise.resolve().then(() => read(incoming, undefined, true));
+    else finish(incoming, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.incoming, isPro]);
+  }, [session.incoming, isPro, proLoading]);
 
   if (!isPro) return <ImportProLocked />;
 
@@ -121,7 +151,7 @@ export default function ImportScreen() {
           </T>
         </Card>
       ) : password ? (
-        <PasswordPrompt wrong={password.wrong} onSubmit={(pw) => read(password.input, pw)} onCancel={() => setPassword(null)} />
+        <PasswordPrompt wrong={password.wrong} onSubmit={(pw) => read(password.input, pw, password.shared)} onCancel={() => { finish(password.input, password.shared); setPassword(null); }} />
       ) : (
         <View style={{ gap: Spacing.two }}>
           {message ? (

@@ -158,16 +158,22 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
   const { categories, settings } = data;
   const currency = settings.currency;
   const saveRule = useRepoMutation((r, rule: Parameters<typeof r.upsertCategoryRule>[0]) => r.upsertCategoryRule(rule));
-  const saveImport = useRepoMutation(
-    async (r, txns: Transaction[], record: ImportRecord, template: ImportTemplate | null) => {
-      await r.upsertTransactions(txns);
-      await r.addImport(record);
-      if (template) await r.saveImportTemplate(template);
-    },
+  const saveImport = useRepoMutation((r, txns: Transaction[], record: ImportRecord, template: ImportTemplate | null) =>
+    r.saveImportBatch({ transactions: txns, importRecord: record, template }),
   );
 
   const [rules, setRules] = useState<CategoryRule[]>(() => data.rules.map((r) => ({ pattern: r.pattern, categoryId: r.categoryId })));
   const [rows, setRows] = useState<ReviewRow[]>(() => buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories));
+  // Made once per review: a retry after a failed save writes the same ids again instead of adding copies.
+  const [ids] = useState(() => ({ importId: newId(), rowIds: new Map<number, string>() }));
+  const idFor = (index: number) => {
+    let id = ids.rowIds.get(index);
+    if (!id) {
+      id = newId();
+      ids.rowIds.set(index, id);
+    }
+    return id;
+  };
   const [open, setOpen] = useState<number[]>([]);
   const [dateOpen, setDateOpen] = useState<number | null>(null);
   const [picker, setPicker] = useState<{ index: number; chosen: string | null } | null>(null);
@@ -179,6 +185,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
   const duplicates = rows.filter((r) => r.duplicateOf).length;
   const checks = rows.filter(isLowConfidence).length;
   const allOn = rows.length > 0 && rows.every((r) => r.selected);
+  const cardHint = looksLikeCardExport(session.sourceName, rows);
   const tabular = session.table !== null && (session.fileKind === 'csv' || session.fileKind === 'xlsx');
   const catOf = (id: string | null) => categories.find((x) => x.id === id);
 
@@ -209,8 +216,8 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
     setSaving(true);
     setError(null);
     try {
-      const importId = newId();
-      const txns = toTransactions(rows, importId, newId);
+      const importId = ids.importId;
+      const txns = toTransactions(rows, importId, idFor);
       const now = new Date().toISOString();
       const mapping = session.mapping;
       const template: ImportTemplate | null = mapping ? { sourceName: session.sourceName, mapping: { ...mapping }, lastUsed: now } : null;
@@ -257,69 +264,87 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
   const similarOfPicker = pickerRow ? similarIndexes(rows, pickerRow.index).length : 0;
   const groups = groupByDate(rows);
 
+  const header = (
+    <View style={styles.listHeader}>
+      <ScreenHeader title="Review" subtitle={session.sourceName} />
+      <Card>
+        <T variant="label">{plural(rows.length, 'item', 'items')} found</T>
+        {duplicates > 0 ? (
+          <T variant="caption" tone="warning">
+            {plural(duplicates, 'row looks', 'rows look')} like {duplicates === 1 ? 'an item' : 'items'} you already saved and {duplicates === 1 ? 'is' : 'are'} unticked.
+          </T>
+        ) : null}
+        {checks > 0 ? (
+          <T variant="caption" tone="warning">
+            {plural(checks, 'row needs', 'rows need')} a look. Fix the date or direction with one tap.
+          </T>
+        ) : null}
+        {cardHint ? (
+          <T variant="caption" tone="secondary" testID="review-card-hint">
+            Card statements often list purchases as positive amounts. If your spending shows as income, use Flip all signs.
+          </T>
+        ) : null}
+        {(session.result?.problems ?? []).slice(0, 3).map((p) => (
+          <T key={p} variant="caption" tone="secondary">
+            {p}
+          </T>
+        ))}
+        <View style={styles.actions}>
+          <Button label={allOn ? 'Untick all' : 'Select all'} variant="secondary" onPress={() => setRows((rs) => setAllSelected(rs, !allOn))} testID="review-select-all" />
+          <Button label="Flip all signs" variant="secondary" onPress={() => setRows((rs) => flipAll(rs, rules, categories))} testID="review-flip-all" accessibilityHint="Switches every row between money in and money out" />
+          {tabular ? <Button label="Fix columns" variant="plain" onPress={() => router.push('/import/columns')} testID="review-fix-columns" accessibilityHint="Choose which column holds the date, description and amount" /> : null}
+        </View>
+      </Card>
+      {rows.length === 0 ? (
+        <EmptyState title="Nothing to review" message="No rows were found. Go back and try another file." action={<Button label="Back" onPress={() => router.back()} testID="review-back" />} />
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      <Screen testID="review-screen">
-        <ScreenHeader title="Review" subtitle={session.sourceName} />
-        <Card>
-          <T variant="label">
-            {plural(rows.length, 'item', 'items')} found
-          </T>
-          {duplicates > 0 ? (
-            <T variant="caption" tone="warning">
-              {plural(duplicates, 'row looks', 'rows look')} like {duplicates === 1 ? 'an item' : 'items'} you already saved and {duplicates === 1 ? 'is' : 'are'} unticked.
-            </T>
-          ) : null}
-          {checks > 0 ? (
-            <T variant="caption" tone="warning">
-              {plural(checks, 'row needs', 'rows need')} a look. Fix the date or direction with one tap.
-            </T>
-          ) : null}
-          {(session.result?.problems ?? []).slice(0, 3).map((p) => (
-            <T key={p} variant="caption" tone="secondary">
-              {p}
-            </T>
-          ))}
-          <View style={styles.actions}>
-            <Button label={allOn ? 'Untick all' : 'Select all'} variant="secondary" onPress={() => setRows((rs) => setAllSelected(rs, !allOn))} testID="review-select-all" />
-            {tabular ? <Button label="Fix columns" variant="plain" onPress={() => router.push('/import/columns')} testID="review-fix-columns" accessibilityHint="Choose which column holds the date, description and amount" /> : null}
-          </View>
-        </Card>
-        {rows.length === 0 ? (
-          <EmptyState title="Nothing to review" message="No rows were found. Go back and try another file." action={<Button label="Back" onPress={() => router.back()} testID="review-back" />} />
-        ) : (
-          groups.map((g) => (
-            <View key={g.date} style={{ gap: Spacing.one }}>
-              <T variant="caption" tone="secondary" accessibilityRole="header" style={{ fontWeight: '700' }}>
-                {formatDate(g.date)}
+      <View style={{ flex: 1 }}>
+        <AuroraBackground />
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']} testID="review-screen">
+          <SectionList
+            sections={groups.map((g) => ({ date: g.date, data: g.rows }))}
+            keyExtractor={(r) => String(r.index)}
+            extraData={[open, dateOpen]}
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={9}
+            stickySectionHeadersEnabled={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+            ListHeaderComponent={header}
+            ListFooterComponent={<View style={{ height: 190 }} />}
+            renderSectionHeader={({ section }) => (
+              <T variant="caption" tone="secondary" accessibilityRole="header" style={styles.dayHeader}>
+                {formatDate(section.date)}
               </T>
-              <Card>
-                {g.rows.map((r) => (
-                  <RowView
-                    key={r.index}
-                    row={r}
-                    currency={currency}
-                    categories={categories}
-                    similarCount={similarIndexes(rows, r.index).length}
-                    expanded={open.includes(r.index)}
-                    dateOpen={dateOpen === r.index}
-                    onToggle={() => setRows((rs) => setSelected(rs, r.index, !r.selected))}
-                    onExpand={() => setOpen((o) => (o.includes(r.index) ? o.filter((x) => x !== r.index) : [...o, r.index]))}
-                    onCategory={() => setPicker({ index: r.index, chosen: null })}
-                    onFlip={() => setRows((rs) => flipKind(rs, r.index, rules, categories))}
-                    onDate={(isOpen, d) => {
-                      setDateOpen(isOpen ? r.index : null);
-                      if (d) setRows((rs) => setDate(rs, r.index, d));
-                    }}
-                    onSimilar={() => setRows((rs) => applyCategoryToSimilar(rs, r.index, r.categoryId))}
-                  />
-                ))}
-              </Card>
-            </View>
-          ))
-        )}
-        <View style={{ height: 150 }} />
-      </Screen>
+            )}
+            renderItem={({ item: r }) => (
+              <RowView
+                row={r}
+                currency={currency}
+                categories={categories}
+                similarCount={open.includes(r.index) || isLowConfidence(r) ? similarIndexes(rows, r.index).length : 0}
+                expanded={open.includes(r.index)}
+                dateOpen={dateOpen === r.index}
+                onToggle={() => setRows((rs) => setSelected(rs, r.index, !r.selected))}
+                onExpand={() => setOpen((o) => (o.includes(r.index) ? o.filter((x) => x !== r.index) : [...o, r.index]))}
+                onCategory={() => setPicker({ index: r.index, chosen: null })}
+                onFlip={() => setRows((rs) => flipKind(rs, r.index, rules, categories))}
+                onDate={(isOpen, d) => {
+                  setDateOpen(isOpen ? r.index : null);
+                  if (d) setRows((rs) => setDate(rs, r.index, d));
+                }}
+                onSimilar={() => setRows((rs) => applyCategoryToSimilar(rs, r.index, r.categoryId))}
+              />
+            )}
+          />
+        </SafeAreaView>
+      </View>
 
       <View style={[styles.bar, { backgroundColor: c.backgroundElement, borderTopColor: c.border }]}>
         {error ? (
@@ -434,6 +459,9 @@ const styles = StyleSheet.create({
   category: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three, borderWidth: 1, borderRadius: Radius.pill, marginLeft: 52 },
   fixes: { gap: Spacing.two, marginLeft: 52, marginTop: Spacing.one },
   actions: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
+  listHeader: { gap: Spacing.three },
+  listContent: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: 0 },
+  dayHeader: { fontWeight: '700', marginTop: Spacing.three, marginBottom: Spacing.one },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: Spacing.three, gap: Spacing.two, borderTopWidth: 1 },
   option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.two, borderRadius: Radius.sm },
 });
