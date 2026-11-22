@@ -1,6 +1,6 @@
 # Money Planner support
 
-Need help or want to report a problem? Email CONTACT_EMAIL. Please say which phone and Android or iOS version you use, and what you tapped before the problem. Do not send your backup file or screenshots that show private amounts unless we ask.
+Need help or want to report a problem? Email jokester-fidgety97@bravealias.com. Please say which phone and Android or iOS version you use, and what you tapped before the problem. Do not send your backup file or screenshots that show private amounts unless we ask.
 
 ## Common questions
 

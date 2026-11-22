@@ -56,4 +56,4 @@ If this policy changes, we will update the date above. Changes that affect your 
 
 ## Contact
 
-Questions: CONTACT_EMAIL
+Questions: jokester-fidgety97@bravealias.com
