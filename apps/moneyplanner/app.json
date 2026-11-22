@@ -19,7 +19,8 @@
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
             "NSPrivacyAccessedAPITypeReasons": [
-              "CA92.1"
+              "CA92.1",
+              "1C8F.1"
             ]
           },
           {
@@ -113,8 +114,7 @@
               "image/*",
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               "application/vnd.ms-excel",
-              "application/x-ofx",
-              "application/octet-stream"
+              "application/x-ofx"
             ]
           },
           "ios": {
