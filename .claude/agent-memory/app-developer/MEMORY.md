@@ -15,3 +15,4 @@ Lessons from earlier apps, one line each. Newest at the bottom.
 - Home 'Coming up' shows one row per item (next payment), so after Paid the same title reappears with the next date; tests and walkthrough must compare keys/dates, not titles. (moneyplanner, 2026-11)
 - Walkthrough taps by substring text ('Rent') can hit new always-on cards (Cheques card text mentions rent): tap exact. Never run git stash mid-task to compare baselines. (moneyplanner, 2026-11)
 - New optional field on a shared type (Category.monthlyLimit): make it optional in the type and normalise to null in repos/backup, or every parallel dev's fixtures break tsc. Walkthrough static server (e2e-web/lib.mjs) sometimes crashes with ERR_HTTP_HEADERS_SENT: rerun. (moneyplanner, 2026-11)
+- jest-expo treats every .ts/.js under __tests__/ as a test: keep fixtures as plain .txt/.csv files (read via a loader outside __tests__); no @types/node, so declare require/__dirname locally. (moneyplanner, 2026-11)

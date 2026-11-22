@@ -168,7 +168,6 @@ export function guessCsvMapping(text: string): CsvMapping {
       headerRow = i;
     }
   });
-  const first = headerRow + 1;
   m.headerRow = headerRow;
   const width = Math.max(...rows.slice(0, 40).map((r) => r.length));
 
@@ -184,15 +183,20 @@ export function guessCsvMapping(text: string): CsvMapping {
         }
       });
       if (f === 'direction' && bestCol !== null) {
-        const vals = column(rows, first, bestCol);
+        const vals = column(rows, m.headerRow + 1, bestCol);
         if (!vals.length || !vals.every(looksDirection)) bestCol = null;
       }
       m[f] = bestCol;
     }
   } else {
-    // No header: work it out from the values.
+    // No recognised header: work it out from the values. A first row with no dates or numbers is taken as the header.
+    const headerLike = rows[0].every((v) => !isDateCell(v, 'dmy') && !isDateCell(v, 'mdy') && parseAmountToken(v) === null);
+    if (headerLike && rows.length > 1) {
+      m.headerRow = 0;
+    }
+    const dataFrom = m.headerRow + 1;
     const stats = Array.from({ length: width }, (_, c) => {
-      const vals = column(rows, 0, c);
+      const vals = column(rows, dataFrom, c);
       return {
         c,
         n: vals.length,
@@ -222,14 +226,14 @@ export function guessCsvMapping(text: string): CsvMapping {
     const taken = new Set(Object.values(m).filter((v): v is number => typeof v === 'number'));
     const stats = Array.from({ length: width }, (_, c) => c)
       .filter((c) => !taken.has(c) || c === m.headerRow)
-      .map((c) => ({ c, vals: column(rows, first, c) }))
+      .map((c) => ({ c, vals: column(rows, m.headerRow + 1, c) }))
       .filter((s) => s.vals.length && s.vals.some((v) => /[A-Za-z]{3}/.test(v)));
     stats.sort((a, b) => avgLen(b.vals) - avgLen(a.vals));
     m.description = stats.length ? stats[0].c : null;
   }
 
   // Month-first dates: only when a value proves it (second number above 12, none above 12 first).
-  m.dateOrder = m.date === null ? 'dmy' : guessDateOrder(column(rows, first, m.date));
+  m.dateOrder = m.date === null ? 'dmy' : guessDateOrder(column(rows, m.headerRow + 1, m.date));
   return m;
 }
 
@@ -308,6 +312,7 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
 
     // Date
     const dateText = cell(r, map.date);
+    if (SKIP_DESC.test(dateText)) continue;
     let date: string | null = null;
     if (/^\d{5}$/.test(dateText) && Number(dateText) > 20000 && Number(dateText) < 80000) {
       // Excel serial date (days since 1899-12-30).

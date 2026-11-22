@@ -161,7 +161,7 @@ add('3 One-time items and Month', async (d, step) => {
     const secs = (Date.now() - t0) / 1000;
     console.log(`    chip entry took ${secs.toFixed(1)} s`);
     if (secs > 10) throw new Error(`chip entry took ${secs.toFixed(1)} s (target under 10)`);
-    await d.see('Coffee'); if ((await d.count('#month-item-')) < 2) throw new Error('second Coffee not listed');
+    await d.see('Coffee', { nth: 1 });
     for (let i = 0; i < 2; i++) { await d.clearAlerts(); await d.tap('Coffee'); await d.alertPick('Delete'); await d.tap('#transaction-delete'); await d.see('#month-screen'); }
     await d.notSee('Coffee', { exact: true }); await d.clearAlerts();
   });

@@ -1,0 +1,6 @@
+Date,Description,Debit,Credit
+21/11/2026,GOOD ROW,10.00,
+not a date,BAD DATE,5.00,
+22/11/2026,BAD AMOUNT,1.234,
+23/11/2026,NO AMOUNT,,
+Total,,10.00,

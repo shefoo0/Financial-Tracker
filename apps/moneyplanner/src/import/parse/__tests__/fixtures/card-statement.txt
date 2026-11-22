@@ -1,0 +1,14 @@
+
+EXAMPLE BANK Credit Card Statement
+Card Number: 4111 11XX XXXX 5678
+Statement Date 15 Dec 2026
+Statement Period 16 Nov 2026 to 15 Dec 2026
+Minimum payment due 150.00
+
+Trans Date Post Date Description Amount (AED)
+16 Nov 17 Nov TALABAT DUBAI AE 89.90
+28 Nov 29 Nov NETFLIX.COM LOS GATOS 55.00
+30 Nov 01 Dec REFUND NOON.COM 120.00 CR
+02 Dec 03 Dec PAYMENT RECEIVED - THANK YOU 2,000.00 CR
+29 Dec 29 Dec NOT IN PERIOD 10.00
+05 Jan 06 Jan SALIK TOLL 4.00

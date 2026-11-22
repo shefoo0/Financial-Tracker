@@ -1,0 +1,9 @@
+Account Statement;;;
+Account Number;XXXX-XXXX-4821;;
+Statement Period;01-Nov-2026 to 30-Nov-2026;;
+
+Txn Date;Value Date;Transaction Details;Amount (AED);Balance
+02-Nov-2026;02-Nov-2026;ENOC PETROL STATION;-180.00;4,820.00
+09-Nov-2026;09-Nov-2026;TRANSFER FROM SAVINGS;2,000.00;6,820.00
+12-Nov-2026;13-Nov-2026;LULU HYPERMARKET;(236.50);6,583.50
+15-Nov-2026;15-Nov-2026;SALIK;-4.00;6,579.50

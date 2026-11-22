@@ -1,0 +1,1 @@
+- jest-expo treats every .ts/.js under __tests__/ as a test: keep fixtures as plain .txt/.csv files (read via a loader outside __tests__); no @types/node, so declare require/__dirname locally.

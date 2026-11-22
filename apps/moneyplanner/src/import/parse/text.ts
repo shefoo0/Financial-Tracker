@@ -107,13 +107,43 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   let unreadable = 0;
   let lastWasRow = false;
   let continuation = 0;
+  // A date line with a description but no amount: the amounts may be on the next line (wrapped by OCR).
+  let pending: { text: string; day: number; month: number; year: number | null; rest: string; raw: string; line: number } | null = null;
+  const flushPending = () => {
+    if (pending) unreadable++;
+    pending = null;
+  };
 
   lines.forEach((line, idx) => {
     if (!line) {
+      flushPending();
       lastWasRow = false;
       return;
     }
     const lead = matchLeadingDate(line);
+    if (pending && !lead) {
+      const p0: NonNullable<typeof pending> = pending;
+      const merged = popAmounts(line);
+      pending = null;
+      if (merged.amounts.length && !HEADER_LINE.test(line)) {
+        const full = popAmounts(`${p0.rest} ${line}`);
+        candidates.push({
+          line: p0.line,
+          dateText: p0.text,
+          day: p0.day,
+          month: p0.month,
+          year: p0.year,
+          description: full.rest,
+          amounts: full.amounts,
+          raw: `${p0.raw}\n${line}`,
+          ocrFixed: full.ocrFixed,
+        });
+        lastWasRow = true;
+        continuation = 0;
+      } else unreadable++;
+      return;
+    }
+    if (lead) flushPending();
     // Opening balance, with or without a date in front.
     const afterDate = lead ? lead.rest.replace(/^(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{1,2} ?[A-Za-z]{3,9} \d{4})\s+/, '') : line;
     if (OPENING.test(afterDate)) {
@@ -151,8 +181,13 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     const second = matchLeadingDate(rest);
     if (second) rest = second.rest;
     const p = popAmounts(rest);
+    if (!p.amounts.length && /[A-Za-z]{2}/.test(rest)) {
+      pending = { text: lead.text, day: parts.day, month: parts.month, year: parts.year, rest, raw: line, line: idx };
+      lastWasRow = false;
+      return;
+    }
     if (!p.amounts.length || !p.rest) {
-      if (p.amounts.length || /[A-Za-z]/.test(rest)) unreadable++;
+      unreadable++;
       lastWasRow = false;
       return;
     }
@@ -170,6 +205,8 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     lastWasRow = true;
     continuation = 0;
   });
+
+  flushPending();
 
   // Years for dates that have none.
   const explicitYears = candidates.filter((c) => c.year !== null).map((c) => c.year as number);
@@ -277,7 +314,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
 
   result.rows = rows;
   if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? ' starts' : 's start'} with a date but no amount could be read, so they were skipped.`);
-  if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date.`);
+  if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date or is far outside the statement period.`);
   if (ambiguousDirection > 0) {
     result.problems.push(`${ambiguousDirection} row${ambiguousDirection === 1 ? '' : 's'} could not be told apart as money in or out; check the direction.`);
   }
@@ -360,13 +397,14 @@ function resolveYear(
       const d = partsToISO(day, month, y);
       if (d && d >= period.from && d <= period.to) return { date: d, cap: 1 };
     }
-    // Outside the period: take the closest valid year and say so.
-    const candidates = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
+    // Outside the period: take the closest valid year, but not when it is far away (a wrong date or a
+    // 29 Feb that doesn't exist in the statement's years).
+    const candidates = [y0 - 1, y0, y1, y1 + 1]
       .map((y) => partsToISO(day, month, y))
       .filter((d): d is ISODate => !!d);
-    if (!candidates.length) return { date: null, cap: 0 };
     const near = (d: ISODate) => Math.min(Math.abs(diffAbs(d, period.from!)), Math.abs(diffAbs(d, period.to!)));
     candidates.sort((a, b) => near(a) - near(b));
+    if (!candidates.length || near(candidates[0]) > 62) return { date: null, cap: 0 };
     return { date: candidates[0], warning: 'The date is outside the statement period; check the year.', cap: 0.6 };
   }
   if (period.to) {
@@ -467,7 +505,7 @@ export function parseSmsText(text: string, options: ParseOptions = {}): ParseRes
   // Description
   let description = '';
   const merchant =
-    /\b(?:at|to|towards|from|merchant:?|info:?)\s+([A-Za-z0-9][A-Za-z0-9&'.\-\/ ]*?)(?=\s+(?:on|dated|using|via|ref|with|for|avl|avail|available|balance|bal|card|a\/c|account|is|has|was)\b|\s+\d{1,2}[-\/.]|[.,;]|$)/i.exec(
+    /\b(?:at|to|towards|from|merchant:?|info:?)\s+([A-Za-z0-9][A-Za-z0-9&'.\-\/ ]*?)(?=\s+(?:on|dated|using|via|ref|with|for|avl|avail|available|balance|bal|card|a\/c|account|is|has|was|received|credited|debited|in\s+your)\b|\s+\d{1,2}[-\/.]|[.,;]|$)/i.exec(
       sms.slice(amountMatch.end),
     );
   if (merchant && !/^\d{1,2}:\d{2}/.test(merchant[1])) description = merchant[1].trim();

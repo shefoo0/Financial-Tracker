@@ -45,9 +45,10 @@ export function parseDateParts(text: string, order: DateOrder = 'dmy'): DatePart
     const a = Number(m[1]);
     const b = Number(m[2]);
     p = order === 'dmy' ? { day: a, month: b, year: fullYear(m[3]) } : { day: b, month: a, year: fullYear(m[3]) };
-  } else if ((m = /^(\d{1,2})[ \-\/.]*([A-Za-z]{3,9})\.?(?:[ ,\-\/.]+(\d{4}|\d{2}))?$/.exec(s))) {
+  } else if ((m = /^(\d{1,2})[ \-\/.]*([A-Za-z]{3,9})\.?(?:[ ,\-\/.]+(\d{4}|\d{2})|(\d{4}))?$/.exec(s))) {
     const mo = monthFromName(m[2]);
-    if (mo) p = { day: Number(m[1]), month: mo, year: m[3] ? fullYear(m[3]) : null };
+    const yr = m[3] ?? m[4];
+    if (mo) p = { day: Number(m[1]), month: mo, year: yr ? fullYear(yr) : null };
   } else if ((m = /^([A-Za-z]{3,9})\.?[ \-\/.]+(\d{1,2})(?:st|nd|rd|th)?,?[ \-\/.]+(\d{4})$/.exec(s))) {
     const mo = monthFromName(m[1]);
     if (mo) p = { day: Number(m[2]), month: mo, year: Number(m[3]) };
@@ -76,7 +77,7 @@ export function matchLeadingDate(line: string): { text: string; rest: string } |
   const patterns = [
     /^(\d{1,2}[\/\-.]\d{1,2}[\/\-.](?:\d{4}|\d{2}))(?=\s|$)/,
     /^(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})(?=\s|$)/,
-    new RegExp(`^(\\d{1,2}[ \\-\\/]?${MON}\\.?(?:[ ,\\-\\/]+\\d{4})?)(?=\\s|$)`, 'i'),
+    new RegExp(`^(\\d{1,2}[ \\-\\/]?${MON}\\.?(?:[ ,\\-\\/]*\\d{4})?)(?=\\s|$)`, 'i'),
     /^(\d{1,2}[\/\-]\d{1,2})(?=\s)/,
   ];
   for (const re of patterns) {

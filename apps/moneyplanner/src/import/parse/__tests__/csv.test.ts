@@ -1,5 +1,7 @@
+import { fixtures } from '../fixtures-loader';
 import { guessCsvMapping, parseCsv, readCsvTable } from '../csv';
-import * as F from './fixtures/csv';
+
+const F = fixtures('csv');
 
 describe('readCsvTable', () => {
   it('handles quotes, escaped quotes, newlines inside quotes and sep= lines', () => {

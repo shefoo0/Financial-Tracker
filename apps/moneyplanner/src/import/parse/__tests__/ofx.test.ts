@@ -1,5 +1,7 @@
+import { fixtures } from '../fixtures-loader';
 import { parseOfx } from '../ofx';
-import * as F from './fixtures/ofx';
+
+const F = fixtures('ofx');
 
 describe('parseOfx', () => {
   it('reads SGML', () => {

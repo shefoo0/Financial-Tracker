@@ -8,7 +8,8 @@ export interface AmountToken {
   currency?: string;
 }
 
-const CURRENCY_RE = /\b(AED|USD|EUR|GBP|SAR|INR|PKR|QAR|KWD|BHD|OMR|EGP)\b/i;
+const CODES = 'AED|USD|EUR|GBP|SAR|INR|PKR|QAR|KWD|BHD|OMR|EGP';
+const CURRENCY_RE = new RegExp(`(?<![A-Za-z])(${CODES})(?![A-Za-z])`, 'i');
 
 export function detectCurrency(text: string): string | undefined {
   const m = CURRENCY_RE.exec(text);
@@ -35,7 +36,7 @@ export function parseAmountToken(raw: string): AmountToken | null {
     t = prefix[2];
   }
   const currency = detectCurrency(t);
-  t = t.replace(/\b(AED|Dhs?)\b\.?/gi, ' ').replace(/^\s*\+/, '').trim();
+  t = t.replace(new RegExp(`(?<![A-Za-z])(${CODES}|Dhs?)(?![A-Za-z])\\.?`, 'gi'), ' ').replace(/^\s*\+/, '').trim();
   if (!/^[\s()+\-\d,.]+$/.test(t) || !/\d/.test(t)) return null;
   const fils = parseAmount(t);
   if (fils === null) return null;

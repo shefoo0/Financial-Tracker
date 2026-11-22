@@ -1,6 +1,8 @@
+import { fixtures } from '../fixtures-loader';
 import { parseSmsText, parseStatementText } from '../text';
-import * as S from './fixtures/statements';
-import * as M from './fixtures/sms';
+
+const S = fixtures('txt');
+const M = fixtures('txt');
 
 const opts = { today: '2026-12-20' };
 const brief = (r: ReturnType<typeof parseStatementText>) => r.rows.map((x) => [x.date, x.kind, x.amount]);
@@ -59,8 +61,10 @@ describe('parseStatementText: credit card', () => {
     expect(out.confidence).toBeLessThanOrEqual(0.6);
     expect(out.warnings.join(' ')).toMatch(/outside the statement period/);
   });
-  it('rolls into January', () => {
-    expect(r.rows.find((x) => x.description.startsWith('SALIK'))).toBeUndefined();
+  it('puts a January date after a December period in the nearest year, with a warning', () => {
+    const jan = r.rows.find((x) => x.description.startsWith('SALIK'))!;
+    expect(jan.date).toBe("2027-01-05");
+    expect(jan.warnings.join(' ')).toMatch(/outside/);
   });
 });
 
@@ -99,13 +103,12 @@ describe('OCR-ish text', () => {
     ]);
     expect(r.rows[1].description).toBe('ENOC STATION 7 SHEIKH ZAYED ROAD');
   });
-  it('lowers confidence where characters were corrected or the year was assumed', () => {
+  it('lowers confidence where characters were corrected', () => {
     expect(r.rows[0].confidence).toBeLessThanOrEqual(0.6);
     expect(r.rows[0].warnings.join(' ')).toMatch(/corrected from a scan/);
-    expect(r.rows[0].warnings.join(' ')).toMatch(/no year/);
   });
   it('reports lines it could not read', () => {
-    expect(r.problems.join(' ')).toMatch(/1 line start with a date but no amount/);
+    expect(r.problems.join(' ')).toMatch(/1 line starts with a date but no amount/);
   });
 });
 
