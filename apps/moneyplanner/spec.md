@@ -110,6 +110,14 @@ Company-style reports for a person, so they can track how they're doing and see 
 - **Pro only** (developer's decision): everything in Reports needs the one-time Pro unlock. Free users see a Reports card that opens a **sample report** built from demo numbers (clearly labelled "Sample"), so they can see what they get before buying — never their own figures.
 - Reports use the data in the app (plan + recorded items); after statement import (milestone 3) they reflect real transactions.
 
+### Simplification decisions (developer, 2026-11-22) — these override older text above
+- **Import is Pro** (files, photos, shared SMS text, all of it). Free users see the Import entry and what it does, with "Unlock Pro". Reports are Pro too. Free stays a complete planner (plan, forecast, payday view, debts, cheques, alerts, profiles, lock, backups).
+- **No "Delete all data".** One action instead: **Delete profile** (Manage profiles), allowed for any profile including the open one and the last one. Deleting the open profile switches to another; deleting the last one starts a fresh empty "Me" with the setup wizard. Typed confirmation; a safety copy is kept 7 days (Automatic backups). Forgot PIN → "Delete this profile". Why: one clear way to start over or clear the phone; no accounts, and uninstalling removes everything.
+- **No module switches.** Debts and Cheques are always available (cards on Plan with a short empty state); Alerts are always computed and shown in the app; phone notifications are switched on from the Alerts card / Settings → Alerts (explainer, then permission). `enabledModules` is no longer shown anywhere (kept in storage for old data, treated as all on). Why: fewer switches, nothing to configure before use.
+- **Appearance lives only in Settings** (not in the profile switcher). Why: the switcher only switches profiles.
+- **One export:** "Export to spreadsheet (CSV)" saves one CSV file with sections (one-time items, recurring items, debts, payments, cheques). Why: one action instead of three.
+- **Setup wizard: 3 steps** — salary (optional), payday, today's balance — then Start. The buffer defaults to AED 1,000 (changeable in Settings). No modules step. Goal: useful in under 60 seconds.
+
 ## Data model (SQLite via `expo-sqlite`, money in integer fils)
 
 - `settings` (key/value): currency, payday, buffer, thresholds, enabled modules, onboarding done, lock enabled
