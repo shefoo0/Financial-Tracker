@@ -25,7 +25,9 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Earlier runs (old private repo): Android 45153618898 passed all 8 flows; iPhone 6/8 → fixed whole-row switches (lock) and amount patterns (06), check-maestro flags bare amounts
   - [x] Final runs on the public repo `shefoo0/financial-tracker`, commit 47a27ad, pre-flight passed first: android.yml run 45184675406 (APK built with the debug key; all 8 flows passed on the re-run of the e2e job; attempt 1 lost the emulator — "device offline" at app launch in 06, no app error) and ios-simulator.yml run 45184669279 (new Expo build; all 8 flows passed)
   - Note: the 8 iPhone flows took ~25 minutes; the macOS job's cap was raised from 30 to 60 minutes (hang guard only, minutes are free on the public repo), leaving room for the M3 import flows
-- [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [ ] device runs · review · tests · Android test build
+- [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [~] device runs · review · tests · [x] Android test build
+  - [x] Pro preview Android build for the developer's phone: android.yml run 45195728692 on main 2400515 (`pro_preview: true`, debug key; pre-flight --pro-preview passed first); APK `moneyplanner-1.0.0-1-android` (expires 2026-12-07); all Maestro flows passed on the emulator
+  - [ ] Developer tries importing a real statement on the phone; record the bank/format and what the review screen got wrong (no statements or account numbers in the repo or chat)
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
 ## Release bar: beat the competition (developer, 2026-11-22)
