@@ -71,6 +71,10 @@ const TRANSFER_WORDS = /\b(transfer|payment received|thank you|own account|card 
 const SKIP_LINE = /^(opening balance|closing balance|balance (brought|carried|b\/f|c\/f|forward)|brought forward|carried forward|previous balance|new balance|total\b|grand total|b\/f\b|c\/f\b)/i;
 const OPENING = /^(opening balance|balance (brought forward|b\/f|forward)|brought forward|previous balance|b\/f\b)/i;
 const HEADER_LINE = /\b(date|description|narration|particulars)\b.*\b(debit|credit|balance|amount|withdrawal|deposit)\b|^(page \d|page:)|statement of account|account statement|end of statement|customer (care|service)|\bwww\.|@/i;
+const MASKED_CARD = /\b\d{4,6}[Xx*•]{4,}\d{3,4}\b/g;
+const DATE_WITH_MONTH_NAME = /\b\d{1,2}[\/\-. ]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\/\-. ]?\d{2,4}\b/gi;
+const EQUIVALENT_HEADER = /equivalent amount|amount in (aed|local currency)|billing amount|aed amount/i;
+const FOREIGN_CURRENCY_TAIL = /\s+(USD|EUR|GBP|SAR|QAR|OMR|KWD|BHD|INR|PKR|EGP|JOD|TRY|CHF|JPY|CNY|CAD|AUD|SGD|HKD|THB|PHP|LKR)$/;
 const NOT_CONTINUATION = /\b(page|statement|balance|limit|total|due|payment|minimum|summary|iban|swift)\b/i;
 
 interface Candidate {
@@ -101,7 +105,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   const isCard = /credit card|card statement|minimum (payment|amount) due|total amount due|card number|card no/i.test(whole);
   result.currency = detectCurrency(whole);
   result.account = findAccount(lines);
-  const period = findPeriod(lines);
+  let period = findPeriod(lines);
   if (period.from && period.to) result.period = { from: period.from, to: period.to };
 
   const candidates: Candidate[] = [];
@@ -210,6 +214,34 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
 
   flushPending();
 
+  // Summary lines that start with a date but name no merchant, like a card statement's page header
+  // "28/SEP/2026 400000XXXXXX1111 -212.28 14/OCT/2026 10,000.00" (billing date, card number, minimum due, due date,
+  // credit limit), repeated on every page. They are not transactions; their first date is the statement date.
+  const headerDates: ISODate[] = [];
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const c = candidates[i];
+    // Letters left once masked card numbers (400000XXXXXX1111) and dates (14/OCT/2026) are taken out.
+    const left = c.description.replace(MASKED_CARD, ' ').replace(DATE_WITH_MONTH_NAME, ' ');
+    if (/[A-Za-z\u0600-\u06FF]/.test(left)) continue;
+    if (c.year !== null) {
+      const d = partsToISO(c.day, c.month, c.year);
+      if (d) headerDates.push(d);
+    }
+    candidates.splice(i, 1);
+  }
+  if (!period.to && headerDates.length) period = { ...period, to: [...headerDates].sort(compareDates)[0] };
+
+  // "Transaction amount" + "equivalent amount in AED" on every row (not an amount and a running balance): the last
+  // amount is the one in the statement's currency. A foreign purchase keeps its AED amount, not the dollars.
+  const pairs = candidates.filter((c) => c.amounts.length === 2);
+  const equalPairs = pairs.filter((c) => Math.abs(c.amounts[0].fils) === Math.abs(c.amounts[1].fils)).length;
+  if (pairs.length && (EQUIVALENT_HEADER.test(whole) || (pairs.length >= 3 && equalPairs / pairs.length >= 0.6))) {
+    for (const c of pairs) {
+      c.amounts = [c.amounts[1]];
+      c.description = c.description.replace(FOREIGN_CURRENCY_TAIL, '').trim();
+    }
+  }
+
   // Years for dates that have none.
   const explicitYears = candidates.filter((c) => c.year !== null).map((c) => c.year as number);
   const common = mostCommon(explicitYears);
@@ -265,6 +297,9 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   const single = resolved.map(({ c }) => (c.amounts.length === 1 || c.amounts.length === 2 ? c.amounts[0] : null)).filter((t) => t && !t.marker && t.fils !== 0);
   const negatives = single.filter((t) => t!.fils < 0).length;
   const minusIsSpending = !isCard || negatives * 2 > single.length;
+  // Most amounts carry a minus (spending): a plain amount on the same statement is then money in (a payment, a refund,
+  // profit or a bonus credited), as in a signed CSV.
+  const plainIsIncome = single.length > 0 && negatives * 2 > single.length;
 
   const rows: ParsedRow[] = [];
   let ambiguousDirection = 0;
@@ -296,6 +331,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
       kind = kind ?? dirs[i].kind;
     }
     if (!kind && markerTok && markerTok.fils < 0) kind = minusIsSpending ? 'cost' : 'income';
+    if (!kind && markerTok && markerTok.fils > 0 && plainIsIncome) kind = 'income';
     if (!kind) {
       if (INCOME_WORDS.test(c.description)) {
         kind = 'income';
@@ -423,7 +459,10 @@ function resolveYear(
     const y = Number(period.to.slice(0, 4));
     const a = partsToISO(day, month, y);
     const b = partsToISO(day, month, y - 1);
-    const date = a && a <= period.to ? a : (b ?? a);
+    // A few days after the statement date still belongs to it (posting delays); further on is last year.
+    const date = a && diffAbs(a, period.to) <= 7 ? a : (b ?? a);
+    // Within about two months before the statement date (a monthly statement): the year is certain enough.
+    if (date && diffAbs(date, period.to) <= 7 && diffAbs(period.to, date) <= 70) return { date, cap: 1 };
     return { date, warning: 'The statement start date was not found; the year comes from the statement date.', cap: 0.8 };
   }
   const ty = Number(todayISO.slice(0, 4));

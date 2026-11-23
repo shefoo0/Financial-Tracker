@@ -43,7 +43,7 @@ const BUILTIN: Builtin[] = [
     to: [/dining/i, /eating/i, /restaurant/i, /coffee/i],
     kind: 'cost',
     words: [
-      'talabat', 'deliveroo', 'zomato', 'noon food', 'careem food', 'starbucks', 'tim hortons', 'costa', 'dunkin', 'mcdonald', 'kfc', 'burger king', 'subway', 'restaurant', 'cafe', 'coffee',
+      'talabat', 'keeta', 'deliveroo', 'zomato', 'noon food', 'careem food', 'starbucks', 'tim hortons', 'costa', 'dunkin', 'mcdonald', 'kfc', 'burger king', 'subway', 'restaurant', 'cafe', 'coffee',
       'pizza hut', 'dominos', 'papa johns', 'shake shack', 'five guys', 'hardees', 'baskin robbins', 'krispy kreme', 'bakery', 'shawarma', 'grill', 'kitchen',
       'طلبات', 'ديليفرو', 'ستاربكس', 'كوستا', 'ماكدونالدز', 'مطعم', 'مقهى', 'كافيه', 'قهوة', 'مخبز', 'شاورما', 'مشويات',
     ],

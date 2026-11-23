@@ -245,3 +245,28 @@ Previous Balance 1,000.00
     expect(r.rows.map((x) => x.kind)).toEqual(['income', 'cost']);
   });
 });
+
+describe('card statement with a transaction amount and an AED equivalent, and a page header on every page', () => {
+  // Layout of a UAE Islamic bank's card statement (made-up names, card number and amounts).
+  const r = parseStatementText(S.CARD_STATEMENT_TWO_AMOUNTS, { today: '2026-11-23' });
+  it('skips the repeated page header (billing date, card number, minimum due, due date, credit limit)', () => {
+    expect(r.rows.some((x) => /XXXX/.test(x.description) || x.amount === 1000000)).toBe(false);
+    expect(r.rows).toHaveLength(12);
+  });
+  it('purchases with a minus are spending; the payment, profit credited and bonus are money in; profit charged is spending', () => {
+    const by = Object.fromEntries(r.rows.map((x) => [x.description, [x.kind, x.amount]]));
+    expect(by['Credit Card Payment']).toEqual(['income', 120000]);
+    expect(by['ADNOC AL SALAM 915 ABUDHABI UAE']).toEqual(['cost', 7500]);
+    expect(by['MURABAHA PROFIT']).toEqual(['cost', 2530]);
+    expect(by['WAKALA PROFIT']).toEqual(['income', 21001]);
+    expect(by.BONUS).toEqual(['income', 4729]);
+  });
+  it('a foreign purchase takes its AED equivalent, not the foreign amount', () => {
+    expect(r.rows.find((x) => x.description.startsWith('SAMPLE AI SUB'))).toMatchObject({ amount: 7400, description: 'SAMPLE AI SUB SAN FRANCISCO CA' });
+  });
+  it('takes the year from the billing date without flagging every row', () => {
+    expect(r.rows.map((x) => x.date)).toContain('2026-08-29');
+    expect(r.rows.every((x) => !x.warnings.some((w) => /year/.test(w)))).toBe(true);
+    expect(r.rows.filter((x) => x.confidence < 0.7)).toEqual([]);
+  });
+});
