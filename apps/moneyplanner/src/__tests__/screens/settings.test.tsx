@@ -78,7 +78,7 @@ describe('Settings (short list)', () => {
   it('fits on one screen: no Save buttons, no long sections', async () => {
     await renderWithRepo(<SettingsScreen />, { settings });
     const list = await screen.findByTestId('settings-list');
-    expect(within(list).getAllByRole('button')).toHaveLength(8);
+    expect(within(list).getAllByRole('button')).toHaveLength(9); // Accounts joined in milestone 3b
     expect(screen.queryByTestId('settings-balance-save')).toBeNull();
     expect(screen.queryByTestId('settings-delete-all')).toBeNull();
   });
