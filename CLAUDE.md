@@ -40,7 +40,8 @@ build: never add a payment method, upgrade, or use priority builds.
 is public), on standard `ubuntu-latest` runners only (never larger, billed runners); keep workflows started by hand
 (`workflow_dispatch`), not on every push. The one exception is the `test` job
 of `ios-simulator.yml`, which uses the free `macos-latest` runner (free on a
-public repository, no longer counted 10x; still capped at 30 minutes) because
+public repository, no longer counted 10x; capped at 60 minutes so a hang fails
+fast, as the 8 Money Planner flows plus screenshots take ~30) because
 the developer has no iPhone or Mac. Each run also spends one of Expo's monthly
 free iOS builds, so run it at milestone ends, not on every change. The only accepted costs are the Apple Developer Program and
 Google Play developer accounts, which the developer pays for themselves to

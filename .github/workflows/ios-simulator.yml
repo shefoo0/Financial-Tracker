@@ -9,7 +9,8 @@
 # Free only: Expo's free plan (iOS only, no payment method; one simulator build
 # per run, from the monthly free builds) and GitHub's free minutes (free on this public
 # repository). Each run spends a free Expo build, so this is started by hand at
-# milestone ends, and the macOS job is capped at 30 minutes. If the free minutes run out,
+# milestone ends. The macOS job is capped at 60 minutes so a hang fails fast
+# instead of running for GitHub's default 6 hours. If the free minutes run out,
 # GitHub stops the job (the account's spending limit is $0); it never charges.
 #
 # If the Expo build takes longer than the Linux job allows, run the workflow
@@ -113,9 +114,9 @@ jobs:
 
   test:
     needs: build
-    # Free macOS minutes (free on public repositories). Keep it short.
+    # Free macOS minutes (free on public repositories). The cap catches hangs.
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       APP: ${{ inputs.app }}
       BUNDLE_ID: ${{ needs.build.outputs.bundle_id }}

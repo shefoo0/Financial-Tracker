@@ -24,7 +24,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [x] Android + iPhone test runs
   - [x] Earlier runs (old private repo): Android 45153618898 passed all 8 flows; iPhone 6/8 → fixed whole-row switches (lock) and amount patterns (06), check-maestro flags bare amounts
   - [x] Final runs on the public repo `shefoo0/financial-tracker`, commit 47a27ad, pre-flight passed first: android.yml run 45184675406 (APK built with the debug key; all 8 flows passed on the re-run of the e2e job; attempt 1 lost the emulator — "device offline" at app launch in 06, no app error) and ios-simulator.yml run 45184669279 (new Expo build; all 8 flows passed)
-  - Note: the 8 iPhone flows took ~25 of the macOS job's 30 minutes; split or trim flows before adding more (M3 import flows)
+  - Note: the 8 iPhone flows took ~25 minutes; the macOS job's cap was raised from 30 to 60 minutes (hang guard only, minutes are free on the public repo), leaving room for the M3 import flows
 - [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [ ] device runs · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 

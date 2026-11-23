@@ -20,9 +20,9 @@ for (const f of files) {
     for (const [name, job] of Object.entries(wf.jobs)) {
       if (f === "ios-simulator.yml" && name === "test") {
         // The one exception: GitHub's free macOS machine for the iPhone simulator,
-        // kept short (30 minutes at most).
+        // capped so a hang fails fast (60 minutes at most).
         assert.equal(job["runs-on"], "macos-latest");
-        assert.ok(job["timeout-minutes"] <= 30, "macOS job: 30 minutes at most");
+        assert.ok(job["timeout-minutes"] <= 60, "macOS job: 60 minutes at most");
         continue;
       }
       assert.equal(job["runs-on"], "ubuntu-latest", `${name}: only free standard runners`);
