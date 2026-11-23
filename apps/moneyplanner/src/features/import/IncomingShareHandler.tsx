@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 import { useRepoQuery } from '@/data/DataProvider';
 import type { ImportInput } from '@/import/read';
 
-import { setSession } from './session';
+import { setSession, UNSUPPORTED_SHARE } from './session';
 
 /** The first usable item of a share: text becomes pasted SMS text; a file or photo becomes a file input. */
 export function shareToInput(shared: SharePayload[], resolved: ResolvedSharePayload[]): ImportInput | null {
@@ -46,8 +46,12 @@ function Receiver() {
     // A file is still being resolved: wait for it.
     if (!input && resolvedSharedPayloads.length === 0 && sharedPayloads.some((p) => p.shareType !== 'text')) return;
     seen = key;
-    setSession({ incoming: input });
+    setSession(input ? { incoming: input, shareProblem: null } : { incoming: null, shareProblem: UNSUPPORTED_SHARE });
     router.navigate('/import');
+    if (!input) {
+      clearSharedPayloads();
+      return;
+    }
     // The shared copy of a file is deleted by clear: text can go now, a file is cleared by the import screen once it has been read or dropped.
     if (input?.kind === 'text') clearSharedPayloads();
   }, [nav?.key, isResolving, settings?.onboarded, sharedPayloads, resolvedSharedPayloads, clearSharedPayloads]);

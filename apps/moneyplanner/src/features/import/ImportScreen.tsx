@@ -107,6 +107,9 @@ export default function ImportScreen() {
         onProgress: (p) => setBusy(p.step === 'ocr' && p.total ? `Reading page ${Math.min((p.done ?? 0) + 1, p.total)} of ${p.total}…` : 'Reading…'),
       });
       go(step, input, shared);
+    } catch {
+      // startReading never throws on purpose; anything unexpected (the phone's file access, a native reader) lands here.
+      setMessage("This couldn't be read. Try again, or import a different file: a PDF or CSV from your bank app works best.");
     } finally {
       setBusy(null);
       if (step?.kind !== 'password') finish(input, shared);
@@ -133,6 +136,15 @@ export default function ImportScreen() {
     else finish(incoming, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.incoming, isPro, proLoading]);
+
+  // Something shared that is not a file, picture or text.
+  useEffect(() => {
+    const problem = session.shareProblem;
+    if (!problem || proLoading) return;
+    setSession({ shareProblem: null });
+    // After this render, not inside the effect.
+    if (isPro) Promise.resolve().then(() => setMessage(problem));
+  }, [session.shareProblem, isPro, proLoading]);
 
   if (!isPro) return <ImportProLocked />;
 

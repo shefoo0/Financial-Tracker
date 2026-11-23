@@ -124,6 +124,26 @@ describe('incoming shares', () => {
     }
   });
 
+  it('explain on the Import screen when what was shared cannot be imported (a link, a contact)', async () => {
+    share({ sharedPayloads: [{ value: 'https://example.com', shareType: 'url' }], resolvedSharedPayloads: [{ value: 'https://example.com', shareType: 'url', contentType: 'website' } as never] });
+    await renderWithRepo(<IncomingShareHandler />, settings);
+    await waitFor(() => expect(router.navigate).toHaveBeenCalledWith('/import'));
+    expect(clear).toHaveBeenCalled();
+    await renderWithRepo(<ImportScreen />, settings);
+    expect((await screen.findByTestId('import-message')).props).toBeTruthy();
+    expect(screen.getByText(/That can't be imported/)).toBeTruthy();
+    expect(getSession().shareProblem).toBeNull();
+  });
+
+  it('show a plain message, never raw error text, when reading fails unexpectedly', async () => {
+    (readImport as jest.Mock).mockRejectedValueOnce(new Error('java.io.FileNotFoundException: /proc/self/fd/88 (EACCES)'));
+    const { setSession } = require('../session');
+    setSession({ incoming: { kind: 'file', uri: 'content://x/9', name: 'x.pdf', mimeType: 'application/pdf' } });
+    await renderWithRepo(<ImportScreen />, settings);
+    expect(await screen.findByText(/This couldn't be read/)).toBeTruthy();
+    expect(screen.queryByText(/java|EACCES/)).toBeNull();
+  });
+
   it('are read for a Pro user: the SMS goes through the real parser and on to the review', async () => {
     share({ sharedPayloads: [{ value: SMS, shareType: 'text' }] });
     await renderWithRepo(<IncomingShareHandler />, settings);

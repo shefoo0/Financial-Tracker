@@ -24,9 +24,15 @@ export interface ImportSession {
   mapping: (CsvMapping & { sheet?: number }) | null;
   /** Why the column step is shown. */
   message: string | null;
+  /** Something was shared into the app that cannot be imported (a contact, a link…): shown on the Import screen. */
+  shareProblem?: string | null;
   /** Changes with every new result, so the review screen starts fresh. */
   token: number;
 }
+
+/** Shown when what was shared into the app is not a file, picture or text. */
+export const UNSUPPORTED_SHARE =
+  "That can't be imported. Share a bank or card statement (PDF, CSV, Excel or OFX), a screenshot or photo of one, or the text of a bank SMS.";
 
 const EMPTY: ImportSession = { incoming: null, result: null, sourceName: '', fileKind: '', table: null, mapping: null, message: null, token: 0 };
 

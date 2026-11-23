@@ -23,7 +23,7 @@ export type ReadOutcome =
 
 export const PASSWORD_MESSAGE =
   "This PDF is protected. Enter its password (often your date of birth or card digits — check your bank's email).";
-const EMPTY_MESSAGE = 'No transactions were found. Check that this is a statement, or try a different export (CSV is the most reliable).';
+const EMPTY_MESSAGE = 'No transactions were found in this. Check that it is a bank or card statement, or try a different export from your bank (CSV is the most reliable).';
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const TOO_BIG_MESSAGE = 'This file is larger than 25 MB, which is too big to read on your phone. Export a shorter date range from your bank and try again.';
 
@@ -163,7 +163,7 @@ function parseMessages(messages: string[]): ParseResult {
 
 function done(result: ParseResult, sourceName: string, fileKind: FileKind): ReadOutcome {
   if (result.rows.length === 0) {
-    return { status: 'empty', message: result.problems[0] ? `${EMPTY_MESSAGE} (${result.problems[0]})` : EMPTY_MESSAGE };
+    return { status: 'empty', message: EMPTY_MESSAGE };
   }
   return { status: 'ok', result, sourceName, fileKind };
 }
@@ -214,7 +214,8 @@ async function readImage(uri: string, name: string, opts: ReadOptions): Promise<
     opts.onProgress?.({ step: 'ocr', done: 1, total: 1 });
     return done(parseStatementText(lines.join('\n')), name, 'image');
   } catch (e) {
-    return { status: 'error', message: e instanceof Error ? e.message : 'The picture could not be read.' };
+    // Only our own messages are shown; a native error's text is not for people.
+    return { status: 'error', message: e instanceof OcrError ? e.message : 'The picture could not be read. Try a sharper, well-lit photo or a screenshot.' };
   }
 }
 

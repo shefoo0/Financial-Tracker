@@ -18,6 +18,9 @@ function fixOcrDigits(tok: string): string | null {
   return AMT_RE.test(fixed) ? fixed : null;
 }
 
+/** A currency written as its own word: AED, Dh, Dhs or د.إ. */
+const CURRENCY_TOKEN = /^((aed|dhs?)\.?|د\.?[إا])$/i;
+
 interface Popped {
   amounts: AmountToken[];
   rest: string;
@@ -37,7 +40,12 @@ function popAmounts(line: string): Popped {
       marker = tok;
       tokens.pop();
       tok = tokens[tokens.length - 1];
-    } else if (/^(aed|dhs?)\.?$/i.test(tok) && tokens.length > 1) {
+      // "55.00 AED Dr": the currency sits between the amount and its marker.
+      if (CURRENCY_TOKEN.test(tok) && tokens.length > 1) {
+        tokens.pop();
+        tok = tokens[tokens.length - 1];
+      }
+    } else if (CURRENCY_TOKEN.test(tok) && tokens.length > 1) {
       tokens.pop();
       tok = tokens[tokens.length - 1];
     }
@@ -57,7 +65,12 @@ function popAmounts(line: string): Popped {
       break;
     }
     tokens.pop();
-    if (tokens.length && /^(aed|dhs?)\.?$/i.test(tokens[tokens.length - 1])) tokens.pop();
+    if (tokens.length && CURRENCY_TOKEN.test(tokens[tokens.length - 1])) tokens.pop();
+    // "-AED 200.00": the minus is written before the currency code.
+    else if (tokens.length && /^[-−](aed|dhs?)\.?$/i.test(tokens[tokens.length - 1])) {
+      tokens.pop();
+      parsed.fils = -Math.abs(parsed.fils);
+    }
     amounts.unshift(parsed);
   }
   return { amounts, rest: tokens.join(' '), ocrFixed };
@@ -111,6 +124,8 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   const candidates: Candidate[] = [];
   let openingBalance: number | undefined;
   let unreadable = 0;
+  // Lines that look like a transaction but whose date does not exist (31/02).
+  let impossibleDates = 0;
   let lastWasRow = false;
   let continuation = 0;
   // A date line with a description but no amount: the amounts may be on the next line (wrapped by OCR).
@@ -159,6 +174,11 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
       return;
     }
     if (SKIP_LINE.test(afterDate) || (HEADER_LINE.test(line) && !(lead && popAmounts(lead.rest).amounts.length))) {
+      lastWasRow = false;
+      return;
+    }
+    if (!lead && /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s/.test(line) && popAmounts(line).amounts.length) {
+      impossibleDates++;
       lastWasRow = false;
       return;
     }
@@ -288,7 +308,8 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
       }
       return null;
     };
-    const k = tryFrom(prev, false) ?? tryFrom(next, true);
+    // Newest first, the oldest row is the last line: the opening (previous) balance is the balance before it.
+    const k = tryFrom(prev, false) ?? tryFrom(next, true) ?? (i === resolved.length - 1 && i > 0 ? tryFrom(openingBalance, true) : null);
     if (k) dirs[i] = { kind: k, why: 'balance' };
   });
 
@@ -331,7 +352,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
       kind = kind ?? dirs[i].kind;
     }
     if (!kind && markerTok && markerTok.fils < 0) kind = minusIsSpending ? 'cost' : 'income';
-    if (!kind && markerTok && markerTok.fils > 0 && plainIsIncome) kind = 'income';
+    if (!kind && markerTok && markerTok.fils > 0 && (plainIsIncome || markerTok.plus)) kind = 'income';
     if (!kind) {
       if (INCOME_WORDS.test(c.description)) {
         kind = 'income';
@@ -360,8 +381,11 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
   });
 
   checkBalances(rows, openingBalance, { owed: isCard });
+  // Count only the rows the running balance did not settle.
+  ambiguousDirection = rows.filter((r) => r.warnings.some((w) => w.startsWith('The statement line does not say'))).length;
   result.rows = rows;
   if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? ' starts' : 's start'} with a date but no amount could be read, so they were skipped.`);
+  badDates += impossibleDates;
   if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date or is far outside the statement period.`);
   if (ambiguousDirection > 0) {
     result.problems.push(`${ambiguousDirection} row${ambiguousDirection === 1 ? '' : 's'} could not be told apart as money in or out; check the direction.`);

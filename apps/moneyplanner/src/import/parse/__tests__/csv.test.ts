@@ -152,3 +152,12 @@ describe('card CSV with a balance column (the balance is what is owed)', () => {
     ]);
   });
 });
+
+describe('card CSV with unsigned charges only', () => {
+  it('reads charges as spending without a "check this" on every row; a payment line is money in', () => {
+    const r = parseCsv('Credit card statement,Card ending 4417\nDate,Description,Amount\n03/11/2026,CARREFOUR,250.00\n05/11/2026,ENOC,100.00\n10/11/2026,PAYMENT THANK YOU,300.00\n');
+    expect(r.rows.map((x) => [x.description, x.kind])).toEqual([['CARREFOUR', 'cost'], ['ENOC', 'cost'], ['PAYMENT THANK YOU', 'income']]);
+    expect(r.rows.slice(0, 2).every((x) => x.confidence >= 0.7 && x.warnings.length === 0)).toBe(true);
+    expect(r.problems).toEqual([]);
+  });
+});

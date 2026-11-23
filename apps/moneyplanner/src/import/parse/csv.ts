@@ -10,7 +10,9 @@ const DELIMITERS = [',', ';', '\t'];
 
 /** Splits CSV text into rows of trimmed cells. Handles quotes (with "" escapes and newlines inside). Empty rows are dropped. */
 export function readCsvTable(text: string, delimiter?: string): { delimiter: string; rows: string[][] } {
-  let src = normaliseDigits(text.replace(/^﻿/, ''));
+  // The Arabic thousands mark (٬) only groups digits: drop it before cells are split, or it would become a comma
+  // and cut an unquoted amount in two ("-١٬٢٣٤٫٥٠" read as -1).
+  let src = normaliseDigits(text.replace(/^﻿/, '').replace(/٬/g, ''));
   // Excel's "sep=;" first line.
   const sep = /^sep=(.)\r?\n/i.exec(src);
   if (sep) src = src.slice(sep[0].length);
@@ -284,6 +286,8 @@ export function parseCsv(text: string, mapping?: CsvMapping): ParseResult {
 }
 
 const SIGNS_REVERSED = 'Signs may be reversed — use Flip all if needed';
+/** Money in on a card: a payment to it, a refund, a reversal or cashback. */
+const CARD_CREDIT_WORDS = /\b(payment|refund|reversal|cashback|credit adjustment)\b|سداد|استرداد/i;
 const ASSUMED_SPENDING = 'The file does not say whether this is money in or out; assumed spending.';
 
 /** Parses a table of cells with a mapping. Used for CSV text and for spreadsheet sheets. `rawSeparator` joins the cells of `raw`. */
@@ -330,6 +334,8 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
       if (minority > 0.4) signsUnsure = true;
     }
   }
+  // A card export (card words above the header): unsigned amounts are charges, so they need no warning.
+  const cardHeader = table.slice(0, start).some((r) => /\b(card|credit limit|statement balance|minimum payment|min payment)\b/i.test(r.join(' ')));
   const singleColumn = map.debit === null && map.credit === null;
   const unsignedSingle = singleColumn && !signed;
 
@@ -398,7 +404,13 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
           kind = (tok.fils < 0) !== positiveIsCost ? 'cost' : 'income';
           if (signsUnsure) lower(0.6, SIGNS_REVERSED);
         }
-        else lower(0.5, ASSUMED_SPENDING);
+        // With a balance column the balance settles the direction below, so the guess stays overrulable.
+        else if (cardHeader && map.balance === null) {
+          if (CARD_CREDIT_WORDS.test(desc)) {
+            kind = 'income';
+            lower(0.7, 'Direction guessed from the description; check it.');
+          } else confidence = Math.min(confidence, 0.85);
+        } else lower(0.5, ASSUMED_SPENDING);
       }
     }
     if (!tok || amount === 0) {
@@ -427,8 +439,7 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
   }
 
   // A card export's balance column is what is owed (it rises with spending).
-  const owedBalance = table.slice(0, start).some((r) => /\b(card|credit limit|statement balance|minimum payment|min payment)\b/i.test(r.join(' ')));
-  const check = checkBalances(result.rows, undefined, { owed: owedBalance });
+  const check = checkBalances(result.rows, undefined, { owed: cardHeader });
   if (check.order && check.disagreed > 0) {
     result.problems.push(`${check.disagreed} row${check.disagreed === 1 ? '' : 's'} do not match the running balance; check them.`);
   } else if (!check.order && check.checked >= 2) {

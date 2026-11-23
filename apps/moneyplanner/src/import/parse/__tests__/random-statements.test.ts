@@ -24,6 +24,9 @@ import {
   type TruthRow,
 } from './random-statements.gen';
 
+// Each test parses about 100 generated statements: a few seconds, more on a busy machine (pre-flight, CI).
+jest.setTimeout(60_000);
+
 const PER_FORMAT = 100;
 const PER_CARD_LAYOUT = 40;
 const TODAY = '2026-12-20';
@@ -270,9 +273,9 @@ describe('nasty input never crashes', () => {
   });
 });
 
-// ---- Parser bugs the fuzzer found (kept as minimal reproductions; `it.failing` passes while the bug exists) ----
+// ---- Parser bugs the fuzzer found, fixed; kept as regression tests ----
 
-describe('known parser bugs', () => {
+describe('parser bugs the fuzzer found (fixed)', () => {
   const lines = (...l: string[]) => l.join('\n');
   const kinds = (r: ParseResult) => r.rows.map((x) => [x.date, x.kind, x.amount, x.description]);
   const BANK = ['Account Statement', 'Statement Period 01/11/2026 to 30/11/2026'];
@@ -280,33 +283,33 @@ describe('known parser bugs', () => {
 
   // Card, newest first, "Previous Balance" given: the oldest row (last line) is never checked against it, so a payment whose
   // text has no income word is silently read as spending (text.ts ~line 232: `next` is undefined for the last row, opening unused).
-  it.failing('card text, newest first: the oldest row is checked against the previous balance', () => {
+  it('card text, newest first: the oldest row is checked against the previous balance', () => {
     const r = text(lines(...CARD, 'Date Description Amount Balance', '10/11/2026 NETFLIX 55.00 1,055.00', '05/11/2026 AUTOPAY PAYMENT 200.00 1,000.00', 'Previous Balance 1,200.00'));
     expect(kinds(r)).toEqual([['2026-11-10', 'cost', 5500, 'NETFLIX'], ['2026-11-05', 'income', 20000, 'AUTOPAY PAYMENT']]);
   });
 
   // Bank, newest first, "Opening Balance" given: the row is corrected afterwards, yet the "could not be told apart" problem stays.
-  it.failing('bank text, newest first: no false "could not be told apart" when the opening balance settles the oldest row', () => {
+  it('bank text, newest first: no false "could not be told apart" when the opening balance settles the oldest row', () => {
     const r = text(lines(...BANK, 'Date Description Amount Balance', '10/11/2026 NETFLIX 55.00 945.00', '05/11/2026 Quokka Labs INVOICE 200.00 1,000.00', 'Opening Balance 800.00'));
     expect(r.rows.map((x) => x.kind)).toEqual(['cost', 'income']);
     expect(r.problems).toEqual([]);
   });
 
   // A minus in front of the currency code ("-AED 55.00") is dropped and "-AED" is glued to the description.
-  it.failing('text: "-AED 200.00" is a minus amount, and the description stays clean', () => {
+  it('text: "-AED 200.00" is a minus amount, and the description stays clean', () => {
     const r = text(lines(...CARD, '10/11/2026 NETFLIX 55.00', '11/11/2026 CARREFOUR 20.00', '12/11/2026 AUTOPAY PAYMENT -AED 200.00'));
     expect(kinds(r)).toEqual([['2026-11-10', 'cost', 5500, 'NETFLIX'], ['2026-11-11', 'cost', 2000, 'CARREFOUR'], ['2026-11-12', 'income', 20000, 'AUTOPAY PAYMENT']]);
   });
 
   // A line with an impossible date (31/02) has amounts but is skipped with no problem at all (date.ts matchLeadingDate -> null).
-  it.failing('text: a row with an impossible date is reported, not silently dropped', () => {
+  it('text: a row with an impossible date is reported, not silently dropped', () => {
     const r = text(lines('Account Statement', 'Statement Period 01/02/2026 to 28/02/2026', '10/02/2026 NETFLIX 55.00 Dr', '31/02/2026 CARREFOUR 20.00 Dr', '12/02/2026 SALARY 200.00 Cr'));
     expect(r.rows).toHaveLength(2);
     expect(r.problems.length).toBeGreaterThan(0);
   });
 
   // "+200.00" is not read as money in on a bank statement without a balance column (text.ts: only a minus/marker sets the kind).
-  it.failing('text: a plus sign means money in (bank, no balance column)', () => {
+  it('text: a plus sign means money in (bank, no balance column)', () => {
     const r = text(lines(...BANK, '10/11/2026 NETFLIX -55.00', '11/11/2026 Quokka Labs INVOICE +200.00'));
     expect(r.rows.map((x) => x.kind)).toEqual(['cost', 'income']);
   });
@@ -318,22 +321,22 @@ describe('known parser bugs', () => {
   });
 
   // "د.إ" (Arabic for AED) after an amount is not a known currency marker: nothing is read (reported, but nothing imports).
-  it.failing('text: amount followed by د.إ', () => {
+  it('text: amount followed by د.إ', () => {
     expect(text(lines(...BANK, '10/11/2026 NETFLIX 55.00 د.إ Dr', '11/11/2026 CARREFOUR 20.00 د.إ Dr')).rows).toHaveLength(2);
   });
-  it.failing('csv: amount followed by د.إ', () => {
+  it('csv: amount followed by د.إ', () => {
     expect(parseCsv('Date,Description,Amount\n10/11/2026,NETFLIX,-55.00 د.إ\n11/11/2026,CARREFOUR,-20.00 د.إ\n').rows).toHaveLength(2);
   });
 
   // Currency code between the amount and its Cr/Dr marker ("55.00 AED Dr"): popAmounts stops at the marker.
-  it.failing('text: "55.00 AED Dr"', () => {
+  it('text: "55.00 AED Dr"', () => {
     const r = text(lines(...BANK, '10/11/2026 NETFLIX 55.00 AED Dr', '11/11/2026 SALARY 20.00 AED Cr'));
     expect(r.rows.map((x) => [x.kind, x.amount])).toEqual([['cost', 5500], ['income', 2000]]);
   });
 
   // SILENT WRONG AMOUNT: readCsvTable turns the Arabic thousands mark ٬ into "," BEFORE splitting cells, so "-١٬٢٣٤٫٥٠"
   // becomes two columns and the amount is read as 1.00 (csv.ts:12 normaliseDigits, then the "," delimiter split).
-  it.failing('csv: unquoted Arabic thousands separator (٬) stays inside the amount', () => {
+  it('csv: unquoted Arabic thousands separator (٬) stays inside the amount', () => {
     const r = parseCsv('Date,Description,Amount\n10/11/2026,NETFLIX,-١٬٢٣٤٫٥٠\n11/11/2026,CARREFOUR,-٢٠٫٠٠\n');
     expect(r.rows.map((x) => x.amount)).toEqual([123450, 2000]);
   });

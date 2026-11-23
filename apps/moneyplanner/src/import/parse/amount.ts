@@ -7,7 +7,12 @@ export interface AmountToken {
   fils: Fils;
   marker: 'cr' | 'dr' | null;
   currency?: string;
+  /** Written with a plus sign ("+200.00"): money in. */
+  plus?: boolean;
 }
+
+/** "د.إ" (dirham, Arabic), with or without the dot; إ may already be normalised to ا. */
+export const ARABIC_AED = /د\.?\s?[إا](?![\u0600-\u06FF])/g;
 
 const CODES = 'AED|USD|EUR|GBP|SAR|INR|PKR|QAR|KWD|BHD|OMR|EGP';
 const CURRENCY_RE = new RegExp(`(?<![A-Za-z])(${CODES})(?![A-Za-z])`, 'i');
@@ -36,10 +41,12 @@ export function parseAmountToken(raw: string): AmountToken | null {
     marker = prefix[1].toLowerCase() as 'cr' | 'dr';
     t = prefix[2];
   }
-  const currency = detectCurrency(t);
-  t = t.replace(new RegExp(`(?<![A-Za-z])(${CODES}|Dhs?)(?![A-Za-z])\\.?`, 'gi'), ' ').replace(/^\s*\+/, '').trim();
+  const currency = detectCurrency(t) ?? (new RegExp(ARABIC_AED.source).test(t) ? 'AED' : undefined);
+  t = t.replace(ARABIC_AED, ' ').replace(new RegExp(`(?<![A-Za-z])(${CODES}|Dhs?)(?![A-Za-z])\\.?`, 'gi'), ' ').trim();
+  const plus = /^\+/.test(t);
+  t = t.replace(/^\+/, '').trim();
   if (!/^[\s()+\-\d,.]+$/.test(t) || !/\d/.test(t)) return null;
   const fils = parseAmount(t);
   if (fils === null) return null;
-  return { fils, marker, currency };
+  return { fils, marker, currency, ...(plus ? { plus } : {}) };
 }
