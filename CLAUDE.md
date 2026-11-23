@@ -1,8 +1,12 @@
-# Tester
+# financial-tracker
 
 Guidance for Claude Code when working in this repository.
 
 ## Project status
+
+Repository: `shefoo0/financial-tracker` (public, so GitHub Actions minutes
+are free and unlimited on standard runners). It replaced the private
+`shefoo0/Tester`, whose free minutes ran out; `main` holds its history.
 
 App Factory: a Claude Code team (the `/new-app` command as master, plus
 sub-agents) that builds Expo apps for the App Store and Google Play. See
@@ -32,12 +36,13 @@ needs a payment method. The one cloud service allowed is **Expo's free plan,
 for iOS builds and uploads only** (`eas build`/`eas submit`/`eas credentials`
 with `--platform ios`, run from `/release-app`), because iOS needs macOS to
 build: never add a payment method, upgrade, or use priority builds.
-**GitHub Actions** is allowed on its free minutes, on standard `ubuntu-latest`
-runners only (never larger, billed runners); keep workflows started by hand
+**GitHub Actions** is allowed on its free minutes (unlimited, as the repository
+is public), on standard `ubuntu-latest` runners only (never larger, billed runners); keep workflows started by hand
 (`workflow_dispatch`), not on every push. The one exception is the `test` job
-of `ios-simulator.yml`, which uses the free `macos-latest` runner (counted 10x
-on private repos, capped at 30 minutes) because the developer has no iPhone or
-Mac; run it at milestone ends, not on every change. The only accepted costs are the Apple Developer Program and
+of `ios-simulator.yml`, which uses the free `macos-latest` runner (free on a
+public repository, no longer counted 10x; still capped at 30 minutes) because
+the developer has no iPhone or Mac. Each run also spends one of Expo's monthly
+free iOS builds, so run it at milestone ends, not on every change. The only accepted costs are the Apple Developer Program and
 Google Play developer accounts, which the developer pays for themselves to
 publish.
 
@@ -69,7 +74,8 @@ publish.
   Change the rules in the hook (and its tests), not by weakening the deny list.
 - `.github/workflows/` — `android.yml` (type check, unit tests, signed APK
   and AAB, target API check, Maestro on an emulator), `android-upload-key.yml`
-  (creates the upload key once; private repos only), `ios.yml` (queues an iOS
+  (creates the upload key once; refuses public repos like this one, so test
+  APKs use the debug key until the upload key is set up at release), `ios.yml` (queues an iOS
   build and TestFlight upload on Expo's free plan; needs the paid Apple
   program), `ios-simulator.yml` (no iPhone or paid Apple account needed: Expo's
   free simulator build, then Maestro flows and screenshots of the main screens
@@ -112,6 +118,9 @@ publish.
 | Maintenance (every ~3 months) | `/maintain-apps` |
 
 ## Cloud sessions
+
+- Never commit personal data (emails, names, phone numbers): the repository is
+  public. Commits are by `Claude` or the developer's GitHub noreply address.
 
 - The network blocks Expo's servers, so prefix Expo CLI commands with
   `EXPO_OFFLINE=1` (e.g. `EXPO_OFFLINE=1 npx expo install <pkg>`); versions

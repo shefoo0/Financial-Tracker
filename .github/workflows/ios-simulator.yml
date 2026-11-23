@@ -7,9 +7,9 @@
 #      the main screens (apps/<slug>/.maestro-screens/) as an artifact.
 #
 # Free only: Expo's free plan (iOS only, no payment method; one simulator build
-# per run, from the monthly free builds) and GitHub's free minutes. On a private
-# repository macOS minutes count 10x, so this is started by hand at milestone
-# ends, and the macOS job is capped at 30 minutes. If the free minutes run out,
+# per run, from the monthly free builds) and GitHub's free minutes (free on this public
+# repository). Each run spends a free Expo build, so this is started by hand at
+# milestone ends, and the macOS job is capped at 30 minutes. If the free minutes run out,
 # GitHub stops the job (the account's spending limit is $0); it never charges.
 #
 # If the Expo build takes longer than the Linux job allows, run the workflow
@@ -113,7 +113,7 @@ jobs:
 
   test:
     needs: build
-    # Free macOS minutes (counted 10x on private repositories). Keep it short.
+    # Free macOS minutes (free on public repositories). Keep it short.
     runs-on: macos-latest
     timeout-minutes: 30
     env:

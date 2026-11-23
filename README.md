@@ -35,7 +35,7 @@ Apple (guidelines 4.2 and 4.3) and Google Play (repetitive-content and minimum-f
 | --- | --- |
 | Building and testing apps with this team | Included in your Claude subscription. Large apps use more of your plan's usage limits, and if you hit a limit, wait for it to reset and type "continue". |
 | Expo, Jest, local builds, Expo Go on your phone | Free |
-| Android builds, tests and emulator runs on GitHub Actions | Free: 2,000 minutes a month on this private repository, on standard machines only |
+| Android builds, tests and emulator runs on GitHub Actions | Free: unlimited minutes on this public repository, on standard machines only |
 | iOS builds without a Mac | Expo's free cloud plan: a free account with **no payment method**. Limited builds a month; if you hit the limit it waits for next month, it never charges. |
 | Testing on your iPhone | TestFlight, free with the Apple developer account |
 | Publishing on the App Store | Apple Developer Program, $99/year |
