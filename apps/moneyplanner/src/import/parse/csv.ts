@@ -426,7 +426,9 @@ export function parseTable(table: string[][], map: CsvMapping, rawSeparator = ',
     } as ParsedRow);
   }
 
-  const check = checkBalances(result.rows);
+  // A card export's balance column is what is owed (it rises with spending).
+  const owedBalance = table.slice(0, start).some((r) => /\b(card|credit limit|statement balance|minimum payment|min payment)\b/i.test(r.join(' ')));
+  const check = checkBalances(result.rows, undefined, { owed: owedBalance });
   if (check.order && check.disagreed > 0) {
     result.problems.push(`${check.disagreed} row${check.disagreed === 1 ? '' : 's'} do not match the running balance; check them.`);
   } else if (!check.order && check.checked >= 2) {

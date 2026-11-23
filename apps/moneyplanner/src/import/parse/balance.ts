@@ -14,7 +14,11 @@ const ASSUMED = ['The file does not say whether', 'The statement line does not s
 export const BALANCE_MISMATCH = 'The running balance does not match this amount; check it.';
 export const BALANCE_DIRECTION = 'The running balance says this was the opposite direction (money in vs out); check it.';
 
-const signed = (r: ParsedRow) => (r.kind === 'income' ? r.amount : -r.amount);
+/**
+ * How a row moves the running balance. On a bank statement the balance is money you have (income raises it); on a
+ * card statement it is money you owe (spending raises it, a payment or refund lowers it).
+ */
+const signedFor = (owed: boolean) => (r: ParsedRow) => (r.kind === 'income' ? 1 : -1) * (owed ? -1 : 1) * r.amount;
 
 export interface BalanceCheck {
   /** Rows (by index) whose balance delta agrees with the amount. */
@@ -33,7 +37,8 @@ export interface BalanceCheck {
  * balance disproves; rows that were only assumed to be spending are flipped to income when the
  * balance proves it; others that disagree are flagged. Mutates the rows.
  */
-export function checkBalances(rows: ParsedRow[], opening?: number): BalanceCheck {
+export function checkBalances(rows: ParsedRow[], opening?: number, { owed = false }: { owed?: boolean } = {}): BalanceCheck {
+  const signed = signedFor(owed);
   const refOf = (i: number, order: 'oldest-first' | 'newest-first'): number | undefined => {
     const j = order === 'oldest-first' ? i - 1 : i + 1;
     if (j < 0 || j >= rows.length) return opening;
@@ -69,7 +74,7 @@ export function checkBalances(rows: ParsedRow[], opening?: number): BalanceCheck
     } else if (Math.abs(delta) === r.amount && delta !== 0) {
       const lowDirection = r.warnings.some((w) => ASSUMED.some((p) => w.startsWith(p)));
       if (lowDirection) {
-        r.kind = delta > 0 ? 'income' : 'cost';
+        r.kind = (delta > 0) !== owed ? 'income' : 'cost';
         r.warnings = r.warnings.filter((w) => !PROVEN.some((p) => w.startsWith(p)));
         r.confidence = Math.max(r.confidence, 0.9);
         out.agreed++;

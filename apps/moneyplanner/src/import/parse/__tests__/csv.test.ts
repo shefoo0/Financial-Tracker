@@ -139,3 +139,16 @@ describe('card export sign convention', () => {
     expect(r.rows[0].warnings).toContain('Signs may be reversed — use Flip all if needed');
   });
 });
+
+describe('card CSV with a balance column (the balance is what is owed)', () => {
+  it('reads unsigned purchases as spending and the payment as money in from the balance', () => {
+    const csv = `Credit card statement,Card ending 4417\nDate,Description,Amount,Balance\n03/11/2026,CARREFOUR,250.00,1250.00\n05/11/2026,ENOC,100.00,1350.00\n10/11/2026,PAYMENT RECEIVED,1000.00,350.00\n15/11/2026,TALABAT,50.00,400.00`;
+    const r = parseCsv(csv);
+    expect(r.rows.map((x) => [x.description, x.kind])).toEqual([
+      ['CARREFOUR', 'cost'],
+      ['ENOC', 'cost'],
+      ['PAYMENT RECEIVED', 'income'],
+      ['TALABAT', 'cost'],
+    ]);
+  });
+});

@@ -215,3 +215,33 @@ describe('parseSmsText', () => {
     expect(r.rows[0].confidence).toBeLessThanOrEqual(0.6);
   });
 });
+
+describe('card statement with a running balance (the balance is what is owed)', () => {
+  const CARD_BAL = `Credit Card Statement
+Card Number XXXX XXXX XXXX 4417
+Statement Period 01/11/2026 to 30/11/2026
+Previous Balance 1,000.00
+03/11/2026 CARREFOUR MOE 250.00 1,250.00
+05/11/2026 ENOC 1023 100.00 1,350.00
+10/11/2026 PAYMENT RECEIVED THANK YOU 1,000.00 350.00
+15/11/2026 TALABAT 50.00 400.00`;
+  it('reads purchases (balance owed goes up) as spending and the payment (goes down) as money in, with no doubt flagged', () => {
+    const r = parseStatementText(CARD_BAL, { today: '2026-12-01' });
+    expect(r.rows.map((x) => [x.description, x.kind])).toEqual([
+      ['CARREFOUR MOE', 'cost'],
+      ['ENOC 1023', 'cost'],
+      ['PAYMENT RECEIVED THANK YOU', 'income'],
+      ['TALABAT', 'cost'],
+    ]);
+    expect(r.rows.every((x) => !x.warnings.some((w) => /running balance/.test(w)))).toBe(true);
+  });
+  it('also works newest first', () => {
+    const lines = CARD_BAL.split('\n');
+    const r = parseStatementText([...lines.slice(0, 4), ...lines.slice(4).reverse()].join('\n'), { today: '2026-12-01' });
+    expect(r.rows.map((x) => x.kind)).toEqual(['cost', 'income', 'cost', 'cost']);
+  });
+  it('a bank statement balance still goes up with income', () => {
+    const r = parseStatementText(`Account Statement\nOpening Balance 1,000.00\n03/11/2026 SALARY 500.00 1,500.00\n05/11/2026 ENOC 100.00 1,400.00`, { today: '2026-12-01' });
+    expect(r.rows.map((x) => x.kind)).toEqual(['income', 'cost']);
+  });
+});

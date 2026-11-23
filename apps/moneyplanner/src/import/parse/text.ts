@@ -240,16 +240,19 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     if (balance === undefined || amount === null) return;
     const prev = i > 0 ? balances[i - 1] : openingBalance;
     const next = i < resolved.length - 1 ? balances[i + 1] : undefined;
+    // On a card statement the balance is what is owed: it goes UP with spending and down with a payment or refund.
+    const up: 'income' | 'cost' = isCard ? 'cost' : 'income';
+    const down: 'income' | 'cost' = isCard ? 'income' : 'cost';
     const tryFrom = (ref: number | undefined, newestFirst: boolean): 'income' | 'cost' | null => {
       if (ref === undefined) return null;
       const abs = Math.abs(amount);
       if (!newestFirst) {
-        if (ref + abs === balance) return 'income';
-        if (ref - abs === balance) return 'cost';
+        if (ref + abs === balance) return up;
+        if (ref - abs === balance) return down;
       } else {
         // newest first: this row's balance minus its amount is the next (older) row's balance.
-        if (balance - abs === ref) return 'income';
-        if (balance + abs === ref) return 'cost';
+        if (balance - abs === ref) return up;
+        if (balance + abs === ref) return down;
       }
       return null;
     };
@@ -320,7 +323,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     } as ParsedRow);
   });
 
-  checkBalances(rows, openingBalance);
+  checkBalances(rows, openingBalance, { owed: isCard });
   result.rows = rows;
   if (unreadable) result.problems.push(`${unreadable} line${unreadable === 1 ? ' starts' : 's start'} with a date but no amount could be read, so they were skipped.`);
   if (badDates) result.problems.push(`${badDates} line${badDates === 1 ? '' : 's'} skipped because the date is not a real date or is far outside the statement period.`);
