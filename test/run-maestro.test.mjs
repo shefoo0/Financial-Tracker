@@ -43,17 +43,22 @@ test("Android runner: closes system dialogs and clears logcat around each flow",
 });
 
 /**
- * A fake `maestro` that fails the first run of flow 01 like the real one when the emulator drops out: the console
- * says only "[Failed]", and "device offline" is in maestro.log inside --debug-output. `reason` is what that log says.
+ * A fake `maestro` that fails the first `times` runs of flow 01 like the real one: the console says only "[Failed]",
+ * and the reason is in maestro.log inside --debug-output. `reasons` are those logs, one per failing run (the last
+ * repeats). Runs are counted in a file.
  */
-function flakyMaestro(dir, reason) {
+function flakyMaestro(dir, reasons, times = 1) {
+  const list = Array.isArray(reasons) ? reasons : [reasons];
+  writeFileSync(join(dir, "reasons"), list.join("\n"));
   writeFileSync(join(dir, "bin", "maestro"), `#!/usr/bin/env bash
 [ "$1" = "hierarchy" ] && exit 0
 out=""; prev=""; for a in "$@"; do [ "$prev" = "--debug-output" ] && out="$a"; prev="$a"; done
 case "$*" in *01-a.yaml*)
-  if [ ! -f "${join(dir, "seen")}" ]; then
-    touch "${join(dir, "seen")}"; mkdir -p "$out/run"
-    echo "${reason}" > "$out/run/maestro.log"
+  n=$(cat "${join(dir, "count")}" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "${join(dir, "count")}"
+  if [ "$n" -le ${times} ]; then
+    mkdir -p "$out/run"
+    reason=$(sed -n "\${n}p" "${join(dir, "reasons")}"); [ -n "$reason" ] || reason=$(tail -n 1 "${join(dir, "reasons")}")
+    echo "$reason" > "$out/run/maestro.log"
     echo "[Failed] A (1s)"; exit 1
   fi;;
 esac
@@ -61,20 +66,55 @@ echo "[Passed] $*"
 `);
 }
 
-test("Android runner: retries a flow once when maestro.log says the emulator went offline", () => {
-  const { dir, env } = setup('[ "$1" = "get-state" ] && echo device\n[ "$2" = "getprop" ] && echo 1\nexit 0');
-  flakyMaestro(dir, "CommandFailed: Command failed (host:transport:emulator-5554): device offline");
-  const r = spawnSync("bash", [SCRIPT, join(dir, "flows"), join(dir, "debug")], { env, encoding: "utf8", timeout: 60000 });
+const ANDROID = '[ "$1" = "get-state" ] && echo device\n[ "$2" = "getprop" ] && echo 1\nexit 0';
+const OFFLINE = "CommandFailed: Command failed (host:transport:emulator-5554): device offline";
+const APP_BUG = "Assertion is false: id: plan-add-cost is visible";
+const run = (dir, env) =>
+  spawnSync("bash", [SCRIPT, join(dir, "flows"), join(dir, "debug")], { env: { ...env, MAESTRO_SETTLE_SLEEP: "0" }, encoding: "utf8", timeout: 60000 });
+
+test("Android runner: retries a flow when maestro.log says the emulator went offline", () => {
+  const { dir, env } = setup(ANDROID);
+  flakyMaestro(dir, OFFLINE, 1);
+  const r = run(dir, env);
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /dropped out or showed a system pop-up during 01-a; waiting for it and retrying once/);
+  assert.match(r.stdout, /dropped out or showed a system pop-up during 01-a; waiting for it and retrying \(1 of 2\)/);
   assert.match(r.stdout, /All Maestro flows passed/);
+});
+
+test("Android runner: survives two drop-outs in a row (it happened on flow 08), waiting for a steady device", () => {
+  const { dir, env } = setup(ANDROID);
+  flakyMaestro(dir, OFFLINE, 2);
+  const r = run(dir, env);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /retrying \(2 of 2\)/);
+  const calls = readFileSync(join(dir, "adb.log"), "utf8");
+  assert.ok((calls.match(/getprop sys.boot_completed/g)?.length ?? 0) >= 6, "three steady checks before each retry");
+  assert.match(calls, /reconnect offline/);
+});
+
+test("Android runner: gives up after two retries", () => {
+  const { dir, env } = setup(ANDROID);
+  flakyMaestro(dir, OFFLINE, 3);
+  const r = run(dir, env);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /retrying \(3 of/);
+  assert.match(r.stdout, /Failed flows: 01-a/);
+});
+
+test("Android runner: a drop-out then a real app failure is not retried again (old logs are cleared)", () => {
+  const { dir, env } = setup(ANDROID);
+  flakyMaestro(dir, [OFFLINE, APP_BUG], 2);
+  const r = run(dir, env);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /retrying \(1 of 2\)/);
+  assert.doesNotMatch(r.stdout, /retrying \(2 of 2\)/);
 });
 
 test("Android runner: never retries a real app failure", () => {
   const { dir, env } = setup('[ "$1" = "get-state" ] && echo device\nexit 0');
-  flakyMaestro(dir, "Assertion is false: id: plan-add-cost is visible");
-  const r = spawnSync("bash", [SCRIPT, join(dir, "flows"), join(dir, "debug")], { env, encoding: "utf8", timeout: 60000 });
+  flakyMaestro(dir, APP_BUG, 1);
+  const r = run(dir, env);
   assert.equal(r.status, 1, r.stdout + r.stderr);
-  assert.doesNotMatch(r.stdout, /retrying once/);
+  assert.doesNotMatch(r.stdout, /retrying/);
   assert.match(r.stdout, /Failed flows: 01-a/);
 });
