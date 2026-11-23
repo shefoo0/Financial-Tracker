@@ -18,10 +18,13 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Lead: tokens, profile types/provider, layouts · [x] R1 stores · [x] R2 kit · [x] R3 dashboard · [x] R4 month/plan/forms · [x] R5 profiles/settings/wizard · [x] quick-add button (one-handed use; developer asked)
   - [x] review (no blockers; major + minors fixed) · [x] tests (287 Jest, Maestro 05-profiles) · [x] fix loop · [x] Android + iPhone test runs — Android run 45007110473 and iPhone simulator run 45011207458: all 5 flows + screenshots pass
   - [x] Save-closes-form fix v2: the state-based guard switch was still blocked on iPhone (run 44944555203); now a ref mark + repeat
-- [~] Milestone 2 — Debts, cheques, alerts, lock (decisions in spec "Milestone 2 decisions")
+- [x] Milestone 2 — Debts, cheques, alerts, lock (decisions in spec "Milestone 2 decisions")
   - [x] Lead: types, repository interface, schema v2, plan input, expo-notifications/local-authentication/secure-store/crypto + app.json plugins
   - [x] D data · [x] T6 engine (logged payments after the balance date count as outflows) · [x] T7 debts screens · [x] T8 cheques screens · [x] T9 alerts + lock · [x] lead wiring (Plan cards, routes, dashboard alerts, lock gate + scheduler, modules on, CSV buttons)
-  - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [~] Android + iPhone test runs
+  - [x] review (1 blocker: lock bypass with modals; 4 majors; all fixed) · [x] tests (502 Jest; Maestro 06 debt, 07 cheques, 08 lock) · [x] fix loop · [x] Android + iPhone test runs
+  - [x] Earlier runs (old private repo): Android 45153618898 passed all 8 flows; iPhone 6/8 → fixed whole-row switches (lock) and amount patterns (06), check-maestro flags bare amounts
+  - [x] Final runs on the public repo `shefoo0/financial-tracker`, commit 47a27ad, pre-flight passed first: android.yml run 45184675406 (APK built with the debug key; all 8 flows passed on the re-run of the e2e job; attempt 1 lost the emulator — "device offline" at app launch in 06, no app error) and ios-simulator.yml run 45184669279 (new Expo build; all 8 flows passed)
+  - Note: the 8 iPhone flows took ~25 of the macOS job's 30 minutes; split or trim flows before adding more (M3 import flows)
 - [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [ ] device runs · review · tests · Android test build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
