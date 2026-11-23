@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconBadge, Sheet, T } from '@/components/ui';
 import { GradientFill, hiddenFromA11y, withAlpha } from '@/components/ui/internal';
 import { Radius, Spacing } from '@/constants/theme';
-import { usePlanInput } from '@/data/DataProvider';
+import { usePlanInputIfAny } from '@/data/DataProvider';
 import { useTheme } from '@/hooks/use-theme';
 import { usePro } from '@/lib/pro';
 
@@ -30,7 +30,7 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
   const c = useTheme();
   const router = useRouter();
   const { isPro } = usePro();
-  const { data: input } = usePlanInput();
+  const input = usePlanInputIfAny()?.data;
   const [open, setOpen] = useState(false);
 
   const [last, setLast] = useState(QUICK_ADD_DEFAULT);

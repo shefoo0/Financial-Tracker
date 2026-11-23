@@ -118,6 +118,11 @@ async function loadPlanInput(r: Repository): Promise<PlanInput> {
  * Everything the engine needs (debts and cheques are always included), loaded once in <DataProvider> and reloaded
  * after every write. Returns { data, loading, error, reload }.
  */
+/** The plan input when inside a <DataProvider>, else null (for widgets that also render on their own). */
+export function usePlanInputIfAny(): PlanInputState | null {
+  return useContext(PlanInputContext);
+}
+
 export function usePlanInput(): PlanInputState {
   const ctx = useContext(PlanInputContext);
   if (!ctx) throw new Error('usePlanInput must be used inside <DataProvider>');
