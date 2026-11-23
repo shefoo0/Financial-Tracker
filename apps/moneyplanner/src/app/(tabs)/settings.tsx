@@ -71,6 +71,7 @@ export default function SettingsScreen() {
           onPress={() => setSheet('money')}
           testID="settings-money-row"
         />
+        <SettingsRow title="Accounts" onPress={() => router.push('/accounts')} hint="Bank and cash accounts, and your cards" testID="settings-accounts" />
         <SettingsRow title="Categories" value={categoryCount == null ? undefined : String(categoryCount)} onPress={() => router.push('/categories')} testID="settings-categories" />
         <SettingsRow
           title="Backups & export"

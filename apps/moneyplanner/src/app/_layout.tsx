@@ -80,6 +80,7 @@ export default function RootLayout() {
             <Stack.Screen name="about" options={{ title: 'About' }} />
             <Stack.Screen name="lock-settings" options={{ title: 'Lock' }} />
             <Stack.Screen name="categories" options={{ title: 'Categories' }} />
+            <Stack.Screen name="accounts" options={{ title: 'Accounts' }} />
             <Stack.Screen name="profiles" options={{ title: 'Profiles' }} />
             <Stack.Screen name="debts/index" options={{ title: '', headerBackTitle: 'Plan' }} />
             <Stack.Screen name="debts/[id]" options={{ presentation: 'modal', title: 'Debt' }} />
