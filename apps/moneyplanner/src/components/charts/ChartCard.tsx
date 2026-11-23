@@ -105,6 +105,7 @@ export function ChartCard({ def, input, today, testID = `chart-card-${def.id}` }
                     const color = tone(ser.id);
                     if (bars) {
                       return ser.points.map((p, i) => {
+                        if (p.balance === 0) return null; // nothing to draw (a month with no income or spending)
                         const x = s.points[i].x - group / 2 + k * barW;
                         const y = s.y(p.balance);
                         const forecast = p.kind === 'forecast';

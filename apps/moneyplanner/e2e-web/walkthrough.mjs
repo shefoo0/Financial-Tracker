@@ -43,7 +43,7 @@ for (const [name, fn] of sections) {
     } catch (e) {
       seenProblems = d.problems.length;
       rec.ok = false; if (!opts.soft) aborted = true;
-      console.log(`  FAIL${opts.soft ? ' (soft, continuing)' : ''} ${label}\n       ${String(e.message).split('\n')[0].slice(0, 700)}`);
+      console.log(`  FAIL${opts.soft ? ' (soft, continuing)' : ''} ${label}\n       ${String(e.message).split("\n")[0].slice(0, 900)}`);
       rec.steps.push({ label, ok: false, error: e.message });
       await d.shot(`FAIL-${label.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)}`).catch(() => {});
       if (!opts.soft) await d.dump(label).catch(() => {});

@@ -34,7 +34,7 @@ export class Driver {
     const l = this.loc(target, opts);
     await l.waitFor({ state: 'visible', timeout: 5000 }).catch(() => { throw new Error(`not found within 5s: ${target}`); });
     await l.scrollIntoViewIfNeeded().catch(() => {});
-    await l.click({ timeout: 5000 }).catch((e) => { throw new Error(`could not tap ${target}: ${String(e.message).split('\n')[0]}`); });
+    await l.click({ timeout: 5000 }).catch((e) => { throw new Error(`could not tap ${target}: ${String(e.message).split('\n').slice(0, 6).join(' / ')}`); });
     await this.settle();
   }
   async tapLabel(label, opts = {}) { // accessibility label (buttons in this app carry their label)

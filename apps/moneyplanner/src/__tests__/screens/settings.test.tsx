@@ -103,6 +103,6 @@ describe('About screen', () => {
     expect(await screen.findByTestId('settings-version')).toBeTruthy();
     expect(screen.getByText(/not financial advice/)).toBeTruthy();
     expect(screen.getByTestId('about-privacy-note')).toBeTruthy();
-    expect(screen.getByTestId('about-support-note')).toBeTruthy();
+    expect(screen.getByTestId('settings-support')).toBeTruthy();
   });
 });

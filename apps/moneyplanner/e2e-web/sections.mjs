@@ -603,6 +603,76 @@ add('10 Lock (PIN)', async (d, step) => {
   });
 });
 
+add('10b Home: pencils, Edit Home and Add a chart', async (d, step) => {
+  const proBuild = process.env.EXPO_PUBLIC_PRO_PREVIEW === '1';
+  const top = async (id) => (await d.page.locator(`[data-testid="${id}"]`).filter({ visible: true }).first().boundingBox()).y;
+  // Sheets slide in: wait for that, then tap the dimmed backdrop.
+  const closeHomeSheet = async () => { await d.settle(600); await d.page.mouse.click(8, 8); await d.settle(400); };
+  // The selected range chip is the filled one (web does not expose aria-checked for it).
+  const filled = (id) => d.loc(id).evaluate((e) => getComputedStyle(e).backgroundColor !== 'rgba(0, 0, 0, 0)');
+  await step('first visit tip "Tap ✎ to edit" shows on the balance card', async () => {
+    await d.tab('Home'); await d.see('#dashboard-forecast'); await d.see('#tip-edit-balance'); await d.seeText('#tip-edit-balance', /Tap ✎ to edit/); await d.shot('home-tip');
+  });
+  await step('the pencil on the balance card opens the balance sheet and dismisses the tip', async () => {
+    await d.tap('#edit-balance'); await d.see('#balance-sheet'); await d.settle(500); await d.shot('home-balance-sheet'); await closeHomeSheet();
+    await d.notSee('#balance-sheet'); await d.notSee('#tip-edit-balance');
+  });
+  await step('tapping the big balance number opens the same sheet', async () => {
+    await d.tap('#dashboard-balance-value'); await d.see('#balance-sheet'); await closeHomeSheet(); await d.notSee('#balance-sheet');
+  });
+  await step('the other pencils open their sheets: safe to spend, coming up, spending by category', async () => {
+    for (const [pencil, sheet] of [['edit-payday', 'payday-sheet'], ['edit-reminders', 'reminders-sheet'], ['edit-spending', 'spending-sheet']]) {
+      await d.tap('#' + pencil); await d.see('#' + sheet); await closeHomeSheet(); await d.notSee('#' + sheet);
+    }
+  });
+  await step('the balance chart range chips still work', async () => {
+    await d.tap('#dashboard-balance-chart-range-6M'); await d.settle(300);
+    if (!(await filled('#dashboard-balance-chart-range-6M')) || (await filled('#dashboard-balance-chart-range-2M'))) throw new Error('6M chip not selected');
+    await d.tap('#dashboard-balance-chart-range-2M');
+  });
+  await step('Edit Home link at the bottom opens Edit Home with a row for every card', async () => {
+    await d.tap('#home-edit-link'); await d.see('#home-edit-screen');
+    for (const id of ['balance', 'payday', 'tiles', 'alerts', 'upcoming', 'reports', 'month', 'categories', 'endOfMonth', 'year', 'backup']) await d.see('#home-edit-row-' + id);
+    await d.shot('edit-home');
+  });
+  await step('hide Spending by category: Home no longer shows it', async () => {
+    await d.tap('#home-edit-toggle-categories'); await d.settle(300);
+    await d.tap('#home-edit-done'); await d.see('#dashboard-screen'); await d.notSee('#dashboard-categories');
+  });
+  await step('move Coming up up two places: it sits above the three tiles', async () => {
+    await d.tap('#home-edit-link'); await d.see('#home-edit-screen');
+    await d.tap('#home-edit-up-upcoming'); await d.tap('#home-edit-up-upcoming'); await d.settle(300);
+    await d.tap('#home-edit-done'); await d.see('#dashboard-upcoming');
+    if ((await top('dashboard-upcoming')) >= (await top('dashboard-month-tiles'))) throw new Error('Coming up should be above the tiles');
+  });
+  await step('add Income vs spending: it is on Home with a key and a scrub tooltip', async () => {
+    await d.tap('#home-edit-link'); await d.see('#home-edit-screen');
+    await d.tap('#home-edit-add-income-vs-spending'); await d.see('#home-edit-added-income-vs-spending'); await d.see('#home-edit-row-chart-income-vs-spending');
+    await d.tap('#home-edit-done'); await d.see('#chart-card-income-vs-spending');
+    await d.page.locator('[data-testid="chart-card-income-vs-spending"]').filter({ visible: true }).first().scrollIntoViewIfNeeded(); await d.settle(300);
+    await d.see('#chart-card-income-vs-spending-legend'); await d.seeText('#chart-card-income-vs-spending-legend', /Income.*Spending/s);
+    const chart = d.page.locator('[data-testid="chart-card-income-vs-spending-chart"]').filter({ visible: true }).first();
+    const box = await chart.boundingBox();
+    await d.page.mouse.move(box.x + box.width * 0.4, box.y + 100); await d.page.mouse.down(); await d.settle(150);
+    await d.see('#chart-card-income-vs-spending-tooltip'); await d.shot('home-income-vs-spending'); await d.page.mouse.up();
+    if (await d.has('#chart-card-income-vs-spending-unlock')) throw new Error('Income vs spending is free: no Unlock Pro');
+  });
+  await step('add Savings rate (Pro): a free user sees a labelled SAMPLE and Unlock Pro, never own figures', async () => {
+    await d.tap('#home-edit-link'); await d.see('#home-edit-screen');
+    await d.tap('#home-edit-add-savings-rate'); await d.tap('#home-edit-done'); await d.see('#chart-card-savings-rate');
+    await d.page.locator('[data-testid="chart-card-savings-rate"]').filter({ visible: true }).first().scrollIntoViewIfNeeded(); await d.settle(300);
+    if (proBuild) { if (await d.has('#chart-card-savings-rate-unlock')) throw new Error('a Pro build must not show Unlock Pro'); }
+    else { await d.see('#chart-card-savings-rate-unlock'); await d.see('SAMPLE', { exact: true }); await d.shot('home-savings-sample'); }
+  });
+  await step('Reset to default: the card is back, charts are gone, the order is the original', async () => {
+    await d.tap('#home-edit-link'); await d.see('#home-edit-screen'); await d.tap('#home-edit-reset'); await d.settle(300);
+    await d.notSee('#home-edit-row-chart-savings-rate');
+    await d.tap('#home-edit-done'); await d.see('#dashboard-categories');
+    await d.notSee('#chart-card-income-vs-spending'); await d.notSee('#chart-card-savings-rate');
+    if ((await top('dashboard-upcoming')) <= (await top('dashboard-month-tiles'))) throw new Error('Coming up should be below the tiles again');
+  });
+});
+
 add('11 Settings: money, exports and backup', async (d, step) => {
   await step('Settings is a short list: the eight rows show their values and no long scroll is needed', async () => {
     await d.tab('Settings'); await d.see('#settings-list');
