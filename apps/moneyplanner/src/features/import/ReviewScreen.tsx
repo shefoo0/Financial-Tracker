@@ -69,6 +69,7 @@ function RowView({
   const c = useTheme();
   const i = row.index;
   const low = isLowConfidence(row);
+  const cardPayment = row.cardPayment && row.kind === 'income';
   const category = categories.find((x) => x.id === row.categoryId);
   const money = `${row.kind === 'income' ? '+' : '-'}${formatMoney(row.amount, currency)}`;
   const moneyWords = `${row.kind === 'income' ? 'Income' : 'Spending'} ${formatMoney(row.amount, currency)}`;
@@ -91,7 +92,7 @@ function RowView({
         <Pressable
           onPress={onExpand}
           accessibilityRole="button"
-          accessibilityLabel={`${row.description}, ${moneyWords}, ${formatDate(row.date)}${row.duplicateOf ? ', looks like a duplicate' : ''}${low ? ', please check' : ''}`}
+          accessibilityLabel={`${row.description}, ${moneyWords}, ${formatDate(row.date)}${row.duplicateOf ? ', looks like a duplicate' : ''}${cardPayment ? ', card payment, left out' : ''}${low ? ', please check' : ''}`}
           accessibilityHint="Shows ways to fix this row"
           testID={`review-open-${i}`}
           style={styles.main}>
@@ -100,6 +101,7 @@ function RowView({
           </T>
           <View style={styles.pills}>
             {row.duplicateOf ? <Pill label="Duplicate?" tone="warning" /> : null}
+            {cardPayment ? <Pill label="Card payment" tone="warning" /> : null}
             {low ? <Pill label="Check this" tone="warning" /> : null}
           </View>
         </Pressable>
@@ -120,6 +122,10 @@ function RowView({
       {row.duplicateOf ? (
         <T variant="caption" tone="secondary">
           A matching item is already saved, so this row is unticked.
+        </T>
+      ) : cardPayment ? (
+        <T variant="caption" tone="secondary" testID={`review-card-payment-${i}`}>
+          A payment to your card, not income, so it is left out. Tick it to import it anyway.
         </T>
       ) : null}
       {low ? (

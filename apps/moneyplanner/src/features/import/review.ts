@@ -26,26 +26,44 @@ export interface ReviewRow {
   key: string;
   /** The user chose this row's category by hand: "apply to similar" leaves it alone. */
   manual: boolean;
+  /** Money in that only pays off a card (not income): starts unticked so it is left out. */
+  cardPayment?: boolean;
 }
 
-/** The category suggested for a row: the user's rules first, then built-in words; only one of the right kind (income or cost). */
+/** Payments into a card account: they reduce what is owed, they are not income. */
+export const CARD_PAYMENT = /\b(payment received|payment[\s-]+thank you|thank you for (your )?payment|card payment|credit card payment|cc payment|autopay|auto[\s-]?pay|direct debit payment|payment by direct debit)\b|سداد البطاقة|سداد بطاقة|دفعة بطاقة/i;
+
+/** A money-in row that pays off a card. */
+export const isCardPayment = (description: string, kind: Kind) => kind === 'income' && CARD_PAYMENT.test(description);
+
+/** The cost category for spending nothing else matched: the profile's "Other" (by id, then by name). */
+export function otherCostCategory(categories: Category[]): string | null {
+  const live = categories.filter((c) => c.kind === 'cost' && !c.archived);
+  return (live.find((c) => c.id === 'other') ?? live.find((c) => /^other\b/i.test(c.name.trim())))?.id ?? null;
+}
+
+/**
+ * The category suggested for a row: the user's rules first, then built-in words; only one of the right kind (income or
+ * cost). Spending that matches nothing goes to "Other", so it is never left without a category.
+ */
 export function suggestFor(description: string, kind: Kind, rules: CategoryRule[], categories: Category[]): string | null {
   const id = suggestCategory(description, rules, categories);
-  if (!id) return null;
-  const cat = categories.find((c) => c.id === id);
-  return cat && cat.kind === kind && !cat.archived ? id : null;
+  const cat = id ? categories.find((c) => c.id === id) : undefined;
+  if (cat && cat.kind === kind && !cat.archived) return cat.id;
+  return kind === 'cost' ? otherCostCategory(categories) : null;
 }
 
-/** Rows from a parser, checked against what is already saved. Duplicates start unticked. */
+/** Rows from a parser, checked against what is already saved. Duplicates and card payments start unticked. */
 export function buildReviewRows(rows: ParsedRow[], existing: Transaction[], rules: CategoryRule[], categories: Category[]): ReviewRow[] {
   return dedupe(rows, existing).map((r, index) => ({
+    cardPayment: isCardPayment(r.description, r.kind),
     index,
     date: r.date,
     description: r.description,
     amount: r.amount,
     kind: r.kind,
     categoryId: suggestFor(r.description, r.kind, rules, categories),
-    selected: !r.duplicateOf,
+    selected: !r.duplicateOf && !isCardPayment(r.description, r.kind),
     duplicateOf: r.duplicateOf,
     confidence: r.confidence,
     warnings: r.warnings,

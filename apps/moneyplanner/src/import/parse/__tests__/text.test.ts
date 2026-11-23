@@ -149,9 +149,19 @@ describe('never guesses silently', () => {
   it('does not treat a word after a day number as a month', () => {
     expect(parseStatementText('21 Marketplace order 10.00', opts).rows).toHaveLength(0);
   });
-  it('reads parenthesised and negative amounts on a card statement as refunds', () => {
-    const r = parseStatementText('Credit Card Statement\n05/11/2026 SHOP (10.00)\n06/11/2026 SHOP2 -12.00', { today: '2026-11-30' });
-    expect(r.rows.map((x) => [x.kind, x.amount])).toEqual([['income', 1000], ['income', 1200]]);
+  it('reads a minus on a card statement as spending when most amounts carry one (the bank prints purchases with a minus)', () => {
+    const r = parseStatementText('Credit Card Statement\n05/11/2026 SHOP (10.00)\n06/11/2026 SHOP2 -12.00\n07/11/2026 PAYMENT RECEIVED 50.00', { today: '2026-11-30' });
+    expect(r.rows.map((x) => [x.kind, x.amount])).toEqual([['cost', 1000], ['cost', 1200], ['income', 5000]]);
+  });
+
+  it('reads a minus on a card statement as a refund when most amounts are unsigned charges', () => {
+    const r = parseStatementText('Credit Card Statement\n05/11/2026 SHOP 10.00\n06/11/2026 SHOP2 12.00\n07/11/2026 CAFE 8.00\n08/11/2026 REFUND SHOP -5.00', { today: '2026-11-30' });
+    expect(r.rows.map((x) => [x.kind, x.amount])).toEqual([['cost', 1000], ['cost', 1200], ['cost', 800], ['income', 500]]);
+  });
+
+  it('reads a minus on a bank statement as spending', () => {
+    const r = parseStatementText('Account Statement\n05/11/2026 SHOP -10.00\n06/11/2026 SALARY 100.00', { today: '2026-11-30' });
+    expect(r.rows.map((x) => [x.kind, x.amount])).toEqual([['cost', 1000], ['income', 10000]]);
   });
 });
 

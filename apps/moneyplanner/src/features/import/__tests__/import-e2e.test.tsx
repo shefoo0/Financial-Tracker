@@ -219,7 +219,7 @@ describe('bank statement text with a running balance, December into January', ()
 });
 
 describe('credit card statement with CR refunds', () => {
-  it('treats CR rows as income (refund, payment), the rest as spending, and Month moves by exactly that', async () => {
+  it('treats CR rows as money in, leaves the card payment out (it is not income), and Month moves by exactly that', async () => {
     const { repo } = await open();
     const nov0 = await month();
     const dec0 = await month(1);
@@ -233,12 +233,13 @@ describe('credit card statement with CR refunds', () => {
       ['REFUND NOON.COM', 'income', 12000],
       ['PAYMENT RECEIVED - THANK YOU', 'income', 200000],
     ]);
-    // The card payment says it may be a transfer; it is still listed and ticked, with the reason shown.
-    expect(summary()).toBe('Import 4 items · AED 144.90 spending · AED 2,120 income');
+    // The card payment only pays off the card: it is listed but unticked, labelled, and not imported.
+    expect(screen.getByTestId('review-card-payment-3')).toBeTruthy();
+    expect(summary()).toBe('Import 3 items · AED 144.90 spending · AED 120 income');
     await importAll();
-    expect(await repo.listTransactions()).toHaveLength(4);
+    expect(await repo.listTransactions()).toHaveLength(3);
     expect(delta(await month(), nov0)).toEqual({ income: 12000, spent: 14490, closing: 12000 - 14490 });
-    expect(delta(await month(1), dec0)).toEqual({ income: 200000, spent: 0, closing: 12000 - 14490 + 200000 });
+    expect(delta(await month(1), dec0)).toEqual({ income: 0, spent: 0, closing: 12000 - 14490 });
   });
 });
 
@@ -448,7 +449,8 @@ describe('learned rule and remembered columns', () => {
     expect(await screen.findByTestId('review-row-0')).toBeTruthy();
     expect(getSession().result!.rows.map((r) => [r.description, r.amount])).toEqual([['CAREEM RIDE 9', 2000], ['MYSTERY SHOP', 1000]]);
     expect(labelOf('review-category-0')).toContain('Entertainment');
-    expect(labelOf('review-category-1')).toContain('none');
+    // Spending that matches no category goes to Other.
+    expect(labelOf('review-category-1')).toContain('Other');
     expect(summary()).toBe('Import 2 items · AED 30 spending · AED 0 income');
     await importAll();
     expect(delta(await month(), afterFirst)).toEqual({ income: 0, spent: 3000, closing: -3000 });

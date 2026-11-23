@@ -257,6 +257,12 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
     if (k) dirs[i] = { kind: k, why: 'balance' };
   });
 
+  // Card statements: a minus sign usually marks payments and refunds when most rows are unsigned charges, but some
+  // banks print every purchase with a minus. When most signed amounts are negative, a minus means spending.
+  const single = resolved.map(({ c }) => (c.amounts.length === 1 || c.amounts.length === 2 ? c.amounts[0] : null)).filter((t) => t && !t.marker && t.fils !== 0);
+  const negatives = single.filter((t) => t!.fils < 0).length;
+  const minusIsSpending = !isCard || negatives * 2 > single.length;
+
   const rows: ParsedRow[] = [];
   let ambiguousDirection = 0;
   let badDates = 0;
@@ -286,7 +292,7 @@ export function parseStatementText(text: string, options: ParseOptions = {}): Pa
       if (kind && kind !== dirs[i].kind) lower(0.6, 'The Cr/Dr marker and the running balance disagree; check the direction.');
       kind = kind ?? dirs[i].kind;
     }
-    if (!kind && markerTok && markerTok.fils < 0) kind = isCard ? 'income' : 'cost';
+    if (!kind && markerTok && markerTok.fils < 0) kind = minusIsSpending ? 'cost' : 'income';
     if (!kind) {
       if (INCOME_WORDS.test(c.description)) {
         kind = 'income';
