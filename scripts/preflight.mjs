@@ -7,6 +7,8 @@
 //
 // Steps (CI's step name in brackets):
 //   1. app name and package.json           [Check the app name]
+//      + the tests of the CI's own scripts (run-maestro.sh, signing, workflows): a bug
+//        there wastes a device run just like an app bug (an adb wait hung the iPhone run)
 //   2. Maestro flows against the source    [Check the Maestro flows against the app]
 //   3. dependencies match the lockfile     [Install: npm ci]
 //   4. type check, unit tests              [Type check and unit tests]
@@ -65,8 +67,8 @@ export function missingProguardRules(pluginText, generated) {
 
 /** The steps to run for an app, in CI order. */
 export function planSteps(appDir, { proPreview = false, walkthrough = true, has = existsSync } = {}) {
-  const steps = ["app name", "lockfile", "type check", "unit tests", "lint", "android project", "ios project"];
-  if (readdirSafe(join(appDir, ".maestro"), has).length) steps.splice(1, 0, "maestro flows");
+  const steps = ["app name", "ci scripts", "lockfile", "type check", "unit tests", "lint", "android project", "ios project"];
+  if (readdirSafe(join(appDir, ".maestro"), has).length) steps.splice(2, 0, "maestro flows");
   if (walkthrough && has(join(appDir, "e2e-web", "walkthrough.mjs"))) {
     steps.push("walkthrough large", "walkthrough small");
     if (proPreview) steps.push("walkthrough pro preview");
@@ -165,6 +167,8 @@ function main() {
         case "app name":
           if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return ["app folder must be lowercase letters, digits and dashes"];
           return existsSync(join(appDir, "package.json")) ? [] : [`${appArg}/package.json not found`];
+        case "ci scripts":
+          return run("npm", ["test"], ROOT);
         case "maestro flows":
           return run("node", [join(ROOT, "scripts", "check-maestro.mjs"), appDir], ROOT);
         case "lockfile": // npm ci fails when package.json and package-lock.json disagree

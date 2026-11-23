@@ -41,10 +41,10 @@ test("finds ProGuard rules the plugin adds but the generated project lacks", () 
 test("plans the steps in CI order", () => {
   const all = () => true;
   assert.deepEqual(planSteps("apps/x", { has: all, proPreview: true }), [
-    "app name", "maestro flows", "lockfile", "type check", "unit tests", "lint", "android project", "ios project",
+    "app name", "ci scripts", "maestro flows", "lockfile", "type check", "unit tests", "lint", "android project", "ios project",
     "walkthrough large", "walkthrough small", "walkthrough pro preview",
   ]);
   const none = () => false;
-  assert.deepEqual(planSteps("apps/x", { has: none }), ["app name", "lockfile", "type check", "unit tests", "lint", "android project", "ios project"]);
+  assert.deepEqual(planSteps("apps/x", { has: none }), ["app name", "ci scripts", "lockfile", "type check", "unit tests", "lint", "android project", "ios project"]);
   assert.ok(!planSteps("apps/x", { has: all, walkthrough: false }).some((s) => s.startsWith("walkthrough")));
 });
