@@ -53,7 +53,10 @@ export function SelectField<V extends string>({
         // Long lists of short choices (e.g. the 31 days of a month) show as a
         // compact grid, so they fit on one screen without scrolling.
         (() => {
-          const grid = options.length > 12 && options.every((o) => o.label.length <= 8);
+          // Grid when most choices are short; a few long ones (e.g. "Last day of the
+          // month" among 31 days) get a full-width row instead of turning the grid off.
+          const isShort = (label: string) => label.length <= 8;
+          const grid = options.length > 12 && options.filter((o) => isShort(o.label)).length >= options.length - 2;
           return (
             <View
               style={[styles.inlineOptions, grid && styles.optionGrid, { borderColor: c.border, backgroundColor: c.backgroundElement }]}
@@ -71,9 +74,9 @@ export function SelectField<V extends string>({
                     accessibilityLabel={o.label}
                     accessibilityState={{ selected: selectedHere }}
                     testID={testID ? `${testID}-option-${o.value}` : undefined}
-                    style={[grid ? styles.gridOption : styles.option, selectedHere && { backgroundColor: c.backgroundSelected }]}>
+                    style={[grid ? (isShort(o.label) ? styles.gridOption : styles.gridWide) : styles.option, selectedHere && { backgroundColor: c.backgroundSelected }]}>
                     <T style={selectedHere ? { fontWeight: '700' } : undefined} variant={grid ? 'label' : 'body'}>
-                      {grid ? o.label.replace(/^Day /, '') : o.label}
+                      {grid && isShort(o.label) ? o.label.replace(/^Day /, '') : o.label}
                     </T>
                     {selectedHere && !grid ? (
                       <T tone="accent" accessibilityLabel="Selected">
@@ -92,6 +95,7 @@ export function SelectField<V extends string>({
 }
 
 const styles = StyleSheet.create({
+  gridWide: { flexBasis: '100%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   gridOption: { minWidth: 48, minHeight: 44, flexGrow: 1, flexBasis: '12%', alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   inlineOptions: { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.one },
   input: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },

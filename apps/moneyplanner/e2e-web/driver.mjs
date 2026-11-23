@@ -7,7 +7,9 @@ export class Driver {
   async open(url, shotDir) {
     this.shotDir = shotDir;
     this.browser = await chromium.launch();
-    this.ctx = await this.browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    // --small matches the CI Android emulator (about 320×640 points); default is a large phone.
+    const small = process.argv.includes('--small');
+    this.ctx = await this.browser.newContext({ viewport: small ? { width: 320, height: 640 } : { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
     this.page = await this.ctx.newPage();
     this.page.setDefaultTimeout(5000);
     this.page.on('pageerror', (e) => this.problems.push({ at: this.current, kind: 'pageerror', text: String(e.stack || e).split('\n').slice(0, 4).join(' | ') }));

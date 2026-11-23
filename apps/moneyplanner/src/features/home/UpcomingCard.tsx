@@ -1,6 +1,6 @@
 // Home card "Coming up": the next payments and income, each with a reminder bell and a Paid button.
 import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Card, IconBadge, SectionHeader, T } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
@@ -14,6 +14,8 @@ export function UpcomingCard({ ctx }: { ctx: HomeCtx }) {
   const { upcoming } = ctx.model;
   const { input, money } = ctx;
   const reminders = input.settings.billReminders;
+  // On a narrow phone the amount goes under the name, so the bell and Paid buttons leave the name room.
+  const narrow = useWindowDimensions().width < 380;
   return (
     <Card testID="dashboard-upcoming">
       {/* The pencil sits at the card's top right, so "See all" keeps clear of it. */}
@@ -50,15 +52,23 @@ export function UpcomingCard({ ctx }: { ctx: HomeCtx }) {
                 <T variant="label" numberOfLines={1}>
                   {u.title}
                 </T>
+                {narrow ? (
+                  <T variant="label" tone={u.kind === 'income' ? 'positive' : 'negative'}>
+                    {u.kind === 'income' ? '+' : '-'}
+                    {money(u.amount)}
+                  </T>
+                ) : null}
                 <T variant="caption" tone="secondary">
                   {u.when}
                   {u.progress ? ` · ${u.progress}` : ''}
                 </T>
               </View>
-              <T variant="number" tone={u.kind === 'income' ? 'positive' : 'negative'}>
-                {u.kind === 'income' ? '+' : '-'}
-                {money(u.amount)}
-              </T>
+              {narrow ? null : (
+                <T variant="number" tone={u.kind === 'income' ? 'positive' : 'negative'}>
+                  {u.kind === 'income' ? '+' : '-'}
+                  {money(u.amount)}
+                </T>
+              )}
             </Pressable>
             {reminders.on && u.kind === 'cost' ? (
               <Pressable

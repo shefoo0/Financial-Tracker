@@ -165,7 +165,8 @@ const styles = StyleSheet.create({
   hero: { borderRadius: Radius.xl, overflow: 'hidden' },
   heroContent: { padding: 20, gap: Spacing.two },
   sheen: { position: 'absolute', top: -70, right: -50, width: 200, height: 200, borderRadius: 100 },
-  tile: { flex: 1, minWidth: 96, padding: 12, gap: 4 },
+  // minWidth 0: three tiles share a 320-point phone without running off the edge.
+  tile: { flex: 1, minWidth: 0, padding: 12, gap: 4 },
   tileValue: { fontSize: 18, lineHeight: 24, fontWeight: '800' },
   pill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.pill },
 });
