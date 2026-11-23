@@ -1,6 +1,7 @@
 // Form state, validation and conversion for recurring and one-time items.
 import { compareDates, daysInMonth, isValidISODate, parseISODate, today } from '@/lib/dates';
 import type { Category, Fils, ISODate, Kind, RecurringItem, Schedule, Transaction } from '@/types';
+import { MAIN_WHERE, placeOf, whereOf, type Where } from '@/features/accounts/where';
 
 export type ScheduleType = 'monthly' | 'weekly' | 'yearly';
 export type EndMode = 'none' | 'date' | 'count';
@@ -23,6 +24,8 @@ export interface RecurringForm {
   endDate: ISODate | null;
   count: string;
   note: string;
+  /** Account or card ('main', 'acc:<id>', 'card:<id>'). */
+  where: Where;
 }
 
 export type FormErrors<K extends string> = Partial<Record<K, string>>;
@@ -46,6 +49,7 @@ export function emptyRecurringForm(kind: Kind, now: ISODate = today()): Recurrin
     endDate: null,
     count: '12',
     note: '',
+    where: MAIN_WHERE,
   };
 }
 
@@ -64,6 +68,7 @@ export function formFromRecurring(item: RecurringItem): RecurringForm {
     endDate: item.endDate,
     count: item.count != null ? String(item.count) : '12',
     note: item.note,
+    where: whereOf(item),
   };
   if (s.type === 'monthly') {
     form.monthlyMode = s.day === 'last' ? 'last' : 'day';
@@ -137,6 +142,7 @@ export function validateRecurring(
       endDate,
       count,
       note: form.note.trim(),
+      ...placeOf(form.where ?? MAIN_WHERE),
     },
   };
 }
@@ -151,6 +157,8 @@ export interface TransactionForm {
   categoryId: string | null;
   planned: boolean;
   note: string;
+  /** Account or card ('main', 'acc:<id>', 'card:<id>'): see features/accounts/where. */
+  where: Where;
 }
 export type TransactionField = 'description' | 'amount' | 'date';
 
@@ -159,17 +167,17 @@ export function defaultPlanned(date: ISODate, now: ISODate = today()): boolean {
   return compareDates(date, now) > 0;
 }
 
-export function emptyTransactionForm(kind: Kind, date: ISODate = today()): TransactionForm {
-  return { kind, description: '', amount: null, date, categoryId: null, planned: defaultPlanned(date), note: '' };
+export function emptyTransactionForm(kind: Kind, date: ISODate = today(), where: Where = MAIN_WHERE): TransactionForm {
+  return { kind, description: '', amount: null, date, categoryId: null, planned: defaultPlanned(date), note: '', where };
 }
 
 export function formFromTransaction(t: Transaction): TransactionForm {
-  return { kind: t.kind, description: t.description, amount: t.amount, date: t.date, categoryId: t.categoryId, planned: t.planned, note: t.note };
+  return { kind: t.kind, description: t.description, amount: t.amount, date: t.date, categoryId: t.categoryId, planned: t.planned, note: t.note, where: whereOf(t) };
 }
 
 export function validateTransaction(
   form: TransactionForm,
-  base: Pick<Transaction, 'id'> & Partial<Pick<Transaction, 'source' | 'importId'>>,
+  base: Pick<Transaction, 'id'> & Partial<Pick<Transaction, 'source' | 'importId' | 'transferId'>>,
 ): { errors: FormErrors<TransactionField>; item: null } | { errors: Record<string, never>; item: Transaction } {
   const errors: FormErrors<TransactionField> = {};
   if (!form.description.trim()) errors.description = 'Enter a description, for example "Groceries".';
@@ -189,6 +197,9 @@ export function validateTransaction(
       source: base.source ?? 'manual',
       importId: base.importId ?? null,
       planned: form.planned,
+      ...placeOf(form.where ?? MAIN_WHERE),
+      // Editing one side of a transfer keeps it a transfer.
+      ...(base.transferId ? { transferId: base.transferId } : {}),
     },
   };
 }

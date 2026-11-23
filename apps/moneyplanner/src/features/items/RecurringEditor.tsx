@@ -8,6 +8,9 @@ import { Button, Card, Screen, SelectField, Segmented, T, TextField } from '@/co
 import { Spacing } from '@/constants/theme';
 import { useRepoMutation } from '@/data/DataProvider';
 import { AmountField } from '@/features/items/AmountField';
+import { defaultWhere } from '@/features/accounts/where';
+import { WhereField } from '@/features/accounts/WhereField';
+import { usePro } from '@/lib/pro';
 import { categoryOptions, emptyRecurringForm, formFromRecurring, validateRecurring, type FormErrors, type RecurringField, type RecurringForm } from '@/features/items/form';
 import { scheduleChanged } from '@/features/items/overrides';
 import { RecentChips } from '@/features/items/RecentChips';
@@ -27,10 +30,11 @@ export interface Prefill {
 }
 
 export function RecurringEditor({ input, item, initialKind, prefill }: { input: PlanInput; item: RecurringItem | null; initialKind: Kind; prefill?: Prefill }) {
+  const { isPro } = usePro();
   const lastCategory = (kind: Kind) => lastRecurringCategory(input.recurring, kind, input.categories) ?? lastTransactionCategory(input.transactions, kind, input.categories);
   const startForm = (): RecurringForm => {
     if (item) return formFromRecurring(item);
-    const f = emptyRecurringForm(initialKind);
+    const f = { ...emptyRecurringForm(initialKind), where: defaultWhere(input.settings, input.accounts ?? [], isPro) };
     if (prefill) {
       return {
         ...f,
@@ -176,6 +180,7 @@ export function RecurringEditor({ input, item, initialKind, prefill }: { input: 
             onChange={(v) => set('categoryId', v === 'none' ? null : v)}
             testID="recurring-category"
           />
+          <WhereField input={input} kind={form.kind} value={form.where} onChange={(w) => set('where', w)} testID="recurring-where" />
         </Card>
 
         <ScheduleSection form={form} set={set} setForm={setForm} errors={errors} item={item} />

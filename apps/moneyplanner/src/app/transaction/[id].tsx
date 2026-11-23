@@ -1,4 +1,7 @@
 // Create or edit a one-time income or spend.
+import { defaultWhere } from '@/features/accounts/where';
+import { WhereField } from '@/features/accounts/WhereField';
+import { usePro } from '@/lib/pro';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
@@ -69,10 +72,11 @@ export default function TransactionScreen() {
 }
 
 function TransactionEditor({ input, item, initialKind, initialDate }: { input: PlanInput; item: Transaction | null; initialKind: Kind; initialDate?: string }) {
+  const { isPro } = usePro();
   const startForm = () => {
     if (item) return formFromTransaction(item);
     // A new item starts with the category of the last item of its kind.
-    const f = emptyTransactionForm(initialKind, initialDate);
+    const f = emptyTransactionForm(initialKind, initialDate, defaultWhere(input.settings, input.accounts ?? [], isPro));
     return { ...f, categoryId: lastTransactionCategory(input.transactions, initialKind, input.categories) };
   };
   const [form, setForm] = useState<TransactionForm>(startForm);
@@ -209,6 +213,7 @@ function TransactionEditor({ input, item, initialKind, initialDate }: { input: P
             onChange={(v) => set('categoryId', v === 'none' ? null : v)}
             testID="transaction-category"
           />
+          {item?.transferId ? null : <WhereField input={input} kind={form.kind} value={form.where} onChange={(w) => set('where', w)} testID="transaction-where" />}
         </Card>
 
         <Card style={styles.group}>
