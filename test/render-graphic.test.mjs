@@ -23,3 +23,11 @@ test("renders an opaque PNG at the exact size", { skip: !hasPlaywright && "Playw
   assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1024, 500]);
   assert.equal(png[25], 2, "colour type 2 = RGB, no alpha channel");
 });
+
+test("renders a transparent PNG with --transparent (adaptive-icon layers)", { skip: !hasPlaywright && "Playwright not installed" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gfx-"));
+  writeFileSync(join(dir, "g.html"), `<style>html,body{margin:0;background:transparent}</style><div style="width:40px;height:40px;background:#fff"></div>`);
+  await render(join(dir, "g.html"), join(dir, "g.png"), { width: 128, height: 128 }, { transparent: true });
+  const png = readFileSync(join(dir, "g.png"));
+  assert.equal(png[25], 6, "colour type 6 = RGBA");
+});

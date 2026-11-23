@@ -27,7 +27,12 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - Note: the 8 iPhone flows took ~25 minutes; the macOS job's cap was raised from 30 to 60 minutes (hang guard only, minutes are free on the public repo), leaving room for the M3 import flows
 - [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [~] device runs · review · tests · [x] Android test build
   - [x] Pro preview Android build for the developer's phone: android.yml run 45195728692 on main 2400515 (`pro_preview: true`, debug key; pre-flight --pro-preview passed first); APK `moneyplanner-1.0.0-1-android` (expires 2026-12-07); all Maestro flows passed on the emulator
-  - [ ] Developer tries importing a real statement on the phone; record the bank/format and what the review screen got wrong (no statements or account numbers in the repo or chat)
+  - [x] Developer imported a real statement on the phone: good overall. Fixed from the feedback (2026-11-23):
+    - minus amounts went to income on a card statement (the PDF reader read every minus on a card statement as a refund); now a minus means spending when most signed amounts carry one, as in CSV/Excel
+    - spending with no matching category now goes to "Other" instead of no category
+    - card payments ("payment received", "thank you for your payment", autopay…) as money in start unticked with a "Card payment" label: not income, so they are left out
+    - app icon was a white square with a dot: the adaptive-icon foreground had been rendered without transparency; re-rendered with `render-graphic.mjs --transparent`, and test/app-icons.test.mjs guards it
+  - [ ] Next Pro preview build with these fixes; developer re-tests the import and the icon on the phone
 - [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 

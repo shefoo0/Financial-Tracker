@@ -5,6 +5,11 @@
 //
 //   node scripts/render-graphic.mjs apps/<slug>/store/graphics/feature-graphic.html apps/<slug>/store/graphics/feature-graphic.png --size 1024x500
 //
+// Store graphics have no alpha channel (the stores reject or flatten them). Android's adaptive-icon foreground and
+// monochrome layers MUST be transparent, or the layer covers the icon background: render those with --transparent.
+//
+//   node scripts/render-graphic.mjs apps/<slug>/store/graphics/adaptive-foreground.html apps/<slug>/assets/images/android-icon-foreground.png --size 1024x1024 --transparent
+//
 // Relative image paths in the HTML resolve from the HTML file's folder.
 
 import { createRequire } from "node:module";
@@ -19,7 +24,7 @@ export function parseSize(value) {
   return { width: Number(m[1]), height: Number(m[2]) };
 }
 
-export async function render(htmlFile, outFile, { width, height }) {
+export async function render(htmlFile, outFile, { width, height }, { transparent = false } = {}) {
   let chromium;
   try {
     ({ chromium } = createRequire(import.meta.url)("playwright"));
@@ -31,22 +36,22 @@ export async function render(htmlFile, outFile, { width, height }) {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
     await page.goto(pathToFileURL(resolve(htmlFile)).href, { waitUntil: "networkidle" });
     mkdirSync(dirname(resolve(outFile)), { recursive: true });
-    // No alpha channel: the stores reject or flatten transparent graphics.
-    await page.screenshot({ path: outFile, omitBackground: false, clip: { x: 0, y: 0, width, height } });
+    // Store graphics: no alpha channel. Adaptive-icon layers: transparent where the HTML has no background.
+    await page.screenshot({ path: outFile, omitBackground: transparent, clip: { x: 0, y: 0, width, height } });
   } finally {
     await browser.close();
   }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values, positionals } = parseArgs({ args: process.argv.slice(2), allowPositionals: true, options: { size: { type: "string" } } });
+  const { values, positionals } = parseArgs({ args: process.argv.slice(2), allowPositionals: true, options: { size: { type: "string" }, transparent: { type: "boolean" } } });
   const [html, out] = positionals;
   if (!html || !out || !values.size) {
-    console.error("Usage: node scripts/render-graphic.mjs <in.html> <out.png> --size 1024x500");
+    console.error("Usage: node scripts/render-graphic.mjs <in.html> <out.png> --size 1024x500 [--transparent]");
     process.exit(2);
   }
-  render(html, out, parseSize(values.size)).then(
-    () => console.log(`${out} (${values.size})`),
+  render(html, out, parseSize(values.size), { transparent: !!values.transparent }).then(
+    () => console.log(`${out} (${values.size}${values.transparent ? ", transparent" : ""})`),
     (err) => {
       console.error(err.message);
       process.exit(1);
