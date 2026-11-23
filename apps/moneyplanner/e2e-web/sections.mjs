@@ -789,3 +789,49 @@ add('13 Import (Pro preview build only)', async (d, step) => {
     await d.shot('import-duplicates');
   });
 });
+
+add('14 Accounts (milestone 3b)', async (d, step) => {
+  const proBuild = process.env.EXPO_PUBLIC_PRO_PREVIEW === '1';
+  const aria = async (id) => (await d.loc(id).getAttribute('aria-label')) ?? '';
+  const closeHomeSheet = async () => { await d.settle(600); await d.page.mouse.click(8, 8); await d.settle(400); };
+  await step('Settings > Accounts lists the main account; rename it "ENBD current"', async () => {
+    await d.tab('Settings'); await d.tap('#settings-accounts'); await d.see('#accounts-screen'); await d.see('#account-main'); await d.shot('accounts');
+    await d.tap('#account-main'); await d.type('#account-name', 'ENBD current'); await d.tap('#account-save');
+    await d.see('ENBD current'); await d.settle(600); await d.shot('accounts-renamed');
+  });
+  await step('free: adding an account shows what Pro adds; Pro: add "Savings" with AED 500', async () => {
+    await d.clearAlerts();
+    await d.tap('#accounts-add');
+    if (!proBuild) {
+      const alerts = await d.alerts();
+      if (!alerts.some((a) => /Pro comes with the next update/.test(a.title))) throw new Error(`expected the Pro message, got ${JSON.stringify(alerts)}`);
+      await d.notSee('#account-name');
+      return;
+    }
+    await d.type('#account-name', 'Savings'); await d.type('#account-balance', '500'); await d.tap('#account-save');
+    await d.see('Savings'); await d.settle(600); await d.shot('accounts-added');
+  });
+  await step('Home: the balance sheet shows the balance by account (Pro, with a second account)', async () => {
+    await d.back(); await d.tab('Home');
+    // After "Delete profile" Home is the empty welcome screen: add a salary so the balance card shows.
+    if (!(await d.has('#edit-balance'))) {
+      await d.tap('#dashboard-add-salary'); await d.type('#recurring-name', 'Salary'); await d.type('#recurring-amount', '9000'); await d.tap('#recurring-save-bottom');
+      await d.tab('Home');
+    }
+    await d.tap('#edit-balance'); await d.see('#balance-sheet');
+    if (proBuild) {
+      await d.see('#balance-by-account');
+      if ((await d.page.locator('[aria-label="Savings: AED 500.00"]').count()) === 0) throw new Error('Savings: AED 500.00 not shown by account');
+      await d.shot('home-balance-by-account');
+    } else await d.notSee('#balance-by-account');
+    await closeHomeSheet();
+  });
+  await step('Pro: Move money from the + button is not spending or income in Month', async () => {
+    if (!proBuild) return;
+    await d.tab('Month'); const spent = await aria('#month-spent'); const income = await aria('#month-income');
+    await d.tap('#quick-add'); await d.tap('#quick-add-transfer'); await d.see('#transfer-screen');
+    await d.type('#transfer-amount', '100'); await d.shot('transfer'); await d.tap('#transfer-save');
+    await d.tab('Month');
+    if ((await aria('#month-spent')) !== spent || (await aria('#month-income')) !== income) throw new Error('a transfer changed Month spending or income');
+  });
+});
