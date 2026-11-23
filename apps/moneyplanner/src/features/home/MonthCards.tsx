@@ -47,6 +47,7 @@ export function MonthCard({ ctx }: { ctx: HomeCtx }) {
         <Stat label="Recurring costs" value={money(ms.recurringCosts)} />
         <Stat label="One-time costs" value={money(ms.oneTimeCosts)} />
         <Stat label="Total spend" value={money(ms.totalSpend)} />
+        {ms.paidToCards > 0 ? <Stat label="Paid to cards" value={money(ms.paidToCards)} testID="dashboard-paid-to-cards" /> : null}
         <Stat label="Free money" value={money(ms.freeMoney)} tone={ms.freeMoney < 0 ? 'negative' : 'positive'} testID="dashboard-free-money" />
         <Stat label="Spent % of income" value={ms.spentPct == null ? 'No income' : `${ms.spentPct.toFixed(1)}%`} />
       </View>

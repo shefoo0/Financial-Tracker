@@ -144,7 +144,13 @@ function MonthBody({ input }: { input: PlanInput }) {
               <Stat label="Recurring costs" value={money(ms.recurringCosts)} />
               <Stat label="One-time costs" value={money(ms.oneTimeCosts)} />
               <Stat label="Spent % of income" value={ms.spentPct == null ? 'No income' : `${ms.spentPct.toFixed(1)}%`} />
+              {ms.paidToCards > 0 ? <Stat label="Paid to cards" value={money(ms.paidToCards)} testID="month-paid-to-cards" /> : null}
             </View>
+            {ms.paidToCards > 0 ? (
+              <T variant="caption" tone="secondary">
+                Card purchases count as spending when you make them; paying the card only settles it, so it is not counted again.
+              </T>
+            ) : null}
           </Card>
         </View>
 

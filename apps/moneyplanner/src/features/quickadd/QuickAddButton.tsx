@@ -6,7 +6,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconBadge, Sheet, T } from '@/components/ui';
 import { GradientFill, hiddenFromA11y, withAlpha } from '@/components/ui/internal';
 import { Radius, Spacing } from '@/constants/theme';
+import { usePlanInput } from '@/data/DataProvider';
 import { useTheme } from '@/hooks/use-theme';
+import { usePro } from '@/lib/pro';
 
 import { loadLastChoice, QUICK_ADD_DEFAULT, saveLastChoice } from './lastChoice';
 
@@ -27,6 +29,8 @@ export function QuickAddSpacer() {
 export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?: string; defaultDate?: string }) {
   const c = useTheme();
   const router = useRouter();
+  const { isPro } = usePro();
+  const { data: input } = usePlanInput();
   const [open, setOpen] = useState(false);
 
   const [last, setLast] = useState(QUICK_ADD_DEFAULT);
@@ -47,6 +51,10 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
     { id: 'quick-add-income', title: 'Recurring income', text: 'Salary or anything that repeats', glyph: '↓', color: c.positive, href: '/recurring/new?kind=income' },
     { id: 'quick-add-cost', title: 'Recurring cost', text: 'Rent, bills and subscriptions', glyph: '↑', color: c.negative, href: '/recurring/new?kind=cost' },
     { id: 'quick-add-import', title: 'Import a statement', text: 'From a PDF, photo, Excel, CSV or bank SMS', glyph: '⇩', color: c.warning, href: '/import' },
+    // Money between the user's own accounts (Pro, once there is a second account).
+    ...(isPro && (input?.accounts ?? []).some((a) => !a.archived)
+      ? [{ id: 'quick-add-transfer', title: 'Move money', text: 'Between your own accounts: not spending or income', glyph: '⇄', color: c.accent, href: '/transfer' }]
+      : []),
   ];
 
   return (
