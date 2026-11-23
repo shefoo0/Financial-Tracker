@@ -13,14 +13,29 @@ failed=()
 for flow in "$flows_dir"/*.yaml; do
   name="$(basename "$flow" .yaml)"
   echo "::group::Maestro flow $name"
+  # Close stuck system pop-ups (e.g. "Pixel Launcher isn't responding") that would cover the app.
+  close_system_dialogs() {
+    command -v adb >/dev/null 2>&1 || return 0
+    adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+    # A frozen launcher keeps its "isn't responding" dialog up: restart it.
+    if [ "${1:-}" = "hard" ]; then adb shell am force-stop com.google.android.apps.nexuslauncher >/dev/null 2>&1 || true; sleep 3; fi
+  }
+  close_system_dialogs
   run_flow() { maestro "$@" test "$flow" --format junit --output "$debug_dir/$name.xml" --debug-output "$debug_dir/$name" 2>&1 | tee "$debug_dir/$name.out"; }
   ok=0
   run_flow "$@" && ok=1
   # The emulator sometimes drops offline for a moment ("device offline",
   # "Device server died"): that is not the app failing. Wait for it and retry
   # the flow once. App failures are never retried.
-  if [ "$ok" = 0 ] && grep -qE "device offline|DeviceServerDiedException|device .* not found" "$debug_dir/$name.out" 2>/dev/null; then
-    echo "::warning::The emulator dropped out during $name; waiting for it and retrying once."
+  infra=0
+  if [ "$ok" = 0 ]; then
+    grep -qE "device offline|DeviceServerDiedException|device .* not found" "$debug_dir/$name.out" 2>/dev/null && infra=1
+    # Only the system's own apps freezing counts; Money Planner crashing is a real failure.
+    maestro "$@" hierarchy 2>/dev/null | grep -qE "(Pixel Launcher|System UI|Launcher3|Google Play services) isn.t responding" && infra=1
+  fi
+  if [ "$infra" = 1 ]; then
+    close_system_dialogs hard
+    echo "::warning::The emulator dropped out or showed a system pop-up during $name; waiting for it and retrying once."
     if command -v adb >/dev/null 2>&1; then
       adb wait-for-device 2>/dev/null || true
       for _ in $(seq 1 30); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break; sleep 2; done
