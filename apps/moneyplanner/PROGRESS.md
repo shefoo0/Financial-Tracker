@@ -32,7 +32,8 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
     - spending with no matching category now goes to "Other" instead of no category
     - card payments ("payment received", "thank you for your payment", autopay…) as money in start unticked with a "Card payment" label: not income, so they are left out
     - app icon was a white square with a dot: the adaptive-icon foreground had been rendered without transparency; re-rendered with `render-graphic.mjs --transparent`, and test/app-icons.test.mjs guards it
-  - [ ] Next Pro preview build with these fixes; developer re-tests the import and the icon on the phone
+  - [x] Pro preview build with these fixes and the design fixes: android.yml run 45213129450 on 5c1f27c (pre-flight --pro-preview passed first); all Maestro flows passed on the e2e re-run (attempt 1: emulator went offline at launch in 07; the auto-retry missed it, fixed in df3d6f8)
+  - [ ] Developer re-tests the import (minus = spending, Other, card payment left out) and the icon on the phone
 - [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
