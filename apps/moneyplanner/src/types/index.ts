@@ -77,6 +77,9 @@ export interface Occurrence {
   amount: Fils;
   paid: boolean;
   overridden: boolean;
+  /** The recurring item's account and card (see RecurringItem). */
+  accountId?: string | null;
+  cardId?: string | null;
 }
 
 /** A one-time income or spend: past (actual) or future (planned). */
@@ -92,6 +95,11 @@ export interface Transaction {
   importId: string | null;
   /** True for a future item the user expects; false once it has happened. */
   planned: boolean;
+  /**
+   * Set on both sides of money moved between the user's own accounts (one cost, one income, same id): they move the
+   * accounts' balances but are never spending or income.
+   */
+  transferId?: string | null;
   /** Bank or cash account the money goes out of or into (Account.id); null or missing = the main account. */
   accountId?: string | null;
   /** Card (a card in Debts) it is charged to: it adds to that card's balance, not the bank's. Null or missing = not on a card. */
@@ -328,11 +336,16 @@ export interface MonthSummary {
   totalIncome: Fils;
   recurringCosts: Fils;
   oneTimeCosts: Fils;
-  /** Scheduled loan, card and instalment payments in the month. */
+  /** Scheduled loan, card and instalment payments in the month (cards whose purchases are recorded excluded). */
   debtPayments: Fils;
+  /**
+   * Payments to cards whose purchases are recorded in the app (items with cardId): those purchases are the spending,
+   * so the payment only settles the card and is not counted again. Not in totalSpend.
+   */
+  paidToCards: Fils;
   /** Upcoming cheques dated in the month. */
   cheques: Fils;
-  /** Includes debtPayments and cheques. */
+  /** Includes debtPayments and cheques (not paidToCards). */
   totalSpend: Fils;
   /** totalIncome - totalSpend */
   freeMoney: Fils;
@@ -415,6 +428,8 @@ export interface PlanInput {
   cheques: Cheque[];
   /** Known bank balances (end of day), saved whenever the user sets a balance. Optional: empty or missing means none. */
   balanceSnapshots?: BalanceSnapshot[];
+  /** Bank and cash accounts besides the main one (milestone 3b). Optional: missing means only the main account. */
+  accounts?: Account[];
 }
 
 /** The balance the user said they had at the end of `date`. Anchors the balance history. */

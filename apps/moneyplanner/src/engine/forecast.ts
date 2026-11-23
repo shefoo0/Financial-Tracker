@@ -24,6 +24,7 @@ import {
   monthStart,
 } from '@/lib/dates';
 
+import { accountOf, cardOf, cashAccounts, countsAfterStart, isTransfer, startOf, totalStartingBalance } from './accounts';
 import { occurrencesInRange } from './recurring';
 import { debtOutflows } from './debts/schedule';
 import { chequesInRange } from './debts/cheques';
@@ -33,7 +34,28 @@ import { chequesInRange } from './debts/cheques';
 /** Key used in `costsByCategory` for costs without a category. */
 export const UNCATEGORIZED = 'uncategorized';
 
-function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[], debtPayments: Fils = 0, cheques: Fils = 0): MonthSummary {
+/** Cards with purchases recorded in the app: their payments settle the card and are not spending again. */
+export function cardsWithPurchases(input: Pick<PlanInput, 'transactions' | 'recurring' | 'debts'>): Set<string> {
+  const ids = new Set<string>();
+  for (const x of [...input.transactions, ...input.recurring]) {
+    const c = cardOf(x, input);
+    if (c) ids.add(c);
+  }
+  return ids;
+}
+
+/** Debt payments split into spending (loans, plans, cards without recorded purchases) and paid to cards. */
+function splitDebt(payments: { debtId: string; amount: Fils }[], cards: Set<string>): { debt: Fils; toCards: Fils } {
+  let debt = 0;
+  let toCards = 0;
+  for (const p of payments) {
+    if (cards.has(p.debtId)) toCards += p.amount;
+    else debt += p.amount;
+  }
+  return { debt, toCards };
+}
+
+function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[], debtPayments: Fils = 0, cheques: Fils = 0, paidToCards: Fils = 0): MonthSummary {
   let recurringIncome = 0;
   let oneTimeIncome = 0;
   let recurringCosts = 0;
@@ -51,6 +73,8 @@ function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[], debt
     }
   }
   for (const t of txs) {
+    // Money moved between the user's own accounts is neither income nor spending.
+    if (isTransfer(t)) continue;
     if (t.kind === 'income') oneTimeIncome += t.amount;
     else {
       oneTimeCosts += t.amount;
@@ -67,6 +91,7 @@ function summarize(month: MonthKey, occs: Occurrence[], txs: Transaction[], debt
     recurringCosts,
     oneTimeCosts,
     debtPayments,
+    paidToCards,
     cheques,
     totalSpend,
     freeMoney: totalIncome - totalSpend,
@@ -81,9 +106,9 @@ export function monthSummary(month: MonthKey, input: PlanInput): MonthSummary {
   const to = monthEnd(month);
   const occs = occurrencesInRange(input.recurring, input.overrides, from, to);
   const txs = input.transactions.filter((t) => monthKey(t.date) === month);
-  const debt = debtOutflows(input, from, to).reduce((t, p) => t + p.amount, 0);
+  const { debt, toCards } = splitDebt(debtOutflows(input, from, to), cardsWithPurchases(input));
   const chq = chequesInRange(input, from, to).reduce((t, c) => t + c.amount, 0);
-  return summarize(month, occs, txs, debt, chq);
+  return summarize(month, occs, txs, debt, chq, toCards);
 }
 
 /** The spreadsheet's year dashboard. */
@@ -97,10 +122,15 @@ export function yearSummary(year: number, input: PlanInput): YearSummary {
   for (const t of input.transactions) push(txBy, monthKey(t.date), t);
 
   const debtBy = new Map<MonthKey, Fils>();
-  for (const p of debtOutflows(input, monthStart(keys[0]), monthEnd(keys[11]))) debtBy.set(monthKey(p.date), (debtBy.get(monthKey(p.date)) ?? 0) + p.amount);
+  const toCardsBy = new Map<MonthKey, Fils>();
+  const cards = cardsWithPurchases(input);
+  for (const p of debtOutflows(input, monthStart(keys[0]), monthEnd(keys[11]))) {
+    const by = cards.has(p.debtId) ? toCardsBy : debtBy;
+    by.set(monthKey(p.date), (by.get(monthKey(p.date)) ?? 0) + p.amount);
+  }
   const chqBy = new Map<MonthKey, Fils>();
   for (const c of chequesInRange(input, monthStart(keys[0]), monthEnd(keys[11]))) chqBy.set(monthKey(c.date), (chqBy.get(monthKey(c.date)) ?? 0) + c.amount);
-  const months = keys.map((k) => summarize(k, occBy.get(k) ?? [], txBy.get(k) ?? [], debtBy.get(k) ?? 0, chqBy.get(k) ?? 0));
+  const months = keys.map((k) => summarize(k, occBy.get(k) ?? [], txBy.get(k) ?? [], debtBy.get(k) ?? 0, chqBy.get(k) ?? 0, toCardsBy.get(k) ?? 0));
   let totalIncome = 0;
   let totalSpend = 0;
   let running = 0;
@@ -157,10 +187,18 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
   const daysEnd = addDays(from, days - 1);
   const horizon = compareDates(monthsEnd, daysEnd) > 0 ? monthsEnd : daysEnd;
 
-  // Bucket every flow after the starting balance date by day.
-  const flowFrom = addDays(sbd, 1);
+  // Bucket every cash flow after its account's starting balance date by day. The balance is the total of the bank and
+  // cash accounts; items on a card move the card (its payments are the cash flow), so they are left out here.
+  const earliestStart = cashAccounts(input).reduce<ISODate>((m, a) => {
+    const d = startOf(a.id, input).date;
+    return compareDates(d, m) < 0 ? d : m;
+  }, sbd);
+  const flowFrom = addDays(earliestStart, 1);
+  const mainFrom = addDays(sbd, 1);
   const byDay = new Map<ISODate, ForecastEvent[]>();
-  let balanceAsOf = settings.startingBalance;
+  let balanceAsOf = totalStartingBalance(input);
+  const isCash = (item: { date: ISODate; accountId?: string | null; cardId?: string | null }) =>
+    !cardOf(item, input) && countsAfterStart(accountOf(item, input), item.date, input);
   const add = (e: ForecastEvent) => {
     if (compareDates(e.date, asOf) <= 0) balanceAsOf += e.kind === 'income' ? e.amount : -e.amount;
     else push(byDay, e.date, e);
@@ -168,19 +206,21 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
   const flowTo = compareDates(horizon, asOf) > 0 ? horizon : asOf;
   if (compareDates(flowFrom, flowTo) <= 0) {
     for (const o of occurrencesInRange(input.recurring, input.overrides, flowFrom, flowTo)) {
+      if (!isCash(o)) continue;
       add({ date: o.date, label: o.name, kind: o.kind, amount: o.amount, source: 'recurring', refId: o.recurringId });
     }
     for (const t of input.transactions) {
-      if (compareDates(t.date, flowFrom) < 0 || compareDates(t.date, flowTo) > 0) continue;
+      if (compareDates(t.date, flowFrom) < 0 || compareDates(t.date, flowTo) > 0 || !isCash(t)) continue;
       add({ date: t.date, label: t.description, kind: t.kind, amount: t.amount, source: 'transaction', refId: t.id });
     }
   }
 
-  if (compareDates(flowFrom, flowTo) <= 0) {
-    for (const p of debtOutflows(input, flowFrom, flowTo)) {
+  // Debt payments and cheques leave the main account.
+  if (compareDates(mainFrom, flowTo) <= 0) {
+    for (const p of debtOutflows(input, mainFrom, flowTo)) {
       add({ date: p.date, label: p.label, kind: 'cost', amount: p.amount, source: 'debt', refId: p.debtId });
     }
-    for (const c of chequesInRange(input, flowFrom, flowTo)) {
+    for (const c of chequesInRange(input, mainFrom, flowTo)) {
       add({ date: c.date, label: `Cheque to ${c.payee}`, kind: 'cost', amount: c.amount, source: 'cheque', refId: c.id });
     }
   }

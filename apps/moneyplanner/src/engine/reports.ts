@@ -5,9 +5,11 @@ import type { Fils, ISODate, MonthKey, PlanInput } from '@/types';
 import { addDays, addMonthKey, addMonths, compareDates, diffDays, monthEnd, monthStart, MONTHS, toISODate } from '@/lib/dates';
 import { formatMoneyTrim, percent } from '@/lib/money';
 
-import { UNCATEGORIZED } from './forecast';
 import { occurrencesInRange } from './recurring';
 import { activeDebts, debtLifetime, debtOutflows, debtSchedule, interestFor } from './debts/schedule';
+import { isTransfer } from './accounts';
+import { totalBalanceAt } from './balances';
+import { cardsWithPurchases, UNCATEGORIZED } from './forecast';
 import { chequesInRange } from './debts/cheques';
 import { debtStats } from './debts/stats';
 
@@ -271,6 +273,8 @@ function flowsIn(input: PlanInput, from: ISODate, to: ISODate): Flows {
   }
   for (const t of input.transactions) {
     if (compareDates(t.date, from) < 0 || compareDates(t.date, to) > 0) continue;
+    // Money moved between the user's own accounts is neither income nor spending.
+    if (isTransfer(t)) continue;
     if (t.kind === 'income') {
       f.oneTimeIncome += t.amount;
       const named = t.categoryId && catNames.has(t.categoryId);
@@ -281,7 +285,11 @@ function flowsIn(input: PlanInput, from: ISODate, to: ISODate): Flows {
       bump(f.costBy, k, costName(k), t.amount);
     }
   }
-  f.debt = debtOutflows(input, from, to).reduce((s, p) => s + p.amount, 0);
+  // A payment to a card whose purchases are recorded only settles the card: the purchases are the spending.
+  const cards = cardsWithPurchases(input);
+  f.debt = debtOutflows(input, from, to)
+    .filter((p) => !cards.has(p.debtId))
+    .reduce((s, p) => s + p.amount, 0);
   f.cheques = chequesInRange(input, from, to).reduce((s, c) => s + c.amount, 0);
   if (f.debt > 0) f.costBy.set('debts', { name: 'Debt payments', amount: f.debt });
   if (f.cheques > 0) f.costBy.set('cheques', { name: 'Cheques', amount: f.cheques });
@@ -290,16 +298,8 @@ function flowsIn(input: PlanInput, from: ISODate, to: ISODate): Flows {
   return f;
 }
 
-/** Bank balance at the end of a date, from the starting balance and the same flows as the forecast. */
-function balanceAt(input: PlanInput, date: ISODate): Fils {
-  const { startingBalance, startingBalanceDate } = input.settings;
-  const net = (from: ISODate, to: ISODate) => {
-    const f = flowsIn(input, from, to);
-    return f.income - f.spending;
-  };
-  if (compareDates(date, startingBalanceDate) >= 0) return startingBalance + net(addDays(startingBalanceDate, 1), date);
-  return startingBalance - net(addDays(date, 1), startingBalanceDate);
-}
+/** Bank balance (all bank and cash accounts) at the end of a date, by the same rules as the forecast. */
+const balanceAt = (input: PlanInput, date: ISODate): Fils => totalBalanceAt(input, date);
 
 // ---- Debts ----
 

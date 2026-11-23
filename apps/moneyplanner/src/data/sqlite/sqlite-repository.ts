@@ -87,6 +87,7 @@ const toTransaction = (r: Row): Transaction => ({
   importId: r.import_id ?? null,
   planned: r.planned === 1,
   ...links(r),
+  ...(r.transfer_id != null ? { transferId: r.transfer_id as string } : {}),
 });
 
 /** Debt columns; everything else (type-specific fields and the note) lives in the `fields` JSON. */
@@ -223,12 +224,13 @@ async function writeOverride(w: Writer, o: OccurrenceOverride) {
 const writeTransaction = (w: Writer, t: Transaction) =>
   w.runAsync(
     `INSERT INTO transactions
-      (id, kind, date, description, category_id, amount, note, source, import_id, planned, account_id, card_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, kind, date, description, category_id, amount, note, source, import_id, planned, account_id, card_id, transfer_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, date = excluded.date, description = excluded.description,
        category_id = excluded.category_id, amount = excluded.amount, note = excluded.note, source = excluded.source,
-       import_id = excluded.import_id, planned = excluded.planned, account_id = excluded.account_id, card_id = excluded.card_id`,
-    [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned), t.accountId ?? null, t.cardId ?? null],
+       import_id = excluded.import_id, planned = excluded.planned, account_id = excluded.account_id, card_id = excluded.card_id,
+       transfer_id = excluded.transfer_id`,
+    [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned), t.accountId ?? null, t.cardId ?? null, t.transferId ?? null],
   );
 
 const writeDebt = (w: Writer, d: Debt) => {

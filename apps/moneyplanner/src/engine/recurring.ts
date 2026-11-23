@@ -93,6 +93,8 @@ export function expandRecurring(
       amount: o?.newAmount ?? item.amount,
       paid: o ? !!o.paid : false,
       overridden: !!o,
+      ...(item.accountId ? { accountId: item.accountId } : {}),
+      ...(item.cardId ? { cardId: item.cardId } : {}),
     });
   }
   return out.sort((a, b) => compareDates(a.date, b.date) || compareDates(a.originalDate, b.originalDate));

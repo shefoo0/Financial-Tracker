@@ -91,7 +91,8 @@ const isTransaction = (v: unknown): v is Transaction =>
   (v.source === 'manual' || v.source === 'import') &&
   nullOr(v.importId, isStr) &&
   isBool(v.planned) &&
-  hasLinks(v);
+  hasLinks(v) &&
+  isLink(v.transferId);
 
 const isRate = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000;
 

@@ -141,6 +141,7 @@ export const MIGRATIONS: string[] = [
   );
   ALTER TABLE transactions ADD COLUMN account_id TEXT;
   ALTER TABLE transactions ADD COLUMN card_id TEXT;
+  ALTER TABLE transactions ADD COLUMN transfer_id TEXT;
   ALTER TABLE recurring_items ADD COLUMN account_id TEXT;
   ALTER TABLE recurring_items ADD COLUMN card_id TEXT;
   ALTER TABLE imports ADD COLUMN account_id TEXT;

@@ -11,7 +11,8 @@ import type {
   Loan,
   PlanInput,
 } from '@/types';
-import { addMonthKey, addMonths, compareDates, daysInMonth, monthKey, monthStart, toISODate } from '@/lib/dates';
+import { addDays, addMonthKey, addMonths, compareDates, daysInMonth, monthKey, monthStart, toISODate } from '@/lib/dates';
+import { occurrencesInRange } from '../recurring';
 
 export interface DebtScheduledPayment {
   debtId: string;
@@ -157,9 +158,39 @@ export function cardPaymentFor(card: CreditCard, balance: Fils): Fils {
 export const interestFor = (card: CreditCard, balance: Fils): Fils =>
   balance > 0 ? Math.round((balance * Math.max(0, card.monthlyRatePct)) / 100) : 0;
 
+/**
+ * Purchases (and refunds, negative) charged to a card after its balance date, oldest first: one-time items and
+ * recurring items with this cardId, up to `to`. Transfers are not purchases. `actualOnly` leaves out planned items.
+ */
+export function cardPurchases(card: CreditCard, input: PlanInput, to: ISODate, actualOnly = false): { date: ISODate; amount: Fils }[] {
+  const from = addDays(card.balanceDate, 1);
+  if (compareDates(from, to) > 0) return [];
+  const out: { date: ISODate; amount: Fils }[] = [];
+  for (const t of input.transactions ?? []) {
+    if (t.cardId !== card.id || t.transferId || (actualOnly && t.planned)) continue;
+    if (compareDates(t.date, from) < 0 || compareDates(t.date, to) > 0) continue;
+    out.push({ date: t.date, amount: t.kind === 'cost' ? t.amount : -t.amount });
+  }
+  if (!actualOnly) {
+    const onCard = (input.recurring ?? []).filter((r) => r.cardId === card.id);
+    for (const o of occurrencesInRange(onCard, input.overrides ?? [], from, to)) out.push({ date: o.date, amount: o.kind === 'cost' ? o.amount : -o.amount });
+  }
+  return out.sort((a, b) => compareDates(a.date, b.date));
+}
+
+/** The statement date that a due date pays: the statement day before the due day (this month or last month). */
+export function statementDateFor(card: CreditCard, dueDate: ISODate): ISODate {
+  const month = monthKey(dueDate);
+  return card.statementDay < card.dueDay ? dayIn(month, card.statementDay) : dayIn(addMonthKey(month, -1), card.statementDay);
+}
+
 function cardSim(card: CreditCard, input: PlanInput, to: ISODate): Sim {
   const logs = loggedAfter(input, card.id, card.balanceDate);
   let balance = Math.max(0, card.balance - sum(logs));
+  // Purchases recorded on the card are billed on their statement and paid on the following due date.
+  const purchases = cardPurchases(card, input, to);
+  const lastPurchase = purchases.length ? purchases[purchases.length - 1].date : '0000-00-00';
+  let billed = 0;
   const replaced = regularMonths(logs);
   const ov = overridesOf(input, card.id);
   const limit = extendLimit(to, ov);
@@ -173,10 +204,13 @@ function cardSim(card: CreditCard, input: PlanInput, to: ISODate): Sim {
   for (let i = 0; i < MAX_MONTHS; i++) {
     const month = addMonthKey(first, i);
     if (compareDates(monthStart(month), limit) > 0) break;
-    if (balance <= 0 && monthKey(lastInstalment) < month) break;
+    if (balance <= 0 && monthKey(lastInstalment) < month && billed >= purchases.length && compareDates(lastPurchase, monthStart(month)) < 0) break;
     balance += sum(instalments.filter((p) => monthKey(p.date) === month));
     const orig = dayIn(month, card.dueDay);
     if (compareDates(orig, card.balanceDate) <= 0 || compareDates(orig, limit) > 0) continue;
+    const statement = statementDateFor(card, orig);
+    while (billed < purchases.length && compareDates(purchases[billed].date, statement) <= 0) balance += purchases[billed++].amount;
+    if (balance < 0) balance = 0;
     const o = ov.get(orig);
     if (!replaced.has(month) && !o?.skip) {
       const pay = Math.min(o?.newAmount ?? cardPaymentFor(card, balance), balance);
@@ -239,10 +273,14 @@ export function debtOutflows(input: PlanInput, from: ISODate, to: ISODate): Debt
   return out.sort(byDate);
 }
 
-/** What is left to pay today: balance minus logged payments (loans, cards) or total minus logged payments (plans). */
+/**
+ * What is left to pay today: balance minus logged payments (loans, cards) or total minus logged payments (plans).
+ * A card also adds the purchases recorded on it after its balance date (actual ones, not planned).
+ */
 export function remainingOf(debt: Debt, input: PlanInput): Fils {
   if (debt.type === 'plan') return Math.max(0, debt.total - sum(paymentsOf(input, debt.id)));
-  return Math.max(0, debt.balance - sum(loggedAfter(input, debt.id, debt.balanceDate)));
+  const bought = debt.type === 'card' ? sum(cardPurchases(debt, input, '9999-12-31', true)) : 0;
+  return Math.max(0, debt.balance + bought - sum(loggedAfter(input, debt.id, debt.balanceDate)));
 }
 
 /** True when a loan's schedule includes estimated interest (an annual rate is set). */
