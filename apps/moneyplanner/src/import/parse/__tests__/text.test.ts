@@ -250,7 +250,7 @@ describe('card statement with a transaction amount and an AED equivalent, and a 
   // Layout of a UAE Islamic bank's card statement (made-up names, card number and amounts).
   const r = parseStatementText(S.CARD_STATEMENT_TWO_AMOUNTS, { today: '2026-11-23' });
   it('skips the repeated page header (billing date, card number, minimum due, due date, credit limit)', () => {
-    expect(r.rows.some((x) => /XXXX/.test(x.description) || x.amount === 1000000)).toBe(false);
+    expect(r.rows.some((x) => /XXXX/.test(x.description) || x.amount === 1500000)).toBe(false);
     expect(r.rows).toHaveLength(12);
   });
   it('purchases with a minus are spending; the payment, profit credited and bonus are money in; profit charged is spending', () => {

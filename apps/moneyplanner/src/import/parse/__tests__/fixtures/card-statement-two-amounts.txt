@@ -5,7 +5,7 @@ P.O BOX 00000
 ABU DHABI
 Page 1 of 3
 Billing Date Card Number Min Payment Due Payment Due Date Credit Limit
-28/SEP/2026 400000XXXXXX1111 -212.28 14/OCT/2026 10,000.00
+28/SEP/2026 400000XXXXXX1111 -150.00 14/OCT/2026 15,000.00
 Previous Balance Purchase / Cash Advance Charges Payments & Credits New Balance
 -1,200.00 -390.65 -25.30 1,457.29 -158.66
 Statement Total Due Outstanding Balance of monthly Instalments
@@ -17,12 +17,12 @@ MAIN CARD 400000XXXXXX1111
 27/08 29/08 ADNOC AL SALAM 915 ABUDHABI UAE AED -75.00 -75.00
 31/08 02/09 Talabat DUBAI UAE AED -37.09 -37.09
 Opening Smiles Earned Smiles Bonus Smiles Redeemed Smiles Expired Smiles Smiles Balance
-12,385 1,665 0 0 0 14,050
+1,000 250 0 0 0 1,250
 This statement will be considered as correct and accepted by you unless
 www.example.ae Digital App 065000000
 Page 2 of 3
 Billing Date Card Number Min Payment Due Payment Due Date Credit Limit
-28/SEP/2026 400000XXXXXX1111 -212.28 14/OCT/2026 10,000.00
+28/SEP/2026 400000XXXXXX1111 -150.00 14/OCT/2026 15,000.00
 Previous Balance Purchase / Cash Advance Charges Payments & Credits New Balance
 -1,200.00 -390.65 -25.30 1,457.29 -158.66
 Purchase Date Posting Date Transaction Description Currency Transaction Amount Equivalent Amount AED
@@ -33,7 +33,7 @@ Purchase Date Posting Date Transaction Description Currency Transaction Amount E
 25/09 27/09 SAMPLE DENTAL Abu Dhabi AUH AED -83.71 -83.71
 Page 3 of 3
 Billing Date Card Number Min Payment Due Payment Due Date Credit Limit
-28/SEP/2026 400000XXXXXX1111 -212.28 14/OCT/2026 10,000.00
+28/SEP/2026 400000XXXXXX1111 -150.00 14/OCT/2026 15,000.00
 Purchase Date Posting Date Transaction Description Currency Transaction Amount Equivalent Amount AED
 28/09 28/09 MURABAHA PROFIT AED -25.30 -25.30
 28/09 28/09 WAKALA PROFIT AED 210.01 210.01
