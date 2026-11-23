@@ -5,7 +5,9 @@ import * as Sharing from 'expo-sharing';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
 import { inRange, isAmount, isBool, isDate, isId, isInt, isObj, isStr, nullOr } from '@/data/guards';
 import { readBackupSettings } from '@/data/settingsSchema';
+import { MAIN_ACCOUNT_ID } from '@/types';
 import type {
+  Account,
   Category,
   BalanceSnapshot,
   CategoryRuleRecord,
@@ -31,6 +33,9 @@ export function serializeBackup(data: BackupData): string {
 }
 
 const isKind = (v: unknown) => v === 'income' || v === 'cost';
+/** accountId / cardId: missing or null (the main account / not on a card), or an id. */
+const isLink = (v: unknown) => v === undefined || v === null || isId(v);
+const hasLinks = (v: Record<string, unknown>) => isLink(v.accountId) && isLink(v.cardId);
 
 function isSchedule(v: unknown): boolean {
   if (!isObj(v)) return false;
@@ -59,7 +64,8 @@ const isRecurring = (v: unknown): v is RecurringItem =>
   isDate(v.startDate) &&
   nullOr(v.endDate, isDate) &&
   nullOr(v.count, (c) => isInt(c) && (c as number) >= 1) &&
-  isStr(v.note);
+  isStr(v.note) &&
+  hasLinks(v);
 
 const isOverride = (v: unknown): v is OccurrenceOverride =>
   isObj(v) &&
@@ -84,7 +90,8 @@ const isTransaction = (v: unknown): v is Transaction =>
   isStr(v.note) &&
   (v.source === 'manual' || v.source === 'import') &&
   nullOr(v.importId, isStr) &&
-  isBool(v.planned);
+  isBool(v.planned) &&
+  hasLinks(v);
 
 const isRate = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000;
 
@@ -165,10 +172,24 @@ const isCheque = (v: unknown): v is Cheque =>
   isStr(v.note);
 
 const isImportRecord = (v: unknown): v is ImportRecord =>
-  isObj(v) && isId(v.id) && isStr(v.sourceName) && isStr(v.fileKind) && isStr(v.importedAt) && isInt(v.rowCount) && v.rowCount >= 0;
+  isObj(v) && isId(v.id) && isStr(v.sourceName) && isStr(v.fileKind) && isStr(v.importedAt) && isInt(v.rowCount) && v.rowCount >= 0 && hasLinks(v);
 
 const isImportTemplate = (v: unknown): v is ImportTemplate =>
-  isObj(v) && isId(v.sourceName) && isObj(v.mapping) && isStr(v.lastUsed);
+  isObj(v) && isId(v.sourceName) && isObj(v.mapping) && isStr(v.lastUsed) && hasLinks(v);
+
+/** A bank or cash account besides the main one; "main" is the main account's own id, so it can't be a row. */
+const isAccount = (v: unknown): v is Account =>
+  isObj(v) &&
+  isId(v.id) &&
+  v.id !== MAIN_ACCOUNT_ID &&
+  isStr(v.name) &&
+  (v.name as string).trim().length > 0 &&
+  (v.type === 'bank' || v.type === 'cash') &&
+  isInt(v.startingBalance) &&
+  isDate(v.startingBalanceDate) &&
+  isBool(v.archived) &&
+  isInt(v.sort) &&
+  isDate(v.createdAt);
 
 const isCategoryRule = (v: unknown): v is CategoryRuleRecord =>
   isObj(v) && isId(v.id) && isId(v.pattern) && isId(v.categoryId) && isStr(v.createdAt);
@@ -219,6 +240,9 @@ export function parseBackup(text: string): BackupData {
   const importTemplates = raw.importTemplates ?? [];
   const categoryRules = raw.categoryRules ?? [];
   const balanceSnapshots = raw.balanceSnapshots ?? [];
+  // Money accounts (version 3): older backups have only the main account.
+  const accounts = raw.accounts ?? [];
+  if (!listOk(accounts, isAccount) || !hasUniqueIds(accounts as Account[])) throw new Error(DAMAGED);
   if (
     !listOk(imports, isImportRecord) ||
     !listOk(importTemplates, isImportTemplate) ||
@@ -266,6 +290,7 @@ export function parseBackup(text: string): BackupData {
     importTemplates: importTemplates as ImportTemplate[],
     categoryRules: categoryRules as CategoryRuleRecord[],
     balanceSnapshots: balanceSnapshots as BalanceSnapshot[],
+    accounts: accounts as Account[],
   };
 }
 
@@ -285,9 +310,23 @@ export function filsToDecimal(fils: number): string {
 }
 
 /** Builds the CSV text for the one-time items. Rows are sorted by date. */
-export function buildTransactionsCsv(transactions: Transaction[], categories: Category[]): string {
+/** Where an item's money is: its card, its account, or the main account. */
+export interface AccountNames {
+  mainName: string;
+  accounts: Account[];
+  debts: Debt[];
+}
+
+function accountName(item: { accountId?: string | null; cardId?: string | null }, where?: AccountNames): string {
+  if (!where) return '';
+  if (item.cardId) return where.debts.find((d) => d.id === item.cardId)?.name ?? '';
+  if (item.accountId && item.accountId !== MAIN_ACCOUNT_ID) return where.accounts.find((a) => a.id === item.accountId)?.name ?? '';
+  return where.mainName;
+}
+
+export function buildTransactionsCsv(transactions: Transaction[], categories: Category[], where?: AccountNames): string {
   const names = new Map(categories.map((c) => [c.id, c.name]));
-  const rows = [['Date', 'Type', 'Description', 'Category', 'Amount', 'Note', 'Planned']];
+  const rows = [['Date', 'Type', 'Description', 'Category', 'Amount', 'Note', 'Planned', 'Account']];
   const sorted = [...transactions].sort((a, b) => (a.date === b.date ? (a.id < b.id ? -1 : 1) : a.date < b.date ? -1 : 1));
   for (const t of sorted) {
     rows.push([
@@ -298,6 +337,7 @@ export function buildTransactionsCsv(transactions: Transaction[], categories: Ca
       filsToDecimal(t.amount),
       safeText(t.note),
       t.planned ? 'Yes' : 'No',
+      safeText(accountName(t, where)),
     ]);
   }
   return rows.map((r) => r.map(csvField).join(',')).join('\r\n') + '\r\n';
@@ -315,9 +355,9 @@ function describeRepeat(item: RecurringItem): string {
 }
 
 /** Builds the CSV text for recurring items (income and costs that repeat). */
-export function buildRecurringCsv(items: RecurringItem[], categories: Category[]): string {
+export function buildRecurringCsv(items: RecurringItem[], categories: Category[], where?: AccountNames): string {
   const names = new Map(categories.map((c) => [c.id, c.name]));
-  const rows = [['Name', 'Type', 'Category', 'Amount', 'Repeats', 'Starts', 'Ends', 'Number of payments', 'Note']];
+  const rows = [['Name', 'Type', 'Category', 'Amount', 'Repeats', 'Starts', 'Ends', 'Number of payments', 'Note', 'Account']];
   const sorted = [...items].sort((a, b) => (a.startDate === b.startDate ? (a.id < b.id ? -1 : 1) : a.startDate < b.startDate ? -1 : 1));
   for (const r of sorted) {
     rows.push([
@@ -330,6 +370,7 @@ export function buildRecurringCsv(items: RecurringItem[], categories: Category[]
       r.endDate ?? '',
       r.count === null ? '' : String(r.count),
       safeText(r.note),
+      safeText(accountName(r, where)),
     ]);
   }
   return csvRows(rows);
@@ -348,10 +389,13 @@ export function buildPaymentsCsv(payments: DebtPayment[], debts: Debt[]): string
  * One CSV with a section per kind of data: a title line, a header line and the rows, with a blank
  * line between sections. Built from the same safe builders as above, so formulas are neutralised.
  */
-export function buildCombinedCsv(data: Pick<BackupData, 'transactions' | 'recurring' | 'categories' | 'debts' | 'debtPayments' | 'cheques'>): string {
+export function buildCombinedCsv(
+  data: Pick<BackupData, 'transactions' | 'recurring' | 'categories' | 'debts' | 'debtPayments' | 'cheques'> & Partial<Pick<BackupData, 'settings' | 'accounts'>>,
+): string {
+  const where: AccountNames = { mainName: data.settings?.mainAccountName ?? 'Main account', accounts: data.accounts ?? [], debts: data.debts };
   const sections: [string, string][] = [
-    ['One-time items', buildTransactionsCsv(data.transactions, data.categories)],
-    ['Recurring items', buildRecurringCsv(data.recurring, data.categories)],
+    ['One-time items', buildTransactionsCsv(data.transactions, data.categories, where)],
+    ['Recurring items', buildRecurringCsv(data.recurring, data.categories, where)],
     ['Debts', buildDebtsCsv(data.debts)],
     ['Debt payments', buildPaymentsCsv(data.debtPayments, data.debts)],
     ['Cheques', buildChequesCsv(data.cheques)],

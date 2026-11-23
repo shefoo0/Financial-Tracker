@@ -53,7 +53,7 @@ describe('v1 backup, then a v2 export', () => {
     await a.upsertCheques([chq({ id: 'c1', seriesId: 'S' }), chq({ id: 'c2', seriesId: 'S', date: '2026-07-01', status: 'cleared' }), chq({ id: 'c3', status: 'cancelled', note: 'void' })]);
 
     const file = serializeBackup(await a.exportAll());
-    expect(JSON.parse(file).version).toBe(2);
+    expect(JSON.parse(file).version).toBe(BACKUP_VERSION);
 
     const b = createMemoryRepository();
     await b.init();

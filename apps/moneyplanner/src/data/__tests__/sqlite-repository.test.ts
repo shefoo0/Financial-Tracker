@@ -3,7 +3,7 @@
 import { createSqliteRepository } from '@/data/sqlite/sqlite-repository';
 import { MIGRATIONS, migrate } from '@/data/sqlite/schema';
 import { parseBackup, serializeBackup } from '@/data/backup';
-import { BACKUP_FORMAT } from '@/data/repository';
+import { BACKUP_FORMAT, BACKUP_VERSION } from '@/data/repository';
 import { card, chq, dpay, loan, ovr, plan, rec, runRepositoryContract, txn } from '@/data/memory/repository-contract';
 
 jest.mock('expo-sqlite', () => {
@@ -236,7 +236,7 @@ describe('a full v1 database and a v1 backup in the v2 app', () => {
     await repo.upsertDebtPayment(dpay());
     await repo.upsertCheques([chq()]);
     const out = await repo.exportAll();
-    expect(out.version).toBe(2);
+    expect(out.version).toBe(BACKUP_VERSION);
     expect(out.debts).toHaveLength(3);
     expect(out.recurring).toHaveLength(1);
     // The v2 export restores into a fresh v2 database unchanged.
@@ -260,7 +260,7 @@ describe('a full v1 database and a v1 backup in the v2 app', () => {
     expect(await repo.listCheques()).toEqual([]);
     expect(await repo.listRecurring()).toHaveLength(1);
     const out = await repo.exportAll();
-    expect(out.version).toBe(2);
+    expect(out.version).toBe(BACKUP_VERSION);
     expect(out).toMatchObject({ debts: [], debtPayments: [], debtOverrides: [], cheques: [] });
   });
 });

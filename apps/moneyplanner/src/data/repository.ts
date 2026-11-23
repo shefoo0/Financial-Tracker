@@ -20,8 +20,12 @@ import type {
 } from '@/types';
 
 export const BACKUP_FORMAT = 'moneyplanner-backup';
-/** 2 adds debts, debt payments, debt overrides and cheques. Version 1 files still restore (those lists empty). */
-export const BACKUP_VERSION = 2;
+/**
+ * 2 adds debts, debt payments, debt overrides and cheques. Version 1 files still restore (those lists empty).
+ * 3 adds money accounts, and the account / card of items, recurring items, imports and import layouts. Version 1
+ * and 2 files still restore, with only the main account.
+ */
+export const BACKUP_VERSION = 3;
 
 /** Everything the user has entered. Written to and read from backup files. */
 export interface BackupData {

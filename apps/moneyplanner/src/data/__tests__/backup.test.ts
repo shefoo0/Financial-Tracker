@@ -414,14 +414,19 @@ describe('CSV', () => {
       DEFAULT_CATEGORIES,
     );
     expect(csv.split('\r\n')).toEqual([
-      'Date,Type,Description,Category,Amount,Note,Planned',
-      `2026-03-05,Cost,'=SUM(A1),,45.50,"with, ""comma""",No`,
-      '2026-03-06,Income,"Pay, March",Salary,10000.00,,Yes',
+      'Date,Type,Description,Category,Amount,Note,Planned,Account',
+      `2026-03-05,Cost,'=SUM(A1),,45.50,"with, ""comma""",No,`,
+      '2026-03-06,Income,"Pay, March",Salary,10000.00,,Yes,',
       '',
     ]);
   });
   it('has just the header when empty', () => {
-    expect(buildTransactionsCsv([], [])).toBe('Date,Type,Description,Category,Amount,Note,Planned\r\n');
+    expect(buildTransactionsCsv([], [])).toBe('Date,Type,Description,Category,Amount,Note,Planned,Account\r\n');
+  });
+  it('names the account of each item: its card, its account, or the main account', () => {
+    const where = { mainName: 'ENBD current', accounts: [{ id: 'sav', name: 'ADCB savings', type: 'bank' as const, startingBalance: 0, startingBalanceDate: '2026-01-01', archived: false, sort: 1, createdAt: '2026-01-01' }], debts: [card({ id: 'visa', name: 'Visa' })] };
+    const csv = buildTransactionsCsv([txn({ id: 'a', cardId: 'visa' }), txn({ id: 'b', accountId: 'sav' }), txn({ id: 'c' })], DEFAULT_CATEGORIES, where);
+    expect(csv.split('\r\n').slice(1, 4).map((l) => l.split(',').pop())).toEqual(['Visa', 'ADCB savings', 'ENBD current']);
   });
 });
 
@@ -434,7 +439,8 @@ describe('one combined CSV', () => {
     const titles = ['One-time items', 'Recurring items', 'Debts', 'Debt payments', 'Cheques'];
     expect(lines.filter((l) => titles.includes(l))).toEqual(titles);
     expect(lines[lines.indexOf('Recurring items') - 1]).toBe(''); // blank line before each later section
-    expect(lines[lines.indexOf('One-time items') + 1]).toBe('Date,Type,Description,Category,Amount,Note,Planned');
+    expect(lines[lines.indexOf('One-time items') + 1]).toBe('Date,Type,Description,Category,Amount,Note,Planned,Account');
+    expect(lines[lines.indexOf('One-time items') + 2].endsWith(',Main account')).toBe(true);
     expect(lines[lines.indexOf('Debt payments') + 1]).toBe('Date,Debt,Amount,Kind,Note');
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
     expect(csv).toContain("'+evil");
@@ -444,7 +450,7 @@ describe('one combined CSV', () => {
       [{ id: 'r', kind: 'cost', name: '@Rent', categoryId: 'housing', amount: 950000, schedule: { type: 'monthly', day: 'last', everyMonths: 3 }, startDate: '2026-01-31', endDate: null, count: 4, note: '' }],
       DEFAULT_CATEGORIES,
     );
-    expect(csv.split('\r\n')).toEqual(['Name,Type,Category,Amount,Repeats,Starts,Ends,Number of payments,Note', "'@Rent,Cost,Housing,9500.00,Every 3 months on the last day,2026-01-31,,4,", '']);
+    expect(csv.split('\r\n')).toEqual(['Name,Type,Category,Amount,Repeats,Starts,Ends,Number of payments,Note,Account', "'@Rent,Cost,Housing,9500.00,Every 3 months on the last day,2026-01-31,,4,,", '']);
   });
 });
 
@@ -478,5 +484,33 @@ describe('debts and cheques CSV', () => {
       "2026-05-01,'-Evil,5000.00,Rent,Cleared,",
       '',
     ]);
+  });
+});
+
+describe('backup version 3: money accounts', () => {
+  const account = { id: 'sav', name: 'ADCB savings', type: 'bank', startingBalance: 120000, startingBalanceDate: '2026-02-01', archived: false, sort: 1, createdAt: '2026-02-01' };
+  const make = async () => {
+    const repo = createMemoryRepository({ accounts: [account as never], transactions: [txn({ id: 'a', accountId: 'sav' }), txn({ id: 'b', cardId: 'C1' })], debts: [card()] });
+    await repo.init();
+    return JSON.parse(serializeBackup(await repo.exportAll()));
+  };
+  it('keeps the accounts and the account / card of each item', async () => {
+    const back = parseBackup(JSON.stringify(await make()));
+    expect(back.version).toBe(BACKUP_VERSION);
+    expect(back.accounts).toEqual([account]);
+    expect(back.transactions.map((t) => [t.id, t.accountId, t.cardId])).toEqual([['a', 'sav', undefined], ['b', undefined, 'C1']]);
+  });
+  it('restores a version 2 backup with only the main account', async () => {
+    const { accounts: _, ...v2 } = { ...(await make()), version: 2 };
+    expect(parseBackup(JSON.stringify(v2)).accounts).toEqual([]);
+  });
+  it('rejects damaged accounts and account links', async () => {
+    const file = await make();
+    const bad = (over: object) => JSON.stringify({ ...file, ...over });
+    expect(() => parseBackup(bad({ accounts: [{ ...account, type: 'gold' }] }))).toThrow('damaged');
+    expect(() => parseBackup(bad({ accounts: [{ ...account, name: '  ' }] }))).toThrow('damaged');
+    expect(() => parseBackup(bad({ accounts: [account, account] }))).toThrow('damaged');
+    expect(() => parseBackup(bad({ accounts: [{ ...account, id: 'main' }] }))).toThrow('damaged');
+    expect(() => parseBackup(bad({ transactions: [{ ...file.transactions[0], accountId: 7 }] }))).toThrow('damaged');
   });
 });
