@@ -323,7 +323,7 @@ describe('Settings -> Lock', () => {
 
   it('sets a PIN by entering it twice', async () => {
     const { repo, store } = await renderWithRepo(<LockSettingsScreen />, { settings: base });
-    await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-lock-toggle'));
     await enter('pin', '2468');
     await fireEvent.press(screen.getByTestId('pin-submit'));
     expect(await screen.findByText('Enter the same PIN again.')).toBeTruthy();
@@ -334,7 +334,7 @@ describe('Settings -> Lock', () => {
 
   it('rejects a second entry that differs', async () => {
     const { repo, store } = await renderWithRepo(<LockSettingsScreen />, { settings: base });
-    await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-lock-toggle'));
     await enter('pin', '2468');
     await fireEvent.press(screen.getByTestId('pin-submit'));
     await enter('pin', '2469');
@@ -345,7 +345,7 @@ describe('Settings -> Lock', () => {
 
   it('needs at least 4 digits', async () => {
     await renderWithRepo(<LockSettingsScreen />, { settings: base });
-    await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-lock-toggle'));
     await enter('pin', '12');
     expect(screen.getByTestId('pin-submit').props.accessibilityState.disabled).toBe(true);
   });
@@ -375,7 +375,7 @@ describe('Settings -> Lock', () => {
 
   it('turns the lock off only with the PIN', async () => {
     const { repo, id } = await withPin();
-    await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', false);
+    await fireEvent.press(await screen.findByTestId('settings-lock-toggle'));
     await enter('pin', '9999');
     await fireEvent.press(screen.getByTestId('pin-submit'));
     expect(await screen.findByText('That is not the current PIN.')).toBeTruthy();
@@ -391,7 +391,7 @@ describe('Settings -> Lock', () => {
     LA.isEnrolledAsync.mockResolvedValue(true);
     const { id } = await withPin();
     const toggle = await screen.findByTestId('settings-lock-biometric');
-    await fireEvent(toggle, 'valueChange', false);
+    await fireEvent.press(toggle);
     await waitFor(async () => expect(await lockStore.getBiometricPref(id)).toBe(false));
   });
 

@@ -13,6 +13,8 @@
 //     dismiss-keyboard subflows);
 //   - `inputText` right after tapping a field without `eraseText`, when the
 //     field may start filled in (warning only);
+//   - a bare amount asserted as exact text ("AED 20,000.00"): on iPhone it sits
+//     inside its row's or card's label, so use ".*AED 20,000.00.*";
 //   - `runFlow` files that don't exist.
 // Exit code 1 on errors; warnings are printed but don't fail.
 
@@ -106,6 +108,10 @@ export function checkFlow(file, source, known) {
     }
     for (const s of selectors(cmd)) {
       if (s.id && !idExists(s.id, known)) errors.push(`${file}: ${s.command} id "${s.id}" doesn't exist in the app's source`);
+      if (s.text && s.command === "assertVisible" && platform !== "Android" && /^[-+]?(?:[A-Z]{3} )?\d[\d,.]*$/.test(s.text)) {
+        errors.push(`${file}: assertVisible "${s.text}" is a bare amount: on iPhone it sits inside its row's or card's label (one accessibility label), so it never matches on its own — use ".*${s.text}.*"`);
+        continue;
+      }
       if (s.text && !s.optional && s.command !== "assertNotVisible") {
         if (isRegex(s.text)) continue;
         // Text the flow typed itself (a name, a payee) shows up as data, not in the source.

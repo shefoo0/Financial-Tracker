@@ -135,7 +135,7 @@ describe('Cheque form', () => {
     const { repo } = await renderWithRepo(<ChequeScreen />, { settings: settings(), cheques: series });
     await fireEvent.changeText(await screen.findByTestId('cheque-amount'), '3500');
     await fireEvent.changeText(screen.getByTestId('cheque-payee'), 'New landlord');
-    await fireEvent(screen.getByTestId('cheque-apply-later'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('cheque-apply-later'));
     await fireEvent.press(screen.getByTestId('cheque-save-bottom'));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
     const byId = Object.fromEntries((await repo.listCheques()).map((c) => [c.id, c]));

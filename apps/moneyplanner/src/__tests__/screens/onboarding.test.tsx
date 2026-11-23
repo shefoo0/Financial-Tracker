@@ -86,7 +86,7 @@ describe('Onboarding wizard', () => {
     await fireEvent.press(await screen.findByTestId('onboarding-skip'));
     await fireEvent.press(screen.getByTestId('onboarding-skip'));
     await fireEvent.changeText(screen.getByTestId('onboarding-balance'), '300');
-    await fireEvent(screen.getByTestId('onboarding-overdrawn'), 'valueChange', true);
+    await fireEvent.press(screen.getByTestId('onboarding-overdrawn'));
     await toLastStep();
     await fireEvent.press(screen.getByTestId('onboarding-start'));
     await waitFor(() => expect(router.replace).toHaveBeenCalled());

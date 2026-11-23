@@ -40,7 +40,7 @@ beforeEach(() => {
 describe('Settings -> Bill reminders', () => {
   it('is on with 1 day by default, and saves a new lead time', async () => {
     const { repo } = await renderWithRepo(<RemindersSheet visible onClose={() => undefined} />, { settings: base });
-    expect((await screen.findByTestId('settings-bill-reminders')).props.value).toBe(true);
+    expect((await screen.findByTestId('settings-bill-reminders')).props.accessibilityState.checked).toBe(true);
     expect(screen.getByTestId('settings-bill-lead-1').props.accessibilityState.checked).toBe(true);
     await fireEvent.press(screen.getByTestId('settings-bill-lead-0'));
     await waitFor(async () => expect((await repo.getSettings()).billReminders).toEqual({ on: true, leadDays: 0, muted: [] }));
@@ -48,7 +48,7 @@ describe('Settings -> Bill reminders', () => {
 
   it('turning it off hides the lead time choices', async () => {
     const { repo } = await renderWithRepo(<RemindersSheet visible onClose={() => undefined} />, { settings: base });
-    await fireEvent(await screen.findByTestId('settings-bill-reminders'), 'valueChange', false);
+    await fireEvent.press(await screen.findByTestId('settings-bill-reminders'));
     await waitFor(async () => expect((await repo.getSettings()).billReminders.on).toBe(false));
     await waitFor(() => expect(screen.queryByTestId('settings-bill-lead-1')).toBeNull());
   });

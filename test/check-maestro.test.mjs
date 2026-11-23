@@ -69,3 +69,16 @@ test("warns when typing into a day/count field without clearing it", () => {
   assert.equal(r.errors.length, 0);
   assert.equal(r.warnings.length, 1);
 });
+
+test("a bare amount asserted as exact text fails (on iPhone it is inside a row's label); a pattern or Android-only passes", () => {
+  const dir = fakeApp(
+    {
+      "a.yaml": '- assertVisible: "AED 20,000.00"\n- assertVisible: "1,500.00"\n',
+      "b.yaml": '- assertVisible: ".*AED 20,000.00.*"\n- runFlow:\n    when:\n      platform: Android\n    commands:\n      - assertVisible: "AED 20,000.00"\n',
+    },
+    SOURCE,
+  );
+  const { errors } = checkApp(dir);
+  assert.equal(errors.filter((e) => e.includes("a.yaml") && e.includes("bare amount")).length, 2);
+  assert.ok(!errors.some((e) => e.includes("b.yaml")), errors.join("\n"));
+});

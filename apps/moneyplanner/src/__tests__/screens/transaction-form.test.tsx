@@ -45,7 +45,7 @@ describe('One-time item form', () => {
   it('marks a future date as planned by default', async () => {
     params.current = { id: 'new', date: '2100-01-01' };
     await renderWithRepo(<TransactionScreen />, { settings });
-    expect((await screen.findByTestId('transaction-planned')).props.value).toBe(true);
+    expect((await screen.findByTestId('transaction-planned')).props.accessibilityState.checked).toBe(true);
   });
 
   it('switches to income', async () => {

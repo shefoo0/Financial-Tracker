@@ -155,7 +155,7 @@ describe('Settings -> Alerts', () => {
   it('explains first, then asks for permission, then turns alerts on', async () => {
     N.getPermissionsAsync.mockResolvedValue(undetermined);
     const { repo } = await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-notifications'));
     expect(await screen.findByTestId('alerts-explainer')).toBeTruthy();
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
     expect((await repo.getSettings()).notificationsOn).toBe(false);
@@ -169,7 +169,7 @@ describe('Settings -> Alerts', () => {
     N.requestPermissionsAsync.mockResolvedValue(denied);
     const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-notifications'));
     await fireEvent.press(await screen.findByTestId('alerts-allow'));
     expect(await screen.findByTestId('alerts-denied-text')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('alerts-open-settings'));
@@ -178,7 +178,7 @@ describe('Settings -> Alerts', () => {
 
   it('turns on without the explainer when permission is already granted, and shows the status', async () => {
     const { repo } = await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-notifications'));
     await waitFor(async () => expect((await repo.getSettings()).notificationsOn).toBe(true));
     expect(screen.queryByTestId('alerts-explainer')).toBeNull();
     expect(await screen.findByText('Notifications: on')).toBeTruthy();

@@ -1,4 +1,4 @@
-import { StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -18,8 +18,18 @@ export function ToggleRow({
   testID?: string;
 }) {
   const c = useTheme();
+  // The whole row is the switch (like iOS Settings): a big target, one VoiceOver/TalkBack
+  // element, and a tap that always lands (taps on the small native iPhone switch
+  // didn't always register in the simulator tests).
   return (
-    <View style={styles.row}>
+    <Pressable
+      onPress={() => onChange(!value)}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+      accessibilityHint={description}
+      testID={testID}
+      style={styles.row}>
       <View style={{ flex: 1 }}>
         <T>{label}</T>
         {description ? (
@@ -28,15 +38,10 @@ export function ToggleRow({
           </T>
         ) : null}
       </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        accessibilityLabel={label}
-        testID={testID}
-        trackColor={{ true: c.accent, false: c.border }}
-        thumbColor={c.thumb}
-      />
-    </View>
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Switch value={value} trackColor={{ true: c.accent, false: c.border }} thumbColor={c.thumb} />
+      </View>
+    </Pressable>
   );
 }
 

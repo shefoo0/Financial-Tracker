@@ -31,7 +31,7 @@ describe('Edit Home', () => {
     expect(await screen.findByTestId('home-edit-screen')).toBeTruthy();
     for (const e of defaultHomeLayout()) {
       const toggle = screen.getByTestId(`home-edit-toggle-${e.id}`);
-      expect(toggle.props.value).toBe(e.visible);
+      expect(toggle.props.accessibilityState.checked).toBe(e.visible);
     }
     expect(screen.getByLabelText('Show Year table on Home')).toBeTruthy();
     // Nothing to move above the first card or below the last.
@@ -42,10 +42,10 @@ describe('Edit Home', () => {
 
   it('hides and shows a card and saves it at once', async () => {
     const { repo } = await open();
-    await fireEvent(await screen.findByTestId('home-edit-toggle-payday'), 'valueChange', false);
+    await fireEvent.press(await screen.findByTestId('home-edit-toggle-payday'));
     await waitFor(async () => expect((await saved(repo)).find((e) => e.id === 'payday')?.visible).toBe(false));
-    expect(screen.getByTestId('home-edit-toggle-payday').props.value).toBe(false);
-    await fireEvent(screen.getByTestId('home-edit-toggle-year'), 'valueChange', true);
+    expect(screen.getByTestId('home-edit-toggle-payday').props.accessibilityState.checked).toBe(false);
+    await fireEvent.press(screen.getByTestId('home-edit-toggle-year'));
     await waitFor(async () => expect((await saved(repo)).find((e) => e.id === 'year')?.visible).toBe(true));
   });
 
@@ -68,7 +68,7 @@ describe('Edit Home', () => {
   it('resets to the default order and visibility, and removes added charts', async () => {
     const { repo } = await open();
     await fireEvent.press(await screen.findByTestId('home-edit-down-balance'));
-    await fireEvent(screen.getByTestId('home-edit-toggle-tiles'), 'valueChange', false);
+    await fireEvent.press(screen.getByTestId('home-edit-toggle-tiles'));
     await fireEvent.press(screen.getByTestId('home-edit-add-income-vs-spending'));
     await waitFor(async () => expect(await saved(repo)).not.toEqual(defaultHomeLayout()));
     await fireEvent.press(screen.getByTestId('home-edit-reset'));

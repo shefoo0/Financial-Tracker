@@ -67,7 +67,7 @@ describe('BalanceSheet', () => {
 
   it('records a negative balance when overdrawn is switched on', async () => {
     const { repo } = await renderWithRepo(<BalanceSheet visible onClose={noop} />, { settings: base });
-    await fireEvent(await screen.findByTestId('settings-overdrawn'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-overdrawn'));
     await waitFor(async () => expect((await repo.getSettings()).startingBalance).toBe(-650000));
   });
 
@@ -132,7 +132,7 @@ describe('RemindersSheet', () => {
     const { repo } = await renderWithRepo(<RemindersSheet visible onClose={noop} />, { settings: base });
     await fireEvent.press(await screen.findByTestId('settings-bill-lead-3'));
     await waitFor(async () => expect((await repo.getSettings()).billReminders.leadDays).toBe(3));
-    await fireEvent(screen.getByTestId('settings-bill-reminders'), 'valueChange', false);
+    await fireEvent.press(screen.getByTestId('settings-bill-reminders'));
     await waitFor(async () => expect((await repo.getSettings()).billReminders.on).toBe(false));
     expect(screen.queryByTestId('settings-bill-lead-3')).toBeNull();
   });
@@ -146,7 +146,7 @@ describe('AlertsSheet', () => {
     Notifications.getPermissionsAsync.mockResolvedValue(undetermined);
     Notifications.requestPermissionsAsync.mockResolvedValue(mockPermission);
     const { repo } = await renderWithRepo(<AlertsSheet visible onClose={noop} />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-notifications'));
     expect(await screen.findByTestId('alerts-explainer')).toBeTruthy();
     expect(screen.queryByTestId('settings-notifications')).toBeNull();
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
@@ -158,7 +158,7 @@ describe('AlertsSheet', () => {
   it('"Only show alerts in the app" turns it on without the system prompt', async () => {
     Notifications.getPermissionsAsync.mockResolvedValue(undetermined);
     const { repo } = await renderWithRepo(<AlertsSheet visible onClose={noop} />, { settings: off });
-    await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
+    await fireEvent.press(await screen.findByTestId('settings-notifications'));
     await fireEvent.press(await screen.findByTestId('alerts-inapp-only'));
     await waitFor(async () => expect((await repo.getSettings()).notificationsOn).toBe(true));
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
@@ -168,7 +168,7 @@ describe('AlertsSheet', () => {
     const { repo } = await renderWithRepo(<AlertsSheet visible onClose={noop} />, { settings: base });
     expect(await screen.findByTestId('settings-threshold-high')).toBeTruthy();
     expect(screen.queryByTestId('settings-bill-reminders')).toBeNull();
-    await fireEvent(screen.getByTestId('settings-notifications'), 'valueChange', false);
+    await fireEvent.press(screen.getByTestId('settings-notifications'));
     await waitFor(async () => expect((await repo.getSettings()).notificationsOn).toBe(false));
   });
 

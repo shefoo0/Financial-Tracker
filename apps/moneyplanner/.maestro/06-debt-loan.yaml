@@ -95,8 +95,8 @@ name: Add a loan
 - assertVisible:
     id: debts-screen
 - assertVisible: "Car loan.*"
-- assertVisible: "AED 20,000.00"
-- assertVisible: "AED 1,500.00"
+- assertVisible: ".*AED 20,000.00.*"
+- assertVisible: ".*AED 1,500.00.*"
 # Home: the payment is under "Coming up".
 # Debts is a screen above the tabs: go back to the tabs first.
 - runFlow:

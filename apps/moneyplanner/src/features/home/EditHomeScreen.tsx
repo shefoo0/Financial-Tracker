@@ -78,19 +78,21 @@ export function EditHomeScreen() {
                 {def.description}
               </T>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap', minHeight: 48 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flex: 1, minWidth: 140 }}>
-                  <Switch
-                    value={e.visible}
-                    onValueChange={() => apply(toggleCard(layout, e.id))}
-                    accessibilityLabel={`Show ${def.title} on Home`}
-                    testID={`home-edit-toggle-${id}`}
-                    trackColor={{ true: c.accent, false: c.border }}
-                    thumbColor={c.thumb}
-                  />
+                {/* Switch and its "Shown" label tap as one control (see ToggleRow). */}
+                <Pressable
+                  onPress={() => apply(toggleCard(layout, e.id))}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: e.visible }}
+                  accessibilityLabel={`Show ${def.title} on Home`}
+                  testID={`home-edit-toggle-${id}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flex: 1, minWidth: 140, minHeight: 44 }}>
+                  <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                    <Switch value={e.visible} trackColor={{ true: c.accent, false: c.border }} thumbColor={c.thumb} />
+                  </View>
                   <T variant="caption" tone="secondary">
                     {e.visible ? 'Shown' : 'Hidden'}
                   </T>
-                </View>
+                </Pressable>
                 {isChartCardId(e.id) ? (
                   <Pressable
                     onPress={() => apply(removeCard(layout, e.id))}
