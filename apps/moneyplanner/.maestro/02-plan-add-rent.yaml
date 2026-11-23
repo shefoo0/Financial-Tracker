@@ -48,7 +48,11 @@ name: Add a recurring cost
 - assertVisible:
     id: plan-screen
 # On iPhone a row reads as one label ("Rent, AED 9,500.00, ..."), so match the start.
-- assertVisible: "Rent.*"
+# Costs come after Income: scroll to the row.
+- scrollUntilVisible:
+    element: "Rent.*"
+    direction: DOWN
+    visibilityPercentage: 50
 - assertVisible: "Total ≈ AED 9,500.00 / month"
 - tapOn: "Month"
 - assertVisible:

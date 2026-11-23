@@ -80,7 +80,6 @@ export default function PlanScreen() {
     <View style={styles.flex}>
     <Screen testID="plan-screen">
       <ScreenHeader title="Plan" subtitle="Income and costs that repeat" />
-      <ModuleCards input={data} />
       {sections.map((s) => {
         const items = recurring
           .filter((r) => r.kind === s.kind)
@@ -124,6 +123,8 @@ export default function PlanScreen() {
           </View>
         );
       })}
+      {/* Your own income and costs first; debts, cheques and import below. */}
+      <ModuleCards input={data} />
       <QuickAddSpacer />
     </Screen>
     <QuickAddButton testID="quick-add" />
