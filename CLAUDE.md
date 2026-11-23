@@ -85,7 +85,8 @@ publish.
   `app-status.mjs` (SDK and release status of every app), `android-signing.mjs`
   (release builds sign with the upload key from env vars), `store-lookup.mjs`
   (real ratings, prices, and low-star and 5-star reviews from both stores, for research),
-  `run-maestro.sh` (runs each Maestro flow in CI and prints the screen on a failure).
+  `run-maestro.sh` (runs each Maestro flow in CI and prints the screen on a failure),
+  `preflight.mjs` (every GitHub workflow check, run locally in CI order, before any device run).
 - `ideas/` — research shortlists from `/find-ideas`.
 - `docs/` — generated GitHub Pages site; don't edit by hand.
 - `test/` — `node:test` tests for the scripts.
@@ -102,6 +103,7 @@ publish.
 | Check a store listing | `node scripts/check-listing.mjs apps/<slug>/store/listing.md` |
 | Build an app | `/new-app "<idea>" [bundle id] [monetization]` in Claude Code |
 | Change an app | `/update-app <slug> "<change>"` |
+| Pre-flight before GitHub | `node scripts/preflight.mjs apps/<slug> [--pro-preview]` |
 | Android test build | `android.yml` workflow, `app: <slug>`, `build: test` |
 | iOS build + TestFlight | `ios.yml` workflow, `app: <slug>` |
 | Release an app | `/release-app <slug> [android\|ios\|both]` |

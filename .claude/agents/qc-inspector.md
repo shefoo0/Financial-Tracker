@@ -26,6 +26,8 @@ Check each item and mark it **pass** or **fail** with evidence (file:line, a mea
 13. **Accessibility labels (Apple):** if the listing claims accessibility support (VoiceOver, larger text, dark interface, sufficient contrast, reduced motion and so on), the app really supports it across its common tasks. Apple can ask for misleading labels to be changed.
 14. **Finance, health and other sensitive apps:** wording states facts, not advice; there are no loan offers, credit scores or medical claims; and the listing notes which Google Play declaration applies (for example the Financial features declaration).
 
+15. **Pre-flight (the same checks as GitHub):** run `node scripts/preflight.mjs apps/<slug>` from the repository root (it only writes generated folders and screenshots, and removes the generated folders) and report its summary. Any FAIL is a fail here. Look at the walkthrough screenshots in `apps/<slug>/e2e-web/shots/` from the small-phone run: text off the edge, squashed names, cut-off amounts or a floating button over other buttons are fails, because the store reviewer and many users have small phones.
+
 When you aren't sure what a store rule requires, read it on developer.apple.com or play.google.com instead of guessing.
 
 Mark each item **pass**, **fail** or **n/a**.
