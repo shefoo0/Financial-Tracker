@@ -68,7 +68,7 @@ export function BalanceEditor({ settings }: { settings: Settings }) {
   return (
     <View style={{ gap: Spacing.two }}>
       <T testID="settings-balance-current" variant="caption" tone="secondary">{`${formatMoney(settings.startingBalance, cur)} as of ${formatDate(settings.startingBalanceDate)}`}</T>
-      <InstantMoneyField label="Balance today" saved={Math.abs(settings.startingBalance)} currency={cur} onCommit={(v) => save(v, negative)} testID="settings-balance" />
+      <InstantMoneyField label={settings.mainAccountName && settings.mainAccountName !== 'Main account' ? `${settings.mainAccountName}: balance today` : 'Balance today'} saved={Math.abs(settings.startingBalance)} currency={cur} onCommit={(v) => save(v, negative)} testID="settings-balance" />
       <ToggleRow label="My account is overdrawn" value={negative} onChange={(v) => void save(Math.abs(settings.startingBalance), v)} testID="settings-overdrawn" />
     </View>
   );

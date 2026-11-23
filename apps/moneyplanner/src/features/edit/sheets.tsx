@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/money';
 import type { Settings } from '@/types';
 import { BalanceEditor, BufferEditor, CardStyleEditor, ChartRangeEditor, CurrencyEditor, PaydayEditor, SpendingPeriodEditor } from './editors';
 import { SheetBody } from './SheetBody';
+import { AccountBreakdown } from '@/features/accounts/AccountBreakdown';
 
 export interface EditSheetProps {
   visible: boolean;
@@ -23,6 +24,7 @@ export function BalanceSheet({ visible, onClose }: EditSheetProps) {
       <SheetBody>
         {(s) => (
           <>
+            <AccountBreakdown onNavigate={onClose} />
             <BalanceEditor settings={s} />
             <BufferEditor settings={s} />
             <ChartRangeEditor settings={s} />
