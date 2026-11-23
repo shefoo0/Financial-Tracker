@@ -204,8 +204,11 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 - **Each statement belongs to one account:** picked on the first import from a source (or matched by name or last 4 digits) and remembered per source, like the column layout.
 - **Full card model:** card purchases are spending in their categories and add to that card's balance; the bank balance drops when the card is paid. A card payment closes the card's balance and is never income or spending.
 - **Transfers between own accounts are matched, not counted:** bank → card (card payment) and bank → bank. When both statements are imported, the two rows pair up (same amount, opposite directions, a few days apart) and show as "Transfer: A → B", which the user can unpair. When only one side is imported but the other end is a tracked account, it is still a transfer; to anyone else it stays spending or income.
-- **Pro:** one account is free; several accounts and linking cards to statements are Pro (with import).
-- **Order:** milestone 3b comes before milestone 4.
+- **Free vs Pro (developer, 2026-11-23):** *the free app stays good and complete; features that add convenience and make it easier to use are Pro.* Free: **one bank account plus every card tracked in Debts** (cards keep working as today), and every item uses the main account. Pro: more bank and cash accounts, choosing the account per item and per recurring item, a **default account** for new items (set once, so nobody chooses every time), and linking statements to accounts (with import).
+- **Card forecast follows the actual purchases:** a card's payment in the forecast (full, minimum or fixed plan) is worked out from the purchases in that statement cycle on top of the opening balance, not from a fixed snapshot.
+- **Month:** "Spent" is what was bought (card purchases included); card payments show separately as "Paid to cards", so nothing counts twice. Transfers are never spending or income.
+- **Migration:** the current balance becomes the bank account "Main account"; every transaction moves into it; each card in Debts gets a card account. Nothing changes for the user until a second account is added. Backup version 3 (older backups still restore); CSV export gains an Account column.
+- **Order:** milestone 3b comes before milestone 4. Staged on the work branch; `main` and the developer's APK stay as they are until 3b passes on both platforms.
 
 ### Milestone 3b — Money accounts, cards and transfers (planned)
 | Task | Owns |
