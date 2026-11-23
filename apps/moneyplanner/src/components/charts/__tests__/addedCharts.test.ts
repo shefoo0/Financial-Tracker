@@ -1,3 +1,4 @@
+import { sampleInput } from '@/engine';
 import { cheque, card, income, input, loan, settings } from '@/engine/test-fixtures';
 import type { RecurringItem } from '@/types';
 import { debtPayoffChart, formatChartValue, formatPercent, incomeVsSpendingChart, savingsRateChart } from '../addedCharts';
@@ -57,6 +58,19 @@ describe('Savings rate build()', () => {
     expect(s.points[0].balance).toBe(-5000);
     expect(formatPercent(-5000)).toBe('−50%');
     expect(savingsRateChart.build(plan({ recurring: [cost(100)] }), '6M', TODAY)).toEqual([]);
+  });
+});
+
+describe('Savings rate sample (free users)', () => {
+  it('stays between -50% and 100% in every month and range, all year round', () => {
+    for (const today of ['2026-01-15', '2026-04-05', '2026-06-10', '2026-08-31', '2026-11-23', '2027-02-28']) {
+      for (const { key } of savingsRateChart.ranges) {
+        const [s] = savingsRateChart.build(sampleInput(today), key, today);
+        const rates = s.points.map((p) => p.balance);
+        expect(Math.min(...rates)).toBeGreaterThanOrEqual(-5000);
+        expect(Math.max(...rates)).toBeLessThanOrEqual(10000);
+      }
+    }
   });
 });
 

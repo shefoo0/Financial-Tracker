@@ -202,7 +202,12 @@ export function ChartCard({ def, input, today, testID = `chart-card-${def.id}` }
         </>
       )}
 
-      {sample ? <Button label="Unlock Pro" onPress={unlockChartsPro} testID={`${testID}-unlock`} accessibilityHint="Pro comes with the next update" /> : null}
+      {sample ? (
+        // Compact and on the left: Home's floating "+" sits bottom-right, so a full-width button ran under it.
+        <View style={{ alignSelf: 'flex-start' }}>
+          <Button label="Unlock Pro" onPress={unlockChartsPro} testID={`${testID}-unlock`} accessibilityHint="Pro comes with the next update" />
+        </View>
+      ) : null}
 
       <Sheet visible={rangeOpen} onClose={() => setRangeOpen(false)} title={`${def.title}: range`} testID={`${testID}-range-sheet`}>
         <View style={{ gap: Spacing.three, paddingBottom: Spacing.three }}>

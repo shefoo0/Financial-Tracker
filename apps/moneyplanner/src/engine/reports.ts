@@ -565,7 +565,11 @@ const SAMPLE_CATEGORIES = [
   { id: 'demo-freelance', name: 'Freelance', kind: 'income' as const, sort: 6, archived: false },
 ];
 
-/** A made-up UAE household: salary AED 18,000, rent by cheque, a car loan, a card, groceries. Starts two years back. */
+/**
+ * A made-up UAE household: salary AED 18,000, rent by cheque, a car loan, a card, groceries. Starts two years back.
+ * Rent is six cheques a year (AED 11,000 every two months), so no sample month spends far more than it earns:
+ * the Savings rate sample stays between -50% and 100%.
+ */
 export function sampleInput(todayStr: ISODate): PlanInput {
   const year = Number(todayStr.slice(0, 4));
   const start = `${year - 2}-01-01`;
@@ -607,11 +611,11 @@ export function sampleInput(todayStr: ISODate): PlanInput {
   }
   const cheques = [];
   for (let y = year - 2; y <= year; y++) {
-    for (const m of [1, 4, 7, 10]) {
+    for (const m of [1, 3, 5, 7, 9, 11]) {
       cheques.push({
         id: `rent-${y}-${m}`,
         payee: 'Landlord',
-        amount: 2200000,
+        amount: 1100000,
         date: toISODate(y, m, 5),
         purpose: 'Rent',
         status: 'upcoming' as const,

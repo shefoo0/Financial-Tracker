@@ -28,6 +28,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [~] Milestone 3 — Import and OCR (Pro): [x] T10 parsers (+xlsx, Arabic, learned rules) · [x] T11 PDF · [x] T12 OCR · [x] T13 flow/review/share-in · [x] review (6 majors fixed) · [x] tests (938 Jest; walkthrough free + Pro preview) · [~] device runs · review · tests · [x] Android test build
   - [x] Pro preview Android build for the developer's phone: android.yml run 45195728692 on main 2400515 (`pro_preview: true`, debug key; pre-flight --pro-preview passed first); APK `moneyplanner-1.0.0-1-android` (expires 2026-12-07); all Maestro flows passed on the emulator
   - [ ] Developer tries importing a real statement on the phone; record the bank/format and what the review screen got wrong (no statements or account numbers in the repo or chat)
+- [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
 ## Release bar: beat the competition (developer, 2026-11-22)
@@ -71,7 +72,7 @@ Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finan
 - Reports are Pro only (developer's choice); a sample report with demo numbers shows free users what they get.
 
 ## Open findings
-- Privacy policy URL (`src/features/settings/links.ts`) is filled at release; the repo is private, so GitHub Pages needs a public repo for the pages.
+- Privacy policy URL (`src/features/settings/links.ts`) is filled at release; the repo is now public (`shefoo0/financial-tracker`), so GitHub Pages can host the pages (milestone 4).
 - Module switches are hidden until each module ships: add it to `AVAILABLE_MODULES` in `src/data/modules.ts`.
 - Needs a real-device check: native tabs, date picker, SQLite, backup/restore/CSV share sheets, discard-changes prompt, keyboard and safe areas, month swipe.
 - Month view expands occurrences twice (minor performance; fine for now).
