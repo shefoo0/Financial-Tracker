@@ -18,6 +18,7 @@ import { readBytes } from '@/import/read/files';
 import { pdfNative } from '@/import/pdf/native';
 
 import { resetRouterMock, router } from '../../../../test-support/expo-router-mock';
+import { card } from '@/engine/test-fixtures';
 import { recurring, transaction } from '../../../../test-support/render';
 import ColumnsScreen from '../ColumnsScreen';
 import ImportScreen from '../ImportScreen';
@@ -240,6 +241,36 @@ describe('credit card statement with CR refunds', () => {
     expect(await repo.listTransactions()).toHaveLength(3);
     expect(delta(await month(), nov0)).toEqual({ income: 12000, spent: 14490, closing: 12000 - 14490 });
     expect(delta(await month(1), dec0)).toEqual({ income: 0, spent: 0, closing: 12000 - 14490 });
+  });
+});
+
+describe('credit card statement with the card in Debts', () => {
+  it('logs the payment on the card (its balance goes down), never as income', async () => {
+    const visa = card({ id: 'visa', name: 'Visa', balance: 200000, balanceDate: '2026-11-01' });
+    const { repo } = await open({ debts: [visa] });
+    bytes.mockResolvedValue(strToU8(CARD));
+    await readIt(file('card-dec.txt', 'text/plain'));
+    expect(await screen.findByTestId('review-row-0')).toBeTruthy();
+    // The only card is matched by itself; the payment row is ticked and says where it goes.
+    expect(screen.getByTestId('review-card-payment-3').props.children).toMatch(/Pays off Visa/);
+    expect(summary()).toBe('Import 4 items · AED 144.90 spending · AED 120 income · AED 2,000 card payments');
+    await importAll();
+    expect(await repo.listTransactions()).toHaveLength(3);
+    expect((await repo.listTransactions()).some((t) => /PAYMENT RECEIVED/.test(t.description))).toBe(false);
+    expect(await repo.listDebtPayments()).toMatchObject([{ debtId: 'visa', date: '2026-12-02', amount: 200000, kind: 'regular' }]);
+  });
+
+  it('asks which card when there are several and none matches, and can leave the payment out', async () => {
+    const { repo } = await open({ debts: [card({ id: 'a', name: 'Mastercard' }), card({ id: 'b', name: 'Amex' })] });
+    bytes.mockResolvedValue(strToU8(CARD));
+    await readIt(file('card-dec.txt', 'text/plain'));
+    expect(await screen.findByTestId('review-row-0')).toBeTruthy();
+    expect(summary()).toBe('Import 3 items · AED 144.90 spending · AED 120 income');
+    await fireEvent.press(screen.getByTestId('review-card-choose-3'));
+    await fireEvent.press(await screen.findByTestId('review-card-option-b'));
+    expect(summary()).toBe('Import 4 items · AED 144.90 spending · AED 120 income · AED 2,000 card payments');
+    await importAll();
+    expect(await repo.listDebtPayments()).toMatchObject([{ debtId: 'b', amount: 200000 }]);
   });
 });
 

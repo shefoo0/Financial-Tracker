@@ -1,7 +1,7 @@
 // Pure logic of the review screen: rows with their suggested category, duplicates, fixes and the totals.
 import type { CategoryRule, ParsedRow } from '@/import/parse';
 import { dedupe, merchantKey, suggestCategory } from '@/import/parse';
-import type { Category, Fils, ISODate, Kind, Transaction } from '@/types';
+import type { Category, Debt, DebtPayment, Fils, ISODate, Kind, Transaction } from '@/types';
 
 /** Rows below this confidence are shown with "Check this". */
 export const LOW_CONFIDENCE = 0.7;
@@ -26,9 +26,36 @@ export interface ReviewRow {
   key: string;
   /** The user chose this row's category by hand: "apply to similar" leaves it alone. */
   manual: boolean;
-  /** Money in that only pays off a card (not income): starts unticked so it is left out. */
+  /** Money in that only pays off a card (not income). */
   cardPayment?: boolean;
+  /** The card (Debts) this payment pays off. Ticked with a card: saved as a payment on that card, never as income. */
+  cardId?: string | null;
 }
+
+/**
+ * The card a statement belongs to: the only active card, or the one whose name has the statement's last 4 digits
+ * or shares a word with the file name ("visa-nov.pdf" → "Visa card"). Null when unsure: the user picks.
+ */
+export function matchCard(debts: Debt[], sourceName: string, account?: string): string | null {
+  const cards = debts.filter((d) => d.type === 'card' && !d.archived);
+  if (cards.length === 1) return cards[0].id;
+  if (account) {
+    const byDigits = cards.filter((c) => c.name.includes(account) || c.note.includes(account));
+    if (byDigits.length === 1) return byDigits[0].id;
+  }
+  const words = (s: string) => new Set(s.toLowerCase().split(/[^a-z0-9\u0600-\u06ff]+/).filter((w) => w.length >= 3 && w !== 'card' && w !== 'credit'));
+  const source = words(sourceName);
+  const byName = cards.filter((c) => [...words(c.name)].some((w) => source.has(w)));
+  return byName.length === 1 ? byName[0].id : null;
+}
+
+/** Points every card-payment row at a card. With a card they start ticked (logged on the card); without, unticked (left out). */
+export function assignCard(rows: ReviewRow[], cardId: string | null): ReviewRow[] {
+  return rows.map((r) => (r.cardPayment && !r.duplicateOf ? { ...r, cardId, selected: !!cardId } : r));
+}
+
+/** A card-payment row that will be saved as a payment on its card. */
+export const paysCard = (r: ReviewRow) => !!r.cardPayment && r.kind === 'income' && !!r.cardId;
 
 /** Payments into a card account: they reduce what is owed, they are not income. */
 export const CARD_PAYMENT = /\b(payment received|payment[\s-]+thank you|thank you for (your )?payment|card payment|credit card payment|cc payment|autopay|auto[\s-]?pay|direct debit payment|payment by direct debit)\b|سداد البطاقة|سداد بطاقة|دفعة بطاقة/i;
@@ -150,14 +177,17 @@ export interface ReviewSummary {
   count: number;
   spending: Fils;
   income: Fils;
+  /** Ticked card payments, logged on their card (not income). */
+  cardPayments: Fils;
 }
 
 export function summarise(rows: ReviewRow[]): ReviewSummary {
-  const out: ReviewSummary = { count: 0, spending: 0, income: 0 };
+  const out: ReviewSummary = { count: 0, spending: 0, income: 0, cardPayments: 0 };
   for (const r of rows) {
     if (!r.selected) continue;
     out.count += 1;
-    if (r.kind === 'income') out.income += r.amount;
+    if (paysCard(r)) out.cardPayments += r.amount;
+    else if (r.kind === 'income') out.income += r.amount;
     else out.spending += r.amount;
   }
   return out;
@@ -179,10 +209,10 @@ export function groupByDate(rows: ReviewRow[]): DateGroup[] {
   return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0)).map(([date, list]) => ({ date, rows: list }));
 }
 
-/** The transactions an import saves: only ticked rows, as real (not planned) items marked as imported. */
+/** The transactions an import saves: only ticked rows, as real (not planned) items marked as imported. Card payments are not transactions. */
 export function toTransactions(rows: ReviewRow[], importId: string, idFor: (index: number) => string): Transaction[] {
   return rows
-    .filter((r) => r.selected)
+    .filter((r) => r.selected && !paysCard(r))
     .map((r) => ({
       id: idFor(r.index),
       kind: r.kind,
@@ -195,4 +225,14 @@ export function toTransactions(rows: ReviewRow[], importId: string, idFor: (inde
       importId,
       planned: false,
     }));
+}
+
+/**
+ * Ticked card payments as payments on their card: the card's balance goes down and the forecast's expected payment
+ * for that statement is replaced (a 'regular' payment), like paying it by hand in Debts.
+ */
+export function toCardPayments(rows: ReviewRow[], idFor: (index: number) => string): DebtPayment[] {
+  return rows
+    .filter((r) => r.selected && paysCard(r))
+    .map((r) => ({ id: idFor(r.index), debtId: r.cardId!, date: r.date, amount: r.amount, kind: 'regular' as const, note: `Imported: ${r.description}`.slice(0, 200) }));
 }

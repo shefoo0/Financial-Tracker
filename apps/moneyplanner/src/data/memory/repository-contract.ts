@@ -507,6 +507,15 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect((await repo.listImports()).map((i) => i.id)).toEqual(['i1', 'i2']);
       });
 
+      it('saves card payments from an import batch with the rows, once', async () => {
+        const pay = { id: 'p1', debtId: 'card-1', date: '2026-04-20', amount: 50000, kind: 'regular' as const, note: 'Imported: PAYMENT RECEIVED' };
+        const batch = { transactions: [txn({ id: 'a', source: 'import' as const, importId: 'i1' })], debtPayments: [pay], importRecord: imp() };
+        await repo.saveImportBatch(batch);
+        await repo.saveImportBatch(batch);
+        expect(await repo.listDebtPayments()).toEqual([pay]);
+        expect(await repo.listTransactions()).toHaveLength(1);
+      });
+
       it('saves nothing of an import batch when one row is invalid', async () => {
         const bad: any = txn({ id: 'z' });
         bad.amount = undefined; // NOT NULL in SQLite; the memory repository has no such rule

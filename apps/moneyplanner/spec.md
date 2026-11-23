@@ -94,7 +94,7 @@ Currency label (AED), salary amount and payday, current bank balance, a "buffer"
 - **Look:** "Bold cards + Glass fintech" — see `design/redesign-2026.png` (and `design/redesign-2026.html`). Every screen has a soft aurora background (three blurred colour blobs), frosted glass cards with a hairline border, large rounded corners (18-28), bold numbers, colourful icon tiles. The dashboard opens with a greeting and the profile button, then a gradient **hero card** (balance today, lowest point in the next 60 days, glowing forecast line with the buffer as a dashed line), three **stat tiles** (Income, Spent, Free this month, each with a coloured icon), the **buffer alert** when the forecast dips under the buffer or zero, and **Coming up** (the next payments and income with "in N days" and instalment progress such as "14 of 48 paid"). Tokens live in `src/constants/theme.ts`.
 - **Light and dark:** both are designed (pastel aurora and white glass in light; deep navy aurora, translucent glass and neon accents in dark). **Settings → Appearance: System / Light / Dark**, saved on the device; native parts (date picker, alerts, tab bar, status bar) follow it.
 - **Profiles on one phone:** for a partner or a shared household budget. The profile button (avatar + name ▾) on the dashboard opens the **profile switcher** sheet: the list of profiles (avatar, name, tick on the open one), **Add profile**, **Manage profiles**, and the Appearance switch. Each profile has completely separate data (its own plan, one-time items, categories and settings, and its own backup, export and "delete all data"), stored in its own database. A new profile starts with the setup wizard. Profiles: up to 6, names 1-24 characters, a colour for the avatar; rename, recolour and delete (with a typed confirmation; the open profile and the last profile can't be deleted). Existing data becomes the first profile, "Me". No sign-in and no sync: everything stays on the phone. A per-profile PIN or Face ID lock comes with the lock in milestone 2.
-- **No money accounts** (bank, card, cash balances): the developer decided against them; the forecast keeps a single starting balance per profile.
+- ~~No money accounts~~ — **reversed 2026-11-23**: money accounts come in milestone 3b (see "Milestone 3b decisions"). Until then the forecast keeps a single starting balance per profile.
 
 ### 13. Reports (quarterly and yearly, Pro)
 Company-style reports for a person, so they can track how they're doing and see where to improve (facts only, never advice).
@@ -194,6 +194,26 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 | T11 PDF text extraction on the device (bundled pdf.js in a WebView, offline) | `src/import/pdf/**` |
 | T12 OCR spike and integration (`expo-text-extractor` vs `@react-native-ml-kit/text-recognition`), image picker and camera capture, with a mock for Jest and Expo Go | `src/import/ocr/**`, `modules/**` if a local module is needed |
 | T13 Import flow and review screen (source picker, preview, edit, rules, duplicates, import selected) | `app/import/**`, `src/features/import/**` |
+
+### Milestone 3 import feedback (developer, 2026-11-23, after importing a real statement on the phone)
+- A minus on a card statement means spending when most signed amounts carry one; unmatched spending goes to **Other**; money in that pays off a card ("payment received", "thank you for your payment", autopay…) is a **card payment**, never income.
+- **Card payment closes the card (shipped before 3b):** on the review screen a card payment is linked to a card in Debts (the only card, or the one matching the statement's last 4 digits or the file name; otherwise the user picks or leaves it out). Importing logs it as a payment on that card (its balance goes down; the forecast's expected payment is replaced). Known limit until 3b: purchases still reduce the cash balance the day they are made, so card spending and the card payment can both show.
+
+### Milestone 3b decisions (developer, 2026-11-23) — money accounts and cards
+- **Accounts per profile:** bank accounts (each with its own starting balance), cards (the cards in Debts), optional cash. Balance today and the forecast show the total of the bank and cash accounts, with a per-account breakdown. With no accounts added, the app works as before (one balance); existing data moves into a "Main account" automatically.
+- **Each statement belongs to one account:** picked on the first import from a source (or matched by name or last 4 digits) and remembered per source, like the column layout.
+- **Full card model:** card purchases are spending in their categories and add to that card's balance; the bank balance drops when the card is paid. A card payment closes the card's balance and is never income or spending.
+- **Transfers between own accounts are matched, not counted:** bank → card (card payment) and bank → bank. When both statements are imported, the two rows pair up (same amount, opposite directions, a few days apart) and show as "Transfer: A → B", which the user can unpair. When only one side is imported but the other end is a tracked account, it is still a transfer; to anyone else it stays spending or income.
+- **Pro:** one account is free; several accounts and linking cards to statements are Pro (with import).
+- **Order:** milestone 3b comes before milestone 4.
+
+### Milestone 3b — Money accounts, cards and transfers (planned)
+| Task | Owns |
+| --- | --- |
+| A1 Data: accounts (bank, card link, cash), account id on transactions and imports, schema upgrade (existing data → "Main account"), backup/CSV | `src/types/**`, `src/data/**` |
+| A2 Engine: per-account and total balance, card purchases add to the card's balance, transfers excluded from spending/income, forecast and reports | `src/engine/**` |
+| A3 Import: account per source (picked/matched, remembered), transfer pairing across statements, review rows "Transfer: A → B" with unpair | `src/import/**`, `src/features/import/**` |
+| A4 Screens: Settings → Accounts, account breakdown on Home, Pro gating for more than one account | `src/features/accounts/**`, `src/app/accounts/**` |
 
 ### Milestone 4 — Pro unlock, store material, QC, release prep
 | Task | Owns |

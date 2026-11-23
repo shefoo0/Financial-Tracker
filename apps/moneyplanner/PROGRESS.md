@@ -34,6 +34,10 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
     - app icon was a white square with a dot: the adaptive-icon foreground had been rendered without transparency; re-rendered with `render-graphic.mjs --transparent`, and test/app-icons.test.mjs guards it
   - [x] Pro preview build with these fixes and the design fixes: android.yml run 45213129450 on 5c1f27c (pre-flight --pro-preview passed first); all Maestro flows passed on the e2e re-run (attempt 1: emulator went offline at launch in 07; the auto-retry missed it, fixed in df3d6f8)
   - [ ] Developer re-tests the import (minus = spending, Other, card payment left out) and the icon on the phone
+- [ ] Milestone 3b — Money accounts, cards and transfers (developer decided 2026-11-23: accounts yes, several accounts Pro with one free, ship the small card-payment fix first; spec "Milestone 3b decisions")
+  - [x] Small fix first: card payments on a statement are logged on the matching card in Debts (only card / last 4 digits / file name, else the user picks or leaves it out), never income; saved with the import in one transaction
+  - [~] Randomized import tests (test agent): generated statements in every format with random amounts and dates, checked against the ground truth
+  - [ ] A1 data · A2 engine · A3 import · A4 screens · review · tests · device runs
 - [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 

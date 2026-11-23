@@ -213,8 +213,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       cheques = cheques.filter((c) => c.id !== id);
     },
 
-    async saveImportBatch({ transactions: list, importRecord, template }) {
+    async saveImportBatch({ transactions: list, debtPayments: paid = [], importRecord, template }) {
       for (const t of clone(list)) upsertById(transactions, t);
+      for (const p of clone(paid)) upsertById(debtPayments, p);
       upsertById(imports, clone(importRecord));
       if (template) {
         importTemplates = importTemplates.filter((x) => x.sourceName !== template.sourceName);

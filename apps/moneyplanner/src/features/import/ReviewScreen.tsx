@@ -13,11 +13,12 @@ import { formatDate } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import { formatMoney, formatMoneyTrim } from '@/lib/money';
 import { usePro } from '@/lib/pro';
-import type { Category, ImportRecord, ImportTemplate, Transaction } from '@/types';
+import type { Category, Debt, DebtPayment, ImportRecord, ImportTemplate, Transaction } from '@/types';
 
 import { ImportProLocked } from './ProLocked';
 import {
   applyCategoryToSimilar,
+  assignCard,
   buildReviewRows,
   flipAll,
   flipKind,
@@ -25,13 +26,16 @@ import {
   isLowConfidence,
   looksLikeCardExport,
   lowConfidenceReason,
+  matchCard,
   merchantName,
+  paysCard,
   setAllSelected,
   setCategory,
   setDate,
   setSelected,
   similarIndexes,
   summarise,
+  toCardPayments,
   toTransactions,
   type ReviewRow,
 } from './review';
@@ -52,10 +56,18 @@ function RowView({
   onFlip,
   onDate,
   onSimilar,
+  cardName,
+  hasCards,
+  onChooseCard,
 }: {
   row: ReviewRow;
   currency: string;
   categories: Category[];
+  /** Name of the card this payment pays off, when one is chosen. */
+  cardName?: string | null;
+  /** The user tracks at least one card in Debts. */
+  hasCards?: boolean;
+  onChooseCard?: () => void;
   similarCount: number;
   expanded: boolean;
   dateOpen: boolean;
@@ -92,7 +104,7 @@ function RowView({
         <Pressable
           onPress={onExpand}
           accessibilityRole="button"
-          accessibilityLabel={`${row.description}, ${moneyWords}, ${formatDate(row.date)}${row.duplicateOf ? ', looks like a duplicate' : ''}${cardPayment ? ', card payment, left out' : ''}${low ? ', please check' : ''}`}
+          accessibilityLabel={`${row.description}, ${moneyWords}, ${formatDate(row.date)}${row.duplicateOf ? ', looks like a duplicate' : ''}${cardPayment ? (paysCard(row) ? `, card payment to ${cardName ?? 'your card'}` : ', card payment, left out') : ''}${low ? ', please check' : ''}`}
           accessibilityHint="Shows ways to fix this row"
           testID={`review-open-${i}`}
           style={styles.main}>
@@ -123,10 +135,22 @@ function RowView({
         <T variant="caption" tone="secondary">
           A matching item is already saved, so this row is unticked.
         </T>
+      ) : cardPayment && paysCard(row) ? (
+        <View style={{ gap: Spacing.one }}>
+          <T variant="caption" tone="secondary" testID={`review-card-payment-${i}`}>
+            {`Pays off ${cardName ?? 'your card'}: saved as a payment on the card in Debts, not as income.`}
+          </T>
+          {onChooseCard ? <Button label="Change card" variant="plain" onPress={onChooseCard} testID={`review-card-change-${i}`} /> : null}
+        </View>
       ) : cardPayment ? (
-        <T variant="caption" tone="secondary" testID={`review-card-payment-${i}`}>
-          A payment to your card, not income, so it is left out. Tick it to import it anyway.
-        </T>
+        <View style={{ gap: Spacing.one }}>
+          <T variant="caption" tone="secondary" testID={`review-card-payment-${i}`}>
+            {hasCards
+              ? 'A payment to your card, not income. Choose the card it paid to log it there; otherwise it is left out.'
+              : 'A payment to your card, not income, so it is left out. Add the card in Debts to log its payments.'}
+          </T>
+          {hasCards && onChooseCard ? <Button label="Choose the card" variant="secondary" onPress={onChooseCard} testID={`review-card-choose-${i}`} /> : null}
+        </View>
       ) : null}
       {low ? (
         <T variant="caption" tone="warning" testID={`review-reason-${i}`}>
@@ -164,12 +188,16 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
   const { categories, settings } = data;
   const currency = settings.currency;
   const saveRule = useRepoMutation((r, rule: Parameters<typeof r.upsertCategoryRule>[0]) => r.upsertCategoryRule(rule));
-  const saveImport = useRepoMutation((r, txns: Transaction[], record: ImportRecord, template: ImportTemplate | null) =>
-    r.saveImportBatch({ transactions: txns, importRecord: record, template }),
+  const saveImport = useRepoMutation((r, txns: Transaction[], paid: DebtPayment[], record: ImportRecord, template: ImportTemplate | null) =>
+    r.saveImportBatch({ transactions: txns, debtPayments: paid, importRecord: record, template }),
   );
 
   const [rules, setRules] = useState<CategoryRule[]>(() => data.rules.map((r) => ({ pattern: r.pattern, categoryId: r.categoryId })));
-  const [rows, setRows] = useState<ReviewRow[]>(() => buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories));
+  const cards = data.debts.filter((d) => d.type === 'card' && !d.archived);
+  const [rows, setRows] = useState<ReviewRow[]>(() =>
+    assignCard(buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories), matchCard(data.debts, session.sourceName, session.result?.account)),
+  );
+  const [cardSheet, setCardSheet] = useState(false);
   // Made once per review: a retry after a failed save writes the same ids again instead of adding copies.
   const [ids] = useState(() => ({ importId: newId(), rowIds: new Map<number, string>() }));
   const idFor = (index: number) => {
@@ -185,7 +213,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
   const [picker, setPicker] = useState<{ index: number; chosen: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ count: number; spending: number; income: number; from: string; to: string } | null>(null);
+  const [done, setDone] = useState<{ count: number; spending: number; income: number; cardPayments: number; from: string; to: string } | null>(null);
 
   const summary = summarise(rows);
   const duplicates = rows.filter((r) => r.duplicateOf).length;
@@ -224,12 +252,13 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
     try {
       const importId = ids.importId;
       const txns = toTransactions(rows, importId, idFor);
+      const paid = toCardPayments(rows, idFor);
       const now = new Date().toISOString();
       const mapping = session.mapping;
       const template: ImportTemplate | null = mapping ? { sourceName: session.sourceName, mapping: { ...mapping }, lastUsed: now } : null;
-      await saveImport(txns, { id: importId, sourceName: session.sourceName, fileKind: session.fileKind, importedAt: now, rowCount: txns.length }, template);
-      const dates = txns.map((t) => t.date).sort();
-      setDone({ count: txns.length, spending: summary.spending, income: summary.income, from: dates[0], to: dates[dates.length - 1] });
+      await saveImport(txns, paid, { id: importId, sourceName: session.sourceName, fileKind: session.fileKind, importedAt: now, rowCount: txns.length }, template);
+      const dates = [...txns, ...paid].map((t) => t.date).sort();
+      setDone({ count: txns.length + paid.length, spending: summary.spending, income: summary.income, cardPayments: summary.cardPayments, from: dates[0], to: dates[dates.length - 1] });
     } catch {
       setError("Nothing was saved, because something went wrong. Your phone's storage may be full. Try again.");
     } finally {
@@ -246,7 +275,8 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
             {plural(done.count, 'item', 'items')} added
           </T>
           <T tone="secondary">
-            {formatMoneyTrim(done.spending, currency)} spending and {formatMoneyTrim(done.income, currency)} income, dated {formatDate(done.from)}
+            {formatMoneyTrim(done.spending, currency)} spending and {formatMoneyTrim(done.income, currency)} income
+            {done.cardPayments > 0 ? `, plus ${formatMoneyTrim(done.cardPayments, currency)} paid to your card (logged in Debts)` : ''}, dated {formatDate(done.from)}
             {done.to !== done.from ? ` to ${formatDate(done.to)}` : ''}.
           </T>
           <T variant="caption" tone="secondary">
@@ -346,6 +376,9 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
                   if (d) setRows((rs) => setDate(rs, r.index, d));
                 }}
                 onSimilar={() => setRows((rs) => applyCategoryToSimilar(rs, r.index, r.categoryId))}
+                cardName={cards.find((d) => d.id === r.cardId)?.name ?? null}
+                hasCards={cards.length > 0}
+                onChooseCard={cards.length > 1 || (cards.length === 1 && !r.cardId) ? () => setCardSheet(true) : undefined}
               />
             )}
           />
@@ -358,11 +391,38 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
             {error}
           </T>
         ) : null}
-        <T variant="label" testID="review-summary" accessibilityLabel={`Import ${plural(summary.count, 'item', 'items')}, ${formatMoneyTrim(summary.spending, currency)} spending, ${formatMoneyTrim(summary.income, currency)} income`}>
-          {`Import ${plural(summary.count, 'item', 'items')} · ${formatMoneyTrim(summary.spending, currency)} spending · ${formatMoneyTrim(summary.income, currency)} income`}
+        <T variant="label" testID="review-summary" accessibilityLabel={`Import ${plural(summary.count, 'item', 'items')}, ${formatMoneyTrim(summary.spending, currency)} spending, ${formatMoneyTrim(summary.income, currency)} income${summary.cardPayments > 0 ? `, ${formatMoneyTrim(summary.cardPayments, currency)} card payments` : ''}`}>
+          {`Import ${plural(summary.count, 'item', 'items')} · ${formatMoneyTrim(summary.spending, currency)} spending · ${formatMoneyTrim(summary.income, currency)} income${summary.cardPayments > 0 ? ` · ${formatMoneyTrim(summary.cardPayments, currency)} card payments` : ''}`}
         </T>
         <Button label={saving ? 'Saving…' : 'Import selected'} onPress={doImport} disabled={saving || summary.count === 0} testID="review-import" />
       </View>
+
+      <Sheet visible={cardSheet} onClose={() => setCardSheet(false)} title="Which card did it pay?" testID="review-card-sheet">
+        <View style={{ gap: Spacing.two, paddingBottom: Spacing.two }}>
+          <T tone="secondary">Card payments on this statement are logged on the card you choose, so its balance goes down. They are not income.</T>
+          {cards.map((d: Debt) => (
+            <Button
+              key={d.id}
+              label={d.name}
+              variant="secondary"
+              onPress={() => {
+                setRows((rs) => assignCard(rs, d.id));
+                setCardSheet(false);
+              }}
+              testID={`review-card-option-${d.id}`}
+            />
+          ))}
+          <Button
+            label="None: leave them out"
+            variant="plain"
+            onPress={() => {
+              setRows((rs) => assignCard(rs, null));
+              setCardSheet(false);
+            }}
+            testID="review-card-option-none"
+          />
+        </View>
+      </Sheet>
 
       <Sheet visible={!!picker && !!pickerRow} onClose={() => setPicker(null)} title={picker?.chosen ? 'Make this a rule?' : 'Choose a category'} testID="review-category-sheet">
         {pickerRow && picker?.chosen ? (
@@ -414,6 +474,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
 
 export interface ReviewData {
   transactions: Transaction[];
+  debts: Debt[];
   categories: Category[];
   rules: { pattern: string; categoryId: string }[];
   settings: { currency: string };
@@ -424,6 +485,7 @@ export default function ReviewScreen() {
   const session = useSession();
   const { data, error, reload } = useRepoQuery(async (r) => ({
     transactions: await r.listTransactions(),
+    debts: await r.listDebts(),
     categories: await r.listCategories(),
     rules: await r.listCategoryRules(),
     settings: await r.getSettings(),
