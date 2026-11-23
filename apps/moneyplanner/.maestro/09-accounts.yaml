@@ -34,4 +34,5 @@ name: Accounts
 - runFlow: common/dismiss-text-keyboard.yaml
 - tapOn:
     id: account-save
-- assertVisible: "ENBD current"
+# iOS reads the whole row as one label ("ENBD current, Main account · …"); Android has the name as its own text.
+- assertVisible: "ENBD current.*"
