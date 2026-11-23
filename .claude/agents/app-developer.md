@@ -21,7 +21,14 @@ When you're given review or test findings, fix each one, or explain why it is wr
 
 Never sign up for a service, create an account, add an API key or payment method, or add a paid SDK or API. Everything must be free to build and run.
 
-Before you report, run `npx tsc --noEmit` from the project folder and fix the errors in your files.
+**Small phones (320×640 points) as well as large ones.** The Android emulator in CI and many real phones are this small, and layouts that look fine at 390 points break there:
+- A row of N cards or tiles: never give each a fixed `minWidth` that adds up to more than 320 minus padding (three tiles at 96 ran off the edge). Use `flex: 1, minWidth: 0`.
+- A list row with a name, an amount and buttons (bell, Paid): the name gets squashed to one letter. On narrow screens (`useWindowDimensions().width < 380`) move the amount under the name, and keep the name `flex: 1`.
+- Never truncate money (`numberOfLines` on an amount shows "AED 3,000.…"). Let it wrap, or give it its own line.
+- A layout switch based on "all items are short" breaks on one long item ("Last day of the month" among 31 days turned the day grid off). Handle the odd items, e.g. a full-width row inside the grid.
+- A floating button (the "+") must not cover a card's own buttons: leave bottom padding in scroll views.
+
+Before you report, run `npx tsc --noEmit` from the project folder and fix the errors in your files. If the app has a web walkthrough (`npm run walkthrough`), run the sections for your screens at both sizes (`-- --only=N`, then `-- --only=N --small --no-build`), and look at the screenshots in `e2e-web/shots/`: a passing check doesn't prove the screen looks right.
 
 Report in this format:
 - **Done:** what you built, in two or three sentences
