@@ -278,6 +278,65 @@ describe('credit card statement with the card in Debts', () => {
   });
 });
 
+describe('milestone 3b: statements into accounts and cards', () => {
+  const SAV = { id: 'sav', name: 'ADCB savings', type: 'bank' as const, startingBalance: 0, startingBalanceDate: '2026-01-01', archived: false, sort: 1, createdAt: '2026-01-01' };
+
+  it('a card statement goes onto its card: purchases charged to it, payment logged; the source remembers the card', async () => {
+    const visa = card({ id: 'visa', name: 'Visa', balance: 0, balanceDate: '2026-11-01' });
+    const { repo } = await open({ debts: [visa] });
+    bytes.mockResolvedValue(strToU8(CARD));
+    await readIt(file('card-dec.txt', 'text/plain'));
+    expect((await screen.findByTestId('review-target')).props.accessibilityLabel).toBe('Import into Visa. Change');
+    await importAll();
+    const tx = await repo.listTransactions();
+    expect(tx.map((t) => [t.description, t.cardId ?? null])).toEqual([
+      ['TALABAT DUBAI AE', 'visa'],
+      ['NETFLIX.COM LOS GATOS', 'visa'],
+      ['REFUND NOON.COM', 'visa'],
+    ]);
+    expect(await repo.listDebtPayments()).toMatchObject([{ debtId: 'visa', amount: 200000 }]);
+    expect(await repo.getImportTemplate('card-dec.txt')).toMatchObject({ cardId: 'visa' });
+    expect((await repo.listImports())[0]).toMatchObject({ cardId: 'visa' });
+  });
+
+  it('a bank CSV into savings: a transfer pairs with the saved item in the main account; "Not a transfer" undoes it', async () => {
+    const moved = transaction({ id: 'm1', description: 'TRANSFER TO ADCB', kind: 'cost', amount: 50000, date: '2026-11-04' });
+    const csv = 'Date,Description,Amount\n05/11/2026,FROM ENBD,500.00\n06/11/2026,CARREFOUR,-20.00\n';
+    const { repo } = await open({ accounts: [SAV], transactions: [moved] });
+    bytes.mockResolvedValue(strToU8(csv));
+    await readIt(file('adcb-nov.csv', 'text/csv'));
+    // Start in the main account (nothing remembered yet), then choose the savings account.
+    expect((await screen.findByTestId('review-target')).props.accessibilityLabel).toBe('Import into Main account. Change');
+    await fireEvent.press(screen.getByTestId('review-target'));
+    await fireEvent.press(await screen.findByTestId('review-target-account-sav'));
+    const transferRow = await screen.findByTestId(/review-transfer-\d/);
+    expect(transferRow.props.children).toMatch(/^Transfer: Main account → ADCB savings: /);
+    expect(summary()).toBe('Import 2 items · AED 20 spending · AED 0 income · AED 500 transfers');
+    await importAll();
+    const all = await repo.listTransactions();
+    const into = all.find((t) => t.description === 'FROM ENBD')!;
+    expect(into).toMatchObject({ accountId: 'sav', kind: 'income' });
+    expect(into.transferId).toBeTruthy();
+    expect(all.find((t) => t.id === 'm1')?.transferId).toBe(into.transferId);
+    expect(all.find((t) => t.description === 'CARREFOUR')).toMatchObject({ accountId: 'sav' });
+    expect(await repo.getImportTemplate('adcb-nov.csv')).toMatchObject({ accountId: 'sav' });
+  });
+
+  it('"Not a transfer" keeps the row as ordinary income', async () => {
+    const moved = transaction({ id: 'm1', description: 'TRANSFER TO ADCB', kind: 'cost', amount: 50000, date: '2026-11-04' });
+    const { repo } = await open({ accounts: [SAV], transactions: [moved], importTemplates: [{ sourceName: 'adcb-nov.csv', mapping: {}, lastUsed: '2026-11-01T00:00:00.000Z', accountId: 'sav' }] });
+    bytes.mockResolvedValue(strToU8('Date,Description,Amount\n05/11/2026,FROM ENBD,500.00\n06/11/2026,CARREFOUR,-20.00\n'));
+    await readIt(file('adcb-nov.csv', 'text/csv'));
+    // Remembered: straight into savings, paired.
+    expect((await screen.findByTestId('review-target')).props.accessibilityLabel).toBe('Import into ADCB savings. Change');
+    await fireEvent.press(await screen.findByTestId('review-unpair-0'));
+    expect(summary()).toBe('Import 2 items · AED 20 spending · AED 500 income');
+    await importAll();
+    const into = (await repo.listTransactions()).find((t) => t.description === 'FROM ENBD')!;
+    expect(into.transferId ?? null).toBeNull();
+  });
+});
+
 describe('CSV export with debit and credit columns and a preamble', () => {
   it('skips the preamble, finds the columns, and Month moves by the salary and the shopping', async () => {
     const { repo } = await open();

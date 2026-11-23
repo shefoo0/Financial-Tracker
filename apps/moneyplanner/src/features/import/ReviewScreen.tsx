@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/dates';
 import { newId } from '@/lib/id';
 import { formatMoney, formatMoneyTrim } from '@/lib/money';
 import { usePro } from '@/lib/pro';
-import type { Category, Debt, DebtPayment, ImportRecord, ImportTemplate, Transaction } from '@/types';
+import { MAIN_ACCOUNT_ID, type Account, type Category, type Debt, type DebtPayment, type ImportRecord, type ImportTemplate, type Transaction } from '@/types';
 
 import { ImportProLocked } from './ProLocked';
 import {
@@ -26,7 +26,6 @@ import {
   isLowConfidence,
   looksLikeCardExport,
   lowConfidenceReason,
-  matchCard,
   merchantName,
   paysCard,
   setAllSelected,
@@ -40,6 +39,7 @@ import {
   type ReviewRow,
 } from './review';
 import { resetSession, useSession, type ImportSession } from './session';
+import { applyTarget, defaultTarget, pairedUpdates, pairTransfers, unpair, type ImportTarget } from './target';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -59,6 +59,8 @@ function RowView({
   cardName,
   hasCards,
   onChooseCard,
+  transferLabel,
+  onUnpair,
 }: {
   row: ReviewRow;
   currency: string;
@@ -68,6 +70,9 @@ function RowView({
   /** The user tracks at least one card in Debts. */
   hasCards?: boolean;
   onChooseCard?: () => void;
+  /** "Transfer: ENBD → ADCB" when the row is paired with a saved item in another account. */
+  transferLabel?: string | null;
+  onUnpair?: () => void;
   similarCount: number;
   expanded: boolean;
   dateOpen: boolean;
@@ -81,7 +86,7 @@ function RowView({
   const c = useTheme();
   const i = row.index;
   const low = isLowConfidence(row);
-  const cardPayment = row.cardPayment && row.kind === 'income';
+  const cardPayment = !!row.cardPayment;
   const category = categories.find((x) => x.id === row.categoryId);
   const money = `${row.kind === 'income' ? '+' : '-'}${formatMoney(row.amount, currency)}`;
   const moneyWords = `${row.kind === 'income' ? 'Income' : 'Spending'} ${formatMoney(row.amount, currency)}`;
@@ -114,6 +119,7 @@ function RowView({
           <View style={styles.pills}>
             {row.duplicateOf ? <Pill label="Duplicate?" tone="warning" /> : null}
             {cardPayment ? <Pill label="Card payment" tone="warning" /> : null}
+            {transferLabel ? <Pill label="Transfer" tone="accent" /> : null}
             {low ? <Pill label="Check this" tone="warning" /> : null}
           </View>
         </Pressable>
@@ -131,10 +137,21 @@ function RowView({
           {category ? category.name : 'Choose a category'} ▾
         </T>
       </Pressable>
-      {row.duplicateOf ? (
+      {row.duplicateOf?.startsWith('payment:') ? (
+        <T variant="caption" tone="secondary" testID={`review-payment-logged-${i}`}>
+          This card payment is already logged (from the card statement), so this row is unticked.
+        </T>
+      ) : row.duplicateOf ? (
         <T variant="caption" tone="secondary">
           A matching item is already saved, so this row is unticked.
         </T>
+      ) : transferLabel ? (
+        <View style={{ gap: Spacing.one }}>
+          <T variant="caption" tone="secondary" testID={`review-transfer-${i}`}>
+            {`${transferLabel}: money moving between your own accounts, not spending or income.`}
+          </T>
+          {onUnpair ? <Button label="Not a transfer" variant="plain" onPress={onUnpair} testID={`review-unpair-${i}`} /> : null}
+        </View>
       ) : cardPayment && paysCard(row) ? (
         <View style={{ gap: Spacing.one }}>
           <T variant="caption" tone="secondary" testID={`review-card-payment-${i}`}>
@@ -196,10 +213,38 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
 
   const [rules, setRules] = useState<CategoryRule[]>(() => data.rules.map((r) => ({ pattern: r.pattern, categoryId: r.categoryId })));
   const cards = data.debts.filter((d) => d.type === 'card' && !d.archived);
-  const [rows, setRows] = useState<ReviewRow[]>(() =>
-    assignCard(buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories), matchCard(data.debts, session.sourceName, session.result?.account)),
-  );
+  const accounts = data.accounts.filter((a) => !a.archived);
+  const mainName = data.settings.mainAccountName ?? 'Main account';
+  const [target, setTarget] = useState<ImportTarget>(() => {
+    const first = buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories);
+    return defaultTarget({
+      template: data.template,
+      debts: data.debts,
+      accounts: data.accounts,
+      settings: data.settings,
+      sourceName: session.sourceName,
+      account: session.result?.account,
+      cardLike: looksLikeCardExport(session.sourceName, first) || (!!session.result?.account && cards.some((c) => c.name.includes(session.result!.account!))),
+    });
+  });
+  /** Points the rows at a target and pairs transfers with the user's other accounts. */
+  const aim = (rs: ReviewRow[], t: ImportTarget) => pairTransfers(applyTarget(rs, t, data.debts, data.debtPayments), t, data.transactions, data.accounts);
+  const [rows, setRows] = useState<ReviewRow[]>(() => aim(buildReviewRows(session.result?.rows ?? [], data.transactions, rules, categories), target));
   const [cardSheet, setCardSheet] = useState(false);
+  const [targetSheet, setTargetSheet] = useState(false);
+  const accountName = (id: string | undefined | null) => (!id || id === MAIN_ACCOUNT_ID ? mainName : (data.accounts.find((a) => a.id === id)?.name ?? mainName));
+  const targetName = target.kind === 'card' ? (cards.find((c) => c.id === target.id)?.name ?? 'Card') : accountName(target.id);
+  const chooseTarget = (t: ImportTarget) => {
+    setTarget(t);
+    setRows((rs) => aim(rs, t));
+    setTargetSheet(false);
+  };
+  const transferLabel = (r: ReviewRow) => {
+    if (!r.pairWith) return null;
+    const here = accountName(target.id);
+    const there = accountName(r.pairAccount);
+    return r.kind === 'cost' ? `Transfer: ${here} → ${there}` : `Transfer: ${there} → ${here}`;
+  };
   // Made once per review: a retry after a failed save writes the same ids again instead of adding copies.
   const [ids] = useState(() => ({ importId: newId(), rowIds: new Map<number, string>() }));
   const idFor = (index: number) => {
@@ -253,12 +298,18 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
     setError(null);
     try {
       const importId = ids.importId;
-      const txns = toTransactions(rows, importId, idFor);
+      const transferIdFor = (index: number) => `tr-${idFor(index)}`;
+      const txns = toTransactions(rows, importId, idFor, transferIdFor);
+      const paired = pairedUpdates(rows, data.transactions, transferIdFor);
       const paid = toCardPayments(rows, idFor);
+      const link = target.kind === 'card' ? { cardId: target.id } : target.id !== MAIN_ACCOUNT_ID ? { accountId: target.id } : {};
       const now = new Date().toISOString();
       const mapping = session.mapping;
-      const template: ImportTemplate | null = mapping ? { sourceName: session.sourceName, mapping: { ...mapping }, lastUsed: now } : null;
-      await saveImport(txns, paid, { id: importId, sourceName: session.sourceName, fileKind: session.fileKind, importedAt: now, rowCount: txns.length }, template);
+      // A file remembers its columns (CSV/Excel) and where it goes, for next time. Pasted or shared text is always
+      // "Shared text", whichever bank sent it, so nothing is remembered for it.
+      const template: ImportTemplate | null =
+        session.sourceName === 'Shared text' ? null : { sourceName: session.sourceName, mapping: mapping ? { ...mapping } : {}, lastUsed: now, ...link };
+      await saveImport([...txns, ...paired], paid, { id: importId, sourceName: session.sourceName, fileKind: session.fileKind, importedAt: now, rowCount: txns.length, ...link }, template);
       const dates = [...txns, ...paid].map((t) => t.date).sort();
       setDone({ count: txns.length + paid.length, spending: summary.spending, income: summary.income, cardPayments: summary.cardPayments, from: dates[0], to: dates[dates.length - 1] });
     } catch {
@@ -306,6 +357,14 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
     <View style={styles.listHeader}>
       <ScreenHeader title="Review" subtitle={session.sourceName} />
       <Card>
+        <Pressable
+          onPress={() => setTargetSheet(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Import into ${targetName}. Change`}
+          testID="review-target"
+          style={[styles.category, { alignSelf: 'stretch', borderColor: c.border, backgroundColor: c.backgroundElement }]}>
+          <T variant="label">{`Into: ${targetName} ▾`}</T>
+        </Pressable>
         <T variant="label">{plural(rows.length, 'item', 'items')} found</T>
         {duplicates > 0 ? (
           <T variant="caption" tone="warning">
@@ -329,7 +388,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
         ))}
         <View style={styles.actions}>
           <Button label={allOn ? 'Untick all' : 'Select all'} variant="secondary" onPress={() => setRows((rs) => setAllSelected(rs, !allOn))} testID="review-select-all" />
-          <Button label="Flip all signs" variant="secondary" onPress={() => setRows((rs) => flipAll(rs, rules, categories))} testID="review-flip-all" accessibilityHint="Switches every row between money in and money out" />
+          <Button label="Flip all signs" variant="secondary" onPress={() => setRows((rs) => aim(flipAll(rs, rules, categories), target))} testID="review-flip-all" accessibilityHint="Switches every row between money in and money out" />
           {tabular ? <Button label="Fix columns" variant="plain" onPress={() => router.push('/import/columns')} testID="review-fix-columns" accessibilityHint="Choose which column holds the date, description and amount" /> : null}
         </View>
       </Card>
@@ -380,7 +439,9 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
                 onSimilar={() => setRows((rs) => applyCategoryToSimilar(rs, r.index, r.categoryId))}
                 cardName={cards.find((d) => d.id === r.cardId)?.name ?? null}
                 hasCards={cards.length > 0}
-                onChooseCard={cards.length > 1 || (cards.length === 1 && !r.cardId) ? () => setCardSheet(true) : undefined}
+                onChooseCard={r.cardPayment && (cards.length > 1 || (cards.length === 1 && !r.cardId)) ? () => setCardSheet(true) : undefined}
+                transferLabel={transferLabel(r)}
+                onUnpair={() => setRows((rs) => unpair(rs, r.index))}
               />
             )}
           />
@@ -394,10 +455,22 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
           </T>
         ) : null}
         <T variant="label" testID="review-summary" accessibilityLabel={`Import ${plural(summary.count, 'item', 'items')}, ${formatMoneyTrim(summary.spending, currency)} spending, ${formatMoneyTrim(summary.income, currency)} income${summary.cardPayments > 0 ? `, ${formatMoneyTrim(summary.cardPayments, currency)} card payments` : ''}`}>
-          {`Import ${plural(summary.count, 'item', 'items')} · ${formatMoneyTrim(summary.spending, currency)} spending · ${formatMoneyTrim(summary.income, currency)} income${summary.cardPayments > 0 ? ` · ${formatMoneyTrim(summary.cardPayments, currency)} card payments` : ''}`}
+          {`Import ${plural(summary.count, 'item', 'items')} · ${formatMoneyTrim(summary.spending, currency)} spending · ${formatMoneyTrim(summary.income, currency)} income${summary.cardPayments > 0 ? ` · ${formatMoneyTrim(summary.cardPayments, currency)} card payments` : ''}${summary.transfers > 0 ? ` · ${formatMoneyTrim(summary.transfers, currency)} transfers` : ''}`}
         </T>
         <Button label={saving ? 'Saving…' : 'Import selected'} onPress={doImport} disabled={saving || summary.count === 0} testID="review-import" />
       </View>
+
+      <Sheet visible={targetSheet} onClose={() => setTargetSheet(false)} title="Import into" testID="review-target-sheet">
+        <View style={{ gap: Spacing.two, paddingBottom: Spacing.two }}>
+          <T tone="secondary">A bank statement goes into an account. A card statement goes onto its card: purchases add to what you owe on it, not to your bank balance.</T>
+          {[{ id: MAIN_ACCOUNT_ID, name: mainName }, ...accounts].map((a) => (
+            <Button key={a.id} label={a.name} variant={target.kind === 'account' && target.id === a.id ? 'primary' : 'secondary'} onPress={() => chooseTarget({ kind: 'account', id: a.id })} testID={`review-target-account-${a.id}`} />
+          ))}
+          {cards.map((d) => (
+            <Button key={d.id} label={`${d.name} (card)`} variant={target.kind === 'card' && target.id === d.id ? 'primary' : 'secondary'} onPress={() => chooseTarget({ kind: 'card', id: d.id })} testID={`review-target-card-${d.id}`} />
+          ))}
+        </View>
+      </Sheet>
 
       <Sheet visible={cardSheet} onClose={() => setCardSheet(false)} title="Which card did it pay?" testID="review-card-sheet">
         <View style={{ gap: Spacing.two, paddingBottom: Spacing.two }}>
@@ -477,9 +550,13 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
 export interface ReviewData {
   transactions: Transaction[];
   debts: Debt[];
+  debtPayments: DebtPayment[];
+  accounts: Account[];
+  /** What this source used last time (columns and where it goes). */
+  template: ImportTemplate | null;
   categories: Category[];
   rules: { pattern: string; categoryId: string }[];
-  settings: { currency: string };
+  settings: { currency: string; mainAccountName?: string; defaultAccountId: string | null };
 }
 
 export default function ReviewScreen() {
@@ -488,6 +565,9 @@ export default function ReviewScreen() {
   const { data, error, reload } = useRepoQuery(async (r) => ({
     transactions: await r.listTransactions(),
     debts: await r.listDebts(),
+    debtPayments: await r.listDebtPayments(),
+    accounts: await r.listAccounts(),
+    template: session.sourceName ? await r.getImportTemplate(session.sourceName) : null,
     categories: await r.listCategories(),
     rules: await r.listCategoryRules(),
     settings: await r.getSettings(),

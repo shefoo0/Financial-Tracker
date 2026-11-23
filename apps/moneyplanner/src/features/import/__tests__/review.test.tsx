@@ -44,7 +44,7 @@ describe('review logic', () => {
   it('groups by day, newest first, and totals only the ticked rows', () => {
     const rows = buildReviewRows(ROWS, [saved({})], [], []);
     expect(groupByDate(rows).map((g) => [g.date, g.rows.length])).toEqual([['2026-11-22', 1], ['2026-11-21', 2], ['2026-11-20', 1], ['2026-11-19', 1]]);
-    expect(summarise(rows)).toEqual({ count: 4, spending: 8500, income: 1800000, cardPayments: 0 });
+    expect(summarise(rows)).toEqual({ count: 4, spending: 8500, income: 1800000, cardPayments: 0, transfers: 0 });
   });
 });
 

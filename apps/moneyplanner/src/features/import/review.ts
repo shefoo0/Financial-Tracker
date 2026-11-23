@@ -1,7 +1,7 @@
 // Pure logic of the review screen: rows with their suggested category, duplicates, fixes and the totals.
 import type { CategoryRule, ParsedRow } from '@/import/parse';
 import { dedupe, merchantKey, suggestCategory } from '@/import/parse';
-import type { Category, Debt, DebtPayment, Fils, ISODate, Kind, Transaction } from '@/types';
+import { MAIN_ACCOUNT_ID, type Category, type Debt, type DebtPayment, type Fils, type ISODate, type Kind, type Transaction } from '@/types';
 
 /** Rows below this confidence are shown with "Check this". */
 export const LOW_CONFIDENCE = 0.7;
@@ -28,8 +28,19 @@ export interface ReviewRow {
   manual: boolean;
   /** Money in that only pays off a card (not income). */
   cardPayment?: boolean;
-  /** The card (Debts) this payment pays off. Ticked with a card: saved as a payment on that card, never as income. */
+  /**
+   * The card involved: for a card payment, the card it pays off (saved as a payment on that card, never income or
+   * spending); for any other row, the card it is charged to (a card statement).
+   */
   cardId?: string | null;
+  /** Bank/cash account the row goes into (null = the main account, or a card statement). */
+  accountId?: string | null;
+  /** A saved item in another of the user's accounts this row is a transfer with (same money moving the other way). */
+  pairWith?: string;
+  /** The account of that saved item, for the label "Transfer: A → B". */
+  pairAccount?: string;
+  /** The user undid a pairing: never paired again in this review. */
+  unpaired?: boolean;
 }
 
 /**
@@ -55,7 +66,7 @@ export function assignCard(rows: ReviewRow[], cardId: string | null): ReviewRow[
 }
 
 /** A card-payment row that will be saved as a payment on its card. */
-export const paysCard = (r: ReviewRow) => !!r.cardPayment && r.kind === 'income' && !!r.cardId;
+export const paysCard = (r: ReviewRow) => !!r.cardPayment && !!r.cardId;
 
 /** Payments into a card account: they reduce what is owed, they are not income. */
 export const CARD_PAYMENT = /\b(payment received|payment[\s-]+thank you|thank you for (your )?payment|card payment|credit card payment|cc payment|autopay|auto[\s-]?pay|direct debit payment|payment by direct debit)\b|سداد البطاقة|سداد بطاقة|دفعة بطاقة/i;
@@ -179,14 +190,17 @@ export interface ReviewSummary {
   income: Fils;
   /** Ticked card payments, logged on their card (not income). */
   cardPayments: Fils;
+  /** Ticked transfers with another of the user's accounts (not income or spending). */
+  transfers: Fils;
 }
 
 export function summarise(rows: ReviewRow[]): ReviewSummary {
-  const out: ReviewSummary = { count: 0, spending: 0, income: 0, cardPayments: 0 };
+  const out: ReviewSummary = { count: 0, spending: 0, income: 0, cardPayments: 0, transfers: 0 };
   for (const r of rows) {
     if (!r.selected) continue;
     out.count += 1;
     if (paysCard(r)) out.cardPayments += r.amount;
+    else if (r.pairWith) out.transfers += r.amount;
     else if (r.kind === 'income') out.income += r.amount;
     else out.spending += r.amount;
   }
@@ -210,7 +224,7 @@ export function groupByDate(rows: ReviewRow[]): DateGroup[] {
 }
 
 /** The transactions an import saves: only ticked rows, as real (not planned) items marked as imported. Card payments are not transactions. */
-export function toTransactions(rows: ReviewRow[], importId: string, idFor: (index: number) => string): Transaction[] {
+export function toTransactions(rows: ReviewRow[], importId: string, idFor: (index: number) => string, transferIdFor?: (index: number) => string): Transaction[] {
   return rows
     .filter((r) => r.selected && !paysCard(r))
     .map((r) => ({
@@ -218,12 +232,15 @@ export function toTransactions(rows: ReviewRow[], importId: string, idFor: (inde
       kind: r.kind,
       date: r.date,
       description: r.description,
-      categoryId: r.categoryId,
+      categoryId: r.pairWith ? null : r.categoryId,
       amount: r.amount,
       note: '',
       source: 'import' as const,
       importId,
       planned: false,
+      ...(r.accountId && r.accountId !== MAIN_ACCOUNT_ID ? { accountId: r.accountId } : {}),
+      ...(r.cardId ? { cardId: r.cardId } : {}),
+      ...(r.pairWith && transferIdFor ? { transferId: transferIdFor(r.index) } : {}),
     }));
 }
 

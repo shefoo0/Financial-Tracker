@@ -27,7 +27,7 @@ describe('card payments in the review', () => {
   it('with a card: ticked, saved as a payment on the card, not as a transaction or income', () => {
     const rows = assignCard([row(), row({ index: 1, description: 'TALABAT', kind: 'cost', amount: 8990, cardPayment: false, selected: true })], 'visa');
     expect(rows[0]).toMatchObject({ selected: true, cardId: 'visa' });
-    expect(summarise(rows)).toEqual({ count: 2, spending: 8990, income: 0, cardPayments: 200000 });
+    expect(summarise(rows)).toEqual({ count: 2, spending: 8990, income: 0, cardPayments: 200000, transfers: 0 });
     expect(toTransactions(rows, 'imp', (i) => `t${i}`).map((t) => t.description)).toEqual(['TALABAT']);
     expect(toCardPayments(rows, (i) => `t${i}`)).toEqual([{ id: 't0', debtId: 'visa', date: '2026-12-02', amount: 200000, kind: 'regular', note: 'Imported: PAYMENT RECEIVED - THANK YOU' }]);
   });
