@@ -44,6 +44,10 @@ export interface RecurringItem {
   /** Number of occurrences, or null for no limit. If both endDate and count are set, whichever comes first. */
   count: number | null;
   note: string;
+  /** Bank or cash account the money goes out of or into (Account.id); null or missing = the main account. */
+  accountId?: string | null;
+  /** Card (a card in Debts) it is charged to: it adds to that card's balance, not the bank's. Null or missing = not on a card. */
+  cardId?: string | null;
 }
 
 /**
@@ -88,6 +92,10 @@ export interface Transaction {
   importId: string | null;
   /** True for a future item the user expects; false once it has happened. */
   planned: boolean;
+  /** Bank or cash account the money goes out of or into (Account.id); null or missing = the main account. */
+  accountId?: string | null;
+  /** Card (a card in Debts) it is charged to: it adds to that card's balance, not the bank's. Null or missing = not on a card. */
+  cardId?: string | null;
 }
 
 export interface AlertThresholds {
@@ -150,6 +158,32 @@ export interface Settings {
   tipsSeen: string[];
   /** How many times Home has been opened (the "Edit Home" tip waits for 3). */
   homeVisits: number;
+  /** Name of the main bank account (the one whose balance is startingBalance). */
+  mainAccountName: string;
+  /** Account new items use (Pro); null = the main account. */
+  defaultAccountId: string | null;
+}
+
+// ---- Money accounts (milestone 3b) ----
+
+/** The main account: its balance is Settings.startingBalance, so it has no row of its own. */
+export const MAIN_ACCOUNT_ID = 'main';
+
+export type AccountType = 'bank' | 'cash';
+
+/** A bank or cash account besides the main one (Pro). Cards stay in Debts; items point at them with cardId. */
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  /** Balance the forecast starts from... */
+  startingBalance: Fils;
+  /** ...as of the end of this date. */
+  startingBalanceDate: ISODate;
+  /** Hidden from lists once closed; kept so old items keep their account. */
+  archived: boolean;
+  sort: number;
+  createdAt: ISODate;
 }
 
 // ---- Debts (milestone 2) ----
@@ -401,6 +435,9 @@ export interface ImportRecord {
   /** ISO timestamp. */
   importedAt: string;
   rowCount: number;
+  /** The account (or card) the statement belongs to; missing = the main account. */
+  accountId?: string | null;
+  cardId?: string | null;
 }
 
 /** The column layout remembered for a bank file, so the next one imports without questions. */
@@ -410,6 +447,9 @@ export interface ImportTemplate {
   mapping: Record<string, unknown>;
   /** ISO timestamp. */
   lastUsed: string;
+  /** The account (or card) this source's statements belong to, remembered like the columns. */
+  accountId?: string | null;
+  cardId?: string | null;
 }
 
 /** "Descriptions containing this merchant go to this category", learned from the review screen. */

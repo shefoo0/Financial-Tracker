@@ -4,6 +4,7 @@ import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
 import { keepDeviceLocal, settingsFromStored } from '@/data/settingsSchema';
 import type {
+  Account,
   Category,
   BalanceSnapshot,
   CategoryRuleRecord,
@@ -36,6 +37,20 @@ const toCategory = (r: Row): Category => ({
   monthlyLimit: r.monthly_limit ?? null,
 });
 
+/** account_id / card_id as optional fields: absent when NULL, so items from before accounts read exactly as before. */
+const links = (r: Row) => ({ ...(r.account_id != null ? { accountId: r.account_id as string } : {}), ...(r.card_id != null ? { cardId: r.card_id as string } : {}) });
+
+const toAccount = (r: Row): Account => ({
+  id: r.id,
+  name: r.name,
+  type: r.type,
+  startingBalance: r.starting_balance,
+  startingBalanceDate: r.starting_balance_date,
+  archived: r.archived === 1,
+  sort: r.sort,
+  createdAt: r.created_at,
+});
+
 const toRecurring = (r: Row): RecurringItem => ({
   id: r.id,
   kind: r.kind,
@@ -47,6 +62,7 @@ const toRecurring = (r: Row): RecurringItem => ({
   endDate: r.end_date ?? null,
   count: r.count ?? null,
   note: r.note ?? '',
+  ...links(r),
 });
 
 const toOverride = (r: Row): OccurrenceOverride => ({
@@ -70,6 +86,7 @@ const toTransaction = (r: Row): Transaction => ({
   source: r.source,
   importId: r.import_id ?? null,
   planned: r.planned === 1,
+  ...links(r),
 });
 
 /** Debt columns; everything else (type-specific fields and the note) lives in the `fields` JSON. */
@@ -120,6 +137,7 @@ const toImport = (r: Row): ImportRecord => ({
   fileKind: r.file_kind,
   importedAt: r.imported_at,
   rowCount: r.row_count,
+  ...links(r),
 });
 
 const toTemplate = (r: Row): ImportTemplate => {
@@ -130,7 +148,7 @@ const toTemplate = (r: Row): ImportTemplate => {
   } catch {
     // a corrupt layout is ignored: the next import guesses the columns again
   }
-  return { sourceName: r.source_name, mapping, lastUsed: r.last_used };
+  return { sourceName: r.source_name, mapping, lastUsed: r.last_used, ...links(r) };
 };
 
 const toRule = (r: Row): CategoryRuleRecord => ({ id: r.id, pattern: r.pattern, categoryId: r.category_id, createdAt: r.created_at });
@@ -142,17 +160,18 @@ const writeSnapshot = (w: Writer, s: BalanceSnapshot) =>
 
 const writeImport = (w: Writer, i: ImportRecord) =>
   w.runAsync(
-    `INSERT INTO imports (id, source_name, file_kind, imported_at, row_count) VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO imports (id, source_name, file_kind, imported_at, row_count, account_id, card_id) VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET source_name = excluded.source_name, file_kind = excluded.file_kind,
-       imported_at = excluded.imported_at, row_count = excluded.row_count`,
-    [i.id, i.sourceName, i.fileKind, i.importedAt, i.rowCount],
+       imported_at = excluded.imported_at, row_count = excluded.row_count, account_id = excluded.account_id, card_id = excluded.card_id`,
+    [i.id, i.sourceName, i.fileKind, i.importedAt, i.rowCount, i.accountId ?? null, i.cardId ?? null],
   );
 
 const writeTemplate = (w: Writer, t: ImportTemplate) =>
   w.runAsync(
-    `INSERT INTO import_templates (source_name, mapping, last_used) VALUES (?, ?, ?)
-     ON CONFLICT(source_name) DO UPDATE SET mapping = excluded.mapping, last_used = excluded.last_used`,
-    [t.sourceName, JSON.stringify(t.mapping), t.lastUsed],
+    `INSERT INTO import_templates (source_name, mapping, last_used, account_id, card_id) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(source_name) DO UPDATE SET mapping = excluded.mapping, last_used = excluded.last_used,
+       account_id = excluded.account_id, card_id = excluded.card_id`,
+    [t.sourceName, JSON.stringify(t.mapping), t.lastUsed, t.accountId ?? null, t.cardId ?? null],
   );
 
 async function writeRule(w: Writer, r: CategoryRuleRecord) {
@@ -176,12 +195,13 @@ const writeCategory = (w: Writer, c: Category) =>
 const writeRecurring = (w: Writer, r: RecurringItem) =>
   w.runAsync(
     `INSERT INTO recurring_items
-      (id, kind, name, category_id, amount, schedule, start_date, end_date, count, note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, kind, name, category_id, amount, schedule, start_date, end_date, count, note, account_id, card_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, name = excluded.name, category_id = excluded.category_id,
        amount = excluded.amount, schedule = excluded.schedule, start_date = excluded.start_date,
-       end_date = excluded.end_date, count = excluded.count, note = excluded.note`,
-    [r.id, r.kind, r.name, r.categoryId, r.amount, JSON.stringify(r.schedule), r.startDate, r.endDate, r.count, r.note],
+       end_date = excluded.end_date, count = excluded.count, note = excluded.note,
+       account_id = excluded.account_id, card_id = excluded.card_id`,
+    [r.id, r.kind, r.name, r.categoryId, r.amount, JSON.stringify(r.schedule), r.startDate, r.endDate, r.count, r.note, r.accountId ?? null, r.cardId ?? null],
   );
 
 async function writeOverride(w: Writer, o: OccurrenceOverride) {
@@ -203,12 +223,12 @@ async function writeOverride(w: Writer, o: OccurrenceOverride) {
 const writeTransaction = (w: Writer, t: Transaction) =>
   w.runAsync(
     `INSERT INTO transactions
-      (id, kind, date, description, category_id, amount, note, source, import_id, planned)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, kind, date, description, category_id, amount, note, source, import_id, planned, account_id, card_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, date = excluded.date, description = excluded.description,
        category_id = excluded.category_id, amount = excluded.amount, note = excluded.note, source = excluded.source,
-       import_id = excluded.import_id, planned = excluded.planned`,
-    [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned)],
+       import_id = excluded.import_id, planned = excluded.planned, account_id = excluded.account_id, card_id = excluded.card_id`,
+    [t.id, t.kind, t.date, t.description, t.categoryId, t.amount, t.note, t.source, t.importId, bool(t.planned), t.accountId ?? null, t.cardId ?? null],
   );
 
 const writeDebt = (w: Writer, d: Debt) => {
@@ -264,8 +284,16 @@ async function writeSettings(w: Writer, s: Partial<Settings>) {
 }
 
 /** Removes every row from every data table. */
+const writeAccount = (w: Writer, a: Account) =>
+  w.runAsync(
+    `INSERT INTO accounts (id, name, type, starting_balance, starting_balance_date, archived, sort, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, starting_balance = excluded.starting_balance,
+       starting_balance_date = excluded.starting_balance_date, archived = excluded.archived, sort = excluded.sort, created_at = excluded.created_at`,
+    [a.id, a.name, a.type, a.startingBalance, a.startingBalanceDate, bool(a.archived), a.sort, a.createdAt],
+  );
+
 async function clearAll(w: Writer) {
-  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques', 'imports', 'import_templates', 'category_rules', 'balance_snapshots']) {
+  for (const table of ['settings', 'categories', 'recurring_items', 'occurrence_overrides', 'transactions', 'debts', 'debt_payments', 'debt_overrides', 'cheques', 'imports', 'import_templates', 'category_rules', 'balance_snapshots', 'accounts']) {
     await w.runAsync(`DELETE FROM ${table}`);
   }
 }
@@ -378,6 +406,8 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       ? await db.getAllAsync<Row>('SELECT * FROM debt_overrides ORDER BY rowid')
       : await db.getAllAsync<Row>('SELECT * FROM debt_overrides WHERE debt_id = ? ORDER BY rowid', [debtId])
     ).map(toDebtOverride);
+  const readAccounts = async (db: SQLite.SQLiteDatabase) =>
+    (await db.getAllAsync<Row>('SELECT * FROM accounts ORDER BY sort, id')).map(toAccount);
   const readCheques = async (db: SQLite.SQLiteDatabase) =>
     (await db.getAllAsync<Row>('SELECT * FROM cheques ORDER BY date, id')).map(toCheque);
 
@@ -422,6 +452,23 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       );
       if (used && used.n > 0) await db.runAsync('UPDATE categories SET archived = 1 WHERE id = ?', [id]);
       else await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
+      }),
+
+    async listAccounts() {
+      return readAccounts(await getDb());
+    },
+    async upsertAccount(account) {
+      await write((db) => writeAccount(db, account));
+    },
+    removeAccount: (id) =>
+      write(async (db) => {
+        const used = await db.getFirstAsync<{ n: number }>(
+          `SELECT (SELECT COUNT(*) FROM recurring_items WHERE account_id = ?)
+                + (SELECT COUNT(*) FROM transactions WHERE account_id = ?) AS n`,
+          [id, id],
+        );
+        if (used && used.n > 0) await db.runAsync('UPDATE accounts SET archived = 1 WHERE id = ?', [id]);
+        else await db.runAsync('DELETE FROM accounts WHERE id = ?', [id]);
       }),
 
     async listRecurring() {
@@ -576,6 +623,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
         importTemplates: (await db.getAllAsync<Row>('SELECT * FROM import_templates ORDER BY source_name')).map(toTemplate),
         categoryRules: (await db.getAllAsync<Row>('SELECT * FROM category_rules ORDER BY created_at, id')).map(toRule),
         balanceSnapshots: (await db.getAllAsync<Row>('SELECT * FROM balance_snapshots ORDER BY date')).map(toSnapshot),
+        accounts: await readAccounts(db),
       };
     },
     async importAll(data) {
@@ -599,6 +647,8 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
           for (const t of data.importTemplates ?? []) await writeTemplate(txn, t);
           for (const r of data.categoryRules ?? []) await writeRule(txn, r);
           for (const s of data.balanceSnapshots ?? []) await writeSnapshot(txn, s);
+          // Backups made before money accounts have only the main account.
+          for (const a of data.accounts ?? []) await writeAccount(txn, a);
         }),
       );
     },

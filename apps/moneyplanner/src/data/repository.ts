@@ -3,6 +3,7 @@
 //   src/data/memory/memory-repository.ts  (tests and the web preview)
 import type {
   CategoryRuleRecord,
+  Account,
   BalanceSnapshot,
   Category,
   Cheque,
@@ -42,6 +43,8 @@ export interface BackupData {
   categoryRules?: CategoryRuleRecord[];
   /** Balance history anchors. Optional: older backups restore with none. */
   balanceSnapshots?: BalanceSnapshot[];
+  /** Money accounts besides the main one (milestone 3b). Optional: older backups restore with only the main account. */
+  accounts?: Account[];
 }
 
 export interface Repository {
@@ -56,6 +59,12 @@ export interface Repository {
   upsertCategory(category: Category): Promise<void>;
   /** Archives a category in use (so old items keep their label); deletes it otherwise. */
   removeCategory(id: string): Promise<void>;
+
+  /** Bank and cash accounts besides the main one, in their order (archived ones included). */
+  listAccounts(): Promise<Account[]>;
+  upsertAccount(account: Account): Promise<void>;
+  /** Archives an account that items still use (they keep their account); deletes it otherwise. */
+  removeAccount(id: string): Promise<void>;
 
   listRecurring(): Promise<RecurringItem[]>;
   upsertRecurring(item: RecurringItem): Promise<void>;

@@ -126,6 +126,30 @@ export const MIGRATIONS: string[] = [
     balance INTEGER NOT NULL
   );
   `,
+  // v6 (M3b): money accounts besides the main one, and the account / card of items, imports and import layouts.
+  // NULL account_id is the main account and NULL card_id is "not on a card", so existing data needs no copying.
+  `
+  CREATE TABLE accounts (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    starting_balance INTEGER NOT NULL,
+    starting_balance_date TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0,
+    sort INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  ALTER TABLE transactions ADD COLUMN account_id TEXT;
+  ALTER TABLE transactions ADD COLUMN card_id TEXT;
+  ALTER TABLE recurring_items ADD COLUMN account_id TEXT;
+  ALTER TABLE recurring_items ADD COLUMN card_id TEXT;
+  ALTER TABLE imports ADD COLUMN account_id TEXT;
+  ALTER TABLE imports ADD COLUMN card_id TEXT;
+  ALTER TABLE import_templates ADD COLUMN account_id TEXT;
+  ALTER TABLE import_templates ADD COLUMN card_id TEXT;
+  CREATE INDEX idx_transactions_account ON transactions (account_id);
+  CREATE INDEX idx_transactions_card ON transactions (card_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

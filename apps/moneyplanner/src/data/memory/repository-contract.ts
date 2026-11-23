@@ -3,7 +3,7 @@ import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type Repository } from '@/data/repository';
 import { SETTING_KEYS } from '@/data/settingsSchema';
 import { defaultHomeLayout } from '@/features/home/layout';
-import type { Settings, CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
+import type { Account, Settings, CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
 
 export const rec = (o: Partial<RecurringItem> = {}): RecurringItem => ({
   id: 'r1', kind: 'cost', name: 'Rent', categoryId: 'housing', amount: 500000,
@@ -43,6 +43,9 @@ export const chq = (o: Partial<Cheque> = {}): Cheque => ({
 export const imp = (o: Partial<ImportRecord> = {}): ImportRecord => ({
   id: 'i1', sourceName: 'ENBD-march.csv', fileKind: 'csv', importedAt: '2026-04-01T08:00:00.000Z', rowCount: 12, ...o,
 });
+export const acct = (o: Partial<Account> = {}): Account => ({
+  id: 'acc-2', name: 'ENBD current', type: 'bank', startingBalance: 250000, startingBalanceDate: '2026-03-01', archived: false, sort: 1, createdAt: '2026-03-01', ...o,
+});
 export const tpl = (o: Partial<ImportTemplate> = {}): ImportTemplate => ({
   sourceName: 'ENBD-march.csv', mapping: { delimiter: ',', headerRow: 0, date: 0, description: 1, debit: null, credit: null, amount: 2, balance: null, direction: null, dateOrder: 'dmy' },
   lastUsed: '2026-04-01T08:00:00.000Z', ...o,
@@ -70,6 +73,8 @@ export const SETTING_SAMPLES: Settings = {
   homeLayout: [...defaultHomeLayout().reverse().map((e, i) => ({ ...e, visible: i % 2 === 0 })), { id: 'chart:savings-rate', visible: true }],
   tipsSeen: ['edit-balance'],
   homeVisits: 4,
+  mainAccountName: 'ENBD current',
+  defaultAccountId: 'acc-2',
 };
 
 export function runRepositoryContract(name: string, make: () => Promise<Repository>) {
@@ -596,6 +601,58 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
         expect(await repo.listImports()).toEqual([]);
         expect(await repo.listCategoryRules()).toEqual([]);
         expect(await repo.getImportTemplate('ENBD-march.csv')).toBeNull();
+      });
+    });
+
+    describe('money accounts (milestone 3b)', () => {
+      it('lists accounts in their order, updates them, and has none besides the main account at first', async () => {
+        expect(await repo.listAccounts()).toEqual([]);
+        await repo.upsertAccount(acct({ id: 'b', name: 'Savings', sort: 2 }));
+        await repo.upsertAccount(acct({ id: 'a', sort: 1 }));
+        await repo.upsertAccount(acct({ id: 'b', name: 'ADCB savings', sort: 2, type: 'bank' }));
+        expect((await repo.listAccounts()).map((a) => [a.id, a.name])).toEqual([['a', 'ENBD current'], ['b', 'ADCB savings']]);
+        expect((await repo.listAccounts())[0]).toEqual(acct({ id: 'a', sort: 1 }));
+      });
+
+      it('archives an account items still use, and deletes an unused one', async () => {
+        await repo.upsertAccount(acct({ id: 'used' }));
+        await repo.upsertAccount(acct({ id: 'free', sort: 2 }));
+        await repo.upsertTransaction(txn({ accountId: 'used' }));
+        await repo.removeAccount('used');
+        await repo.removeAccount('free');
+        expect(await repo.listAccounts()).toEqual([acct({ id: 'used', archived: true })]);
+      });
+
+      it('keeps the account and card of items, recurring items, imports and import layouts', async () => {
+        await repo.upsertTransaction(txn({ id: 'onCard', cardId: 'C1' }));
+        await repo.upsertTransaction(txn({ id: 'inSavings', accountId: 'acc-2' }));
+        await repo.upsertTransaction(txn({ id: 'main' }));
+        await repo.upsertRecurring(rec({ accountId: 'acc-2', cardId: 'C1' }));
+        await repo.saveImportBatch({ transactions: [], importRecord: imp({ accountId: 'acc-2' }), template: tpl({ cardId: 'C1' }) });
+        const byId = Object.fromEntries((await repo.listTransactions()).map((t) => [t.id, t]));
+        expect(byId.onCard).toEqual(txn({ id: 'onCard', cardId: 'C1' }));
+        expect(byId.inSavings).toEqual(txn({ id: 'inSavings', accountId: 'acc-2' }));
+        // An item with no account is in the main account, and reads exactly as before accounts existed.
+        expect(byId.main).toEqual(txn({ id: 'main' }));
+        expect('accountId' in byId.main && byId.main.accountId != null).toBe(false);
+        expect(await repo.listRecurring()).toEqual([rec({ accountId: 'acc-2', cardId: 'C1' })]);
+        expect(await repo.listImports()).toEqual([imp({ accountId: 'acc-2' })]);
+        expect(await repo.getImportTemplate('ENBD-march.csv')).toEqual(tpl({ cardId: 'C1' }));
+      });
+
+      it('exports accounts with everything else and restores them (a backup without accounts restores with none)', async () => {
+        await repo.upsertAccount(acct({ id: 'a' }));
+        await repo.upsertTransaction(txn({ accountId: 'a' }));
+        const backup = await repo.exportAll();
+        expect(backup.accounts).toEqual([acct({ id: 'a' })]);
+        await repo.deleteAll();
+        expect(await repo.listAccounts()).toEqual([]);
+        await repo.importAll(backup);
+        expect(await repo.listAccounts()).toEqual([acct({ id: 'a' })]);
+        expect((await repo.listTransactions())[0].accountId).toBe('a');
+        const { accounts: _, ...older } = backup;
+        await repo.importAll(older);
+        expect(await repo.listAccounts()).toEqual([]);
       });
     });
   });

@@ -3,6 +3,7 @@ import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
 import { applySettingsPatch, keepDeviceLocal, settingsFromStored } from '@/data/settingsSchema';
 import type {
+  Account,
   Category,
   BalanceSnapshot,
   CategoryRuleRecord,
@@ -41,6 +42,8 @@ function putRule(list: CategoryRuleRecord[], rule: CategoryRuleRecord): Category
   return rest;
 }
 
+const bySortThenId = (a: Account, b: Account) => a.sort - b.sort || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
 export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let settings: Settings = defaultSettings();
   let categories: Category[] = clone(DEFAULT_CATEGORIES);
@@ -55,6 +58,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
   let importTemplates: ImportTemplate[] = [];
   let categoryRules: CategoryRuleRecord[] = [];
   let balanceSnapshots: BalanceSnapshot[] = [];
+  let accounts: Account[] = [];
   let initialised = false;
 
   function reset() {
@@ -71,6 +75,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     importTemplates = [];
     categoryRules = [];
     balanceSnapshots = [];
+    accounts = [];
   }
 
   /** `base` with the patch applied, checked by the settings schema (nested objects merged with the defaults). */
@@ -90,6 +95,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     if (d.imports) imports = clone(d.imports);
     if (d.importTemplates) importTemplates = clone(d.importTemplates);
     if (d.balanceSnapshots) balanceSnapshots = clone(d.balanceSnapshots);
+    if (d.accounts) accounts = clone(d.accounts);
     if (d.categoryRules) categoryRules = clone(d.categoryRules).reduce<CategoryRuleRecord[]>((all, r) => putRule(all, r), []);
   }
 
@@ -124,6 +130,18 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
       } else {
         categories = categories.filter((c) => c.id !== id);
       }
+    },
+
+    async listAccounts() {
+      return clone(accounts).sort(bySortThenId);
+    },
+    async upsertAccount(account) {
+      upsertById(accounts, clone(account));
+    },
+    async removeAccount(id) {
+      const used = recurring.some((r) => r.accountId === id) || transactions.some((t) => t.accountId === id);
+      if (used) accounts = accounts.map((a) => (a.id === id ? { ...a, archived: true } : a));
+      else accounts = accounts.filter((a) => a.id !== id);
     },
 
     async listRecurring() {
@@ -270,6 +288,7 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
         importTemplates: clone(importTemplates),
         categoryRules: clone(categoryRules),
         balanceSnapshots: clone(balanceSnapshots).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+        accounts: clone(accounts).sort(bySortThenId),
       };
     },
     async importAll(data) {

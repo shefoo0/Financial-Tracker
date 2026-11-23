@@ -63,6 +63,8 @@ export const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingDescriptor<Setti
   homeLayout: { default: () => defaultHomeLayout(), validate: validateHomeLayout },
   tipsSeen: { default: () => [], validate: (v) => (Array.isArray(v) && v.every(isStr) ? [...new Set(v)] : undefined) },
   homeVisits: { default: () => 0, validate: (v) => (inRange(v, 0, 1_000_000) ? (v as number) : undefined) },
+  mainAccountName: { default: () => 'Main account', validate: (v) => (isStr(v) && v.trim().length >= 1 && v.length <= 40 ? v : undefined) },
+  defaultAccountId: { default: () => null, validate: (v) => (nullOr(v, isStr) ? (v as string | null) : undefined) },
   spendingPeriod: { default: () => 'month', validate: (v) => (v === 'month' || v === 'year' ? v : undefined) },
 };
 

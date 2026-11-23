@@ -329,3 +329,27 @@ describe('migration v3 to v4', () => {
     expect((await repo.listTransactions()).map((t) => t.id)).toEqual(['t1', 't2']);
   });
 });
+
+describe('migration to v6 (money accounts) from every earlier version', () => {
+  // A database left at each earlier version, with a transaction and a recurring item in it, upgrades to the newest
+  // schema; its items keep every field and read as before (in the main account, not on a card).
+  for (let from = 1; from <= 5; from++) {
+    it(`upgrades a v${from} database, keeping its items in the main account`, async () => {
+      const { __make } = require('expo-sqlite');
+      const db = __make();
+      for (let i = 0; i < from; i++) db.raw.exec(`BEGIN;\n${MIGRATIONS[i]}\nPRAGMA user_version = ${i + 1};\nCOMMIT;`);
+      db.raw
+        .prepare(`INSERT INTO transactions (id, kind, date, description, category_id, amount, note, source, import_id, planned) VALUES ('t1', 'cost', '2026-03-05', 'Lunch', 'dining', 4550, 'n', 'manual', NULL, 0)`)
+        .run();
+      db.raw
+        .prepare(`INSERT INTO recurring_items (id, kind, name, category_id, amount, schedule, start_date, end_date, count, note) VALUES ('r1', 'cost', 'Rent', 'housing', 500000, '{"type":"monthly","day":"last"}', '2026-01-01', NULL, NULL, '')`)
+        .run();
+      await migrate(db);
+      expect(db.raw.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATIONS.length);
+      const t = db.raw.prepare("SELECT account_id, card_id, amount, description FROM transactions WHERE id = 't1'").get();
+      expect(t).toEqual({ account_id: null, card_id: null, amount: 4550, description: 'Lunch' });
+      expect(db.raw.prepare("SELECT account_id, card_id, name FROM recurring_items WHERE id = 'r1'").get()).toEqual({ account_id: null, card_id: null, name: 'Rent' });
+      expect(db.raw.prepare('SELECT COUNT(*) AS n FROM accounts').get().n).toBe(0);
+    });
+  }
+});
