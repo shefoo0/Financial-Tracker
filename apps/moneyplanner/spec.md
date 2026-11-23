@@ -213,7 +213,7 @@ Each milestone ends with a working, tested app: code review, the test engineer's
 ### Milestone 3b — Money accounts, cards and transfers (planned)
 | Task | Owns |
 | --- | --- |
-| A1 Data: accounts (bank, card link, cash), account id on transactions and imports, schema upgrade (existing data → "Main account"), backup/CSV | `src/types/**`, `src/data/**` |
+| A1 Data: accounts (bank, cash, card linked to its Debts card), account id on transactions, recurring items, imports and import templates, default account setting, schema v11 upgrade (existing data → "Main account", cards → card accounts), backup v3, CSV Account column; upgrade tested from every past schema version | `src/types/**`, `src/data/**` |
 | A2 Engine: per-account and total balance, card purchases add to the card's balance, transfers excluded from spending/income, forecast and reports | `src/engine/**` |
 | A3 Import: account per source (picked/matched, remembered), transfer pairing across statements, review rows "Transfer: A → B" with unpair | `src/import/**`, `src/features/import/**` |
 | A4 Screens: Settings → Accounts, account breakdown on Home, Pro gating for more than one account | `src/features/accounts/**`, `src/app/accounts/**` |
