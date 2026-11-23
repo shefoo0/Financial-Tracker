@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import { chartStyleOf } from '@/constants/theme';
+import { keepDeviceLocal, settingsFromStored } from '@/data/settingsSchema';
 import type {
   Category,
   BalanceSnapshot,
@@ -328,7 +328,6 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
   const getDb = () => (closed ? Promise.reject(new Error(CLOSED)) : openOnce());
 
   async function readSettings(db: SQLite.SQLiteDatabase): Promise<Settings> {
-    const base = defaultSettings();
     const rows = await db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings');
     const stored: Row = {};
     for (const r of rows) {
@@ -338,14 +337,7 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
         // ignore a corrupt value and fall back to the default
       }
     }
-    return {
-      ...base,
-      ...stored,
-      enabledModules: { ...base.enabledModules, ...(stored.enabledModules ?? {}) },
-      alertThresholds: { ...base.alertThresholds, ...(stored.alertThresholds ?? {}) },
-      billReminders: { ...base.billReminders, ...(stored.billReminders ?? {}) },
-      chartStyle: chartStyleOf(stored.chartStyle),
-    };
+    return settingsFromStored(stored);
   }
 
   const readCategories = async (db: SQLite.SQLiteDatabase) =>
@@ -589,15 +581,9 @@ export function createSqliteRepository(dbName: string = DB_NAME): Repository {
       await write((db) =>
         transaction(db, async (txn) => {
           // The lock belongs to this phone (its PIN is in secure storage), so a backup never changes it.
-          const row = await txn.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'lockEnabled'");
-          let lockEnabled = defaultSettings().lockEnabled;
-          try {
-            if (row) lockEnabled = JSON.parse(row.value) === true;
-          } catch {
-            // a corrupt value means off
-          }
+          const current = await readSettings(txn);
           await clearAll(txn);
-          await writeSettings(txn, { ...defaultSettings(), ...data.settings, lockEnabled });
+          await writeSettings(txn, keepDeviceLocal(settingsFromStored(data.settings), current));
           for (const c of data.categories) await writeCategory(txn, c);
           for (const r of data.recurring) await writeRecurring(txn, r);
           for (const o of data.overrides) await writeOverride(txn, o);

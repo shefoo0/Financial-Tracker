@@ -34,6 +34,19 @@ export interface SeriesPoint {
   kind: PointKind;
 }
 
+/** Smooth curve through the points (horizontal tangents at each point, so it never overshoots). */
+export function smoothPath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return '';
+  let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const mx = ((a.x + b.x) / 2).toFixed(1);
+    d += ` C${mx},${a.y.toFixed(1)} ${mx},${b.y.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 export const kindLabel = (k: PointKind) => (k === 'actual' ? 'Actual' : 'Forecast');
 
 const MINUS = '−';

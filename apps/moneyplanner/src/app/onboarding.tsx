@@ -137,16 +137,16 @@ export default function Onboarding() {
         <View style={{ gap: Spacing.three }}>
           <HeroCard testID="onboarding-hero">
             <View accessible accessibilityRole="header">
-              <T variant="title" style={{ color: '#FFFFFF' }}>
+              <T variant="title" tone="onHero">
                 Welcome
               </T>
             </View>
             {!isFirstProfile && (
-              <T variant="label" style={{ color: '#FFFFFF' }} testID="onboarding-profile-name">
+              <T variant="label" tone="onHero" testID="onboarding-profile-name">
                 {`Setting up ${active.name}`}
               </T>
             )}
-            <T style={{ color: '#FFFFFF' }}>See where your money goes and what is left each month. Your data stays on this phone: no account, no bank login. Tracking only, not financial advice.</T>
+            <T tone="onHero">See where your money goes and what is left each month. Your data stays on this phone: no account, no bank login. Tracking only, not financial advice.</T>
           </HeroCard>
           <ScreenTitle>Your salary</ScreenTitle>
           <T tone="secondary">We will add it as a monthly income so your plan starts with it. You can skip this and add it later.</T>

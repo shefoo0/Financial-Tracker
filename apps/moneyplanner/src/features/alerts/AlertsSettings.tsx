@@ -1,22 +1,23 @@
 // Settings -> Alerts: the switch (with the permission explainer), the
 // notification status and the alert thresholds.
 import { useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { Button, Card, Segmented, SectionHeader, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { useSettingSetter } from '@/data/useSettingSetter';
 import type { Settings } from '@/types';
 import { usePermission } from './notifications';
 import { LEAD_DAY_OPTIONS, leadLabel, validateThresholds, type ThresholdDrafts, type ThresholdErrors } from './plan';
 import { useAlertsSwitch } from './useAlertsSwitch';
 
-export function AlertsSettings({ settings, update }: { settings: Settings; update: (patch: Partial<Settings>) => Promise<unknown> }) {
-  const alerts = useAlertsSwitch(settings.enabledModules, update);
+export function AlertsSettings({ settings }: { settings: Settings }) {
+  const alerts = useAlertsSwitch(settings.notificationsOn);
+  const { set: setSetting, busy } = useSettingSetter();
   const { permission } = usePermission();
   const t = settings.alertThresholds;
   const [drafts, setDrafts] = useState<ThresholdDrafts | null>(null);
   const [errors, setErrors] = useState<ThresholdErrors>({});
-  const [busy, setBusy] = useState(false);
 
   const d: ThresholdDrafts = drafts ?? { debtCautionPct: String(t.debtCautionPct), debtHighPct: String(t.debtHighPct), cardUsagePct: String(t.cardUsagePct) };
   const set = (key: keyof ThresholdDrafts) => (v: string) => setDrafts({ ...d, [key]: v });
@@ -26,15 +27,7 @@ export function AlertsSettings({ settings, update }: { settings: Settings; updat
     const result = validateThresholds(d);
     setErrors(result.errors);
     if (!result.value) return;
-    setBusy(true);
-    try {
-      await update({ alertThresholds: result.value });
-      setDrafts(null);
-    } catch (e) {
-      Alert.alert('Could not save', e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
+    if (await setSetting({ alertThresholds: result.value })) setDrafts(null);
   };
 
   const status =
@@ -74,7 +67,7 @@ export function AlertsSettings({ settings, update }: { settings: Settings; updat
           label="Bill reminders"
           description="A notification before each bill: recurring costs, debt payments, cheques and planned costs. Turn a single bill off with the bell on Home."
           value={settings.billReminders.on}
-          onChange={(on) => update({ billReminders: { ...settings.billReminders, on } }).catch(() => Alert.alert('Could not save', 'Please try again.'))}
+          onChange={(on) => setSetting({ billReminders: { ...settings.billReminders, on } })}
           testID="settings-bill-reminders"
         />
         {settings.billReminders.on ? (
@@ -84,7 +77,7 @@ export function AlertsSettings({ settings, update }: { settings: Settings; updat
               label="Remind me before a bill is due"
               options={LEAD_DAY_OPTIONS.map((n) => ({ value: String(n), label: leadLabel(n) }))}
               value={String(settings.billReminders.leadDays)}
-              onChange={(v) => update({ billReminders: { ...settings.billReminders, leadDays: Number(v) } }).catch(() => Alert.alert('Could not save', 'Please try again.'))}
+              onChange={(v) => setSetting({ billReminders: { ...settings.billReminders, leadDays: Number(v) } })}
               testID="settings-bill-lead"
             />
             <T variant="caption" tone="secondary">

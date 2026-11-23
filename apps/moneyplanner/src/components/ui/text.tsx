@@ -30,7 +30,7 @@ export function T({
     positive: c.positive,
     negative: c.negative,
     warning: c.warning,
-    onHero: '#FFFFFF',
+    onHero: c.onHero.ink,
   }[tone];
   return (
     <Text style={[textStyles[variant], { color }, style]} {...rest}>

@@ -176,9 +176,9 @@ describe('notifications follow the open profile', () => {
   });
 
   it('cancels the old profile’s notifications on a switch and schedules the new one’s, with generic text while locked', async () => {
-    const { store, partnerId } = await setup({ me: { cheques: [cheque('Landlord')], settings: { ...base, enabledModules: { ...base.enabledModules, cheques: true } } } });
+    const { store, partnerId } = await setup({ me: { cheques: [cheque('Landlord')], settings: base } });
     await store.repositoryFor(partnerId)!.upsertCheques([cheque('Garage')]);
-    await store.repositoryFor(partnerId)!.updateSettings({ enabledModules: { ...base.enabledModules, cheques: true }, lockEnabled: true });
+    await store.repositoryFor(partnerId)!.updateSettings({ lockEnabled: true });
     await lockStore.setPin(partnerId, '5678');
 
     await waitFor(() => expect(N.scheduleNotificationAsync).toHaveBeenCalled(), { timeout: 4000 });

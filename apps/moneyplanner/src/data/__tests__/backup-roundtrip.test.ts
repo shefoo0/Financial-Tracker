@@ -26,7 +26,7 @@ describe('v1 backup, then a v2 export', () => {
     expect(parsed).toMatchObject({ debts: [], debtPayments: [], debtOverrides: [], cheques: [] });
     expect(parsed.settings.alertThresholds).toEqual({ debtCautionPct: 35, debtHighPct: 55, cardUsagePct: 75 });
     expect(parsed.settings.lockEnabled).toBe(false); // a PIN never travels in a backup
-    expect(parsed.settings.enabledModules).toMatchObject({ import: true, alerts: false });
+    expect(parsed.settings.notificationsOn).toBe(false); // migrated from enabledModules.alerts
     expect(parsed.recurring).toEqual([rec()]);
     expect(parsed.transactions).toEqual([txn()]);
   });

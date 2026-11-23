@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import type { Repository } from '@/data/repository';
+import type { PlanInput } from '@/types';
 
 interface DataContextValue {
   repo: Repository;
@@ -13,11 +14,25 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue | null>(null);
 
+/** The everything-the-engine-needs snapshot, loaded once per write for the whole app. */
+export interface PlanInputState {
+  data: PlanInput | undefined;
+  error: Error | null;
+  loading: boolean;
+  reload: () => void;
+}
+const PlanInputContext = createContext<PlanInputState | null>(null);
+
 export function DataProvider({ repo, children }: { repo: Repository; children: ReactNode }) {
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
   const value = useMemo(() => ({ repo, version, bump }), [repo, version, bump]);
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  const plan = useLoad(repo, version, loadPlanInput, []);
+  return (
+    <DataContext.Provider value={value}>
+      <PlanInputContext.Provider value={plan}>{children}</PlanInputContext.Provider>
+    </DataContext.Provider>
+  );
 }
 
 export function useData(): DataContextValue {
@@ -34,6 +49,10 @@ export function useData(): DataContextValue {
  */
 export function useRepoQuery<T>(load: (repo: Repository) => Promise<T>, deps: unknown[] = []) {
   const { repo, version } = useData();
+  return useLoad(repo, version, load, deps);
+}
+
+function useLoad<T>(repo: Repository, version: number, load: (repo: Repository) => Promise<T>, deps: unknown[]) {
   const [nonce, setNonce] = useState(0);
   // `key` identifies one load; the result is "loading" until a result for the current key arrives.
   const key = [version, nonce, ...deps.map((d) => JSON.stringify(d))].join('|');
@@ -78,21 +97,28 @@ export function useRepoMutation<A extends unknown[], R>(write: (repo: Repository
   );
 }
 
-/** Loads everything the engine needs (debts and cheques are always included). */
-export function usePlanInput() {
-  return useRepoQuery(async (r) => {
-    const [settings, categories, recurring, overrides, transactions, debts, debtPayments, debtOverrides, cheques, balanceSnapshots] = await Promise.all([
-      r.getSettings(),
-      r.listCategories(),
-      r.listRecurring(),
-      r.listOverrides(),
-      r.listTransactions(),
-      r.listDebts(),
-      r.listDebtPayments(),
-      r.listDebtOverrides(),
-      r.listCheques(),
-      r.listBalanceSnapshots(),
-    ]);
-    return { settings, categories, recurring, overrides, transactions, debts: debts.filter((d) => !d.archived), debtPayments, debtOverrides, cheques, balanceSnapshots };
-  });
+async function loadPlanInput(r: Repository): Promise<PlanInput> {
+  const [settings, categories, recurring, overrides, transactions, debts, debtPayments, debtOverrides, cheques, balanceSnapshots] = await Promise.all([
+    r.getSettings(),
+    r.listCategories(),
+    r.listRecurring(),
+    r.listOverrides(),
+    r.listTransactions(),
+    r.listDebts(),
+    r.listDebtPayments(),
+    r.listDebtOverrides(),
+    r.listCheques(),
+    r.listBalanceSnapshots(),
+  ]);
+  return { settings, categories, recurring, overrides, transactions, debts: debts.filter((d) => !d.archived), debtPayments, debtOverrides, cheques, balanceSnapshots };
+}
+
+/**
+ * Everything the engine needs (debts and cheques are always included), loaded once in <DataProvider> and reloaded
+ * after every write. Returns { data, loading, error, reload }.
+ */
+export function usePlanInput(): PlanInputState {
+  const ctx = useContext(PlanInputContext);
+  if (!ctx) throw new Error('usePlanInput must be used inside <DataProvider>');
+  return ctx;
 }

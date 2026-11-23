@@ -162,7 +162,7 @@ export default function Categories() {
         <View
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.4)',
+            backgroundColor: c.scrimLight,
             justifyContent: 'center',
             padding: Spacing.three,
           }}

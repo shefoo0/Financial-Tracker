@@ -1,4 +1,4 @@
-import { axisDateLabels, buildSeries, kindLabel, todayIndexOf, compactAmount, describeSeries, limitLines, lowestIndex, nearestIndex, niceTicks, signed, speakPoint } from '../chartMath';
+import { axisDateLabels, buildSeries, kindLabel, todayIndexOf, compactAmount, describeSeries, limitLines, lowestIndex, nearestIndex, niceTicks, signed, smoothPath, speakPoint } from '../chartMath';
 import type { ForecastDay, ForecastMonth } from '@/types';
 
 const day = (date: string, balance: number, events: ForecastDay['events'] = []): ForecastDay => ({ date, inflow: 0, outflow: 0, balance, events });
@@ -127,5 +127,13 @@ describe('two-sided series (history + forecast)', () => {
     expect(text).toMatch(/^Actual for the last month: from AED 4,000.70 on 24 Oct to AED 4,000.99 today\. Balance forecast for the next month/);
     expect(kindLabel('actual')).toBe('Actual');
     expect(speakPoint(s[0], 'AED')).toMatch(/^24 Oct, actual:/);
+  });
+});
+
+describe('smoothPath', () => {
+  it('is empty for no points, a lone move for one, and one cubic per segment with flat tangents', () => {
+    expect(smoothPath([])).toBe('');
+    expect(smoothPath([{ x: 1, y: 2 }])).toBe('M1.0,2.0');
+    expect(smoothPath([{ x: 0, y: 10 }, { x: 10, y: 0 }, { x: 20, y: 5 }])).toBe('M0.0,10.0 C5.0,10.0 5.0,0.0 10.0,0.0 C15.0,0.0 15.0,5.0 20.0,5.0');
   });
 });

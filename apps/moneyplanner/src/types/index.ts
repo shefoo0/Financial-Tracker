@@ -1,4 +1,5 @@
 // Shared domain types. Owned by the lead: ask for changes, don't edit in tasks.
+import type { ChartStyleName } from '@/constants/theme';
 
 /** A local calendar date, 'YYYY-MM-DD'. Never a Date object in stored data. */
 export type ISODate = string;
@@ -8,9 +9,6 @@ export type MonthKey = string;
 export type Fils = number;
 
 export type Kind = 'income' | 'cost';
-
-/** Optional modules the user can switch on. The planner core is always on. */
-export type ModuleId = 'debts' | 'cheques' | 'alerts' | 'import';
 
 export interface Category {
   id: string;
@@ -111,7 +109,7 @@ export interface BillReminders {
 }
 
 /** Look of the dashboard balance card: solid white/black, or one of four gradients. */
-export type ChartStyle = 'plain' | 'ocean' | 'emerald' | 'sunset' | 'graphite';
+export type ChartStyle = ChartStyleName;
 
 export interface Settings {
   /** Label shown next to amounts. No conversion is done. */
@@ -124,13 +122,14 @@ export interface Settings {
   startingBalanceDate: ISODate;
   /** Minimum balance the user wants to keep; the forecast warns below it. */
   buffer: Fils;
-  enabledModules: Record<ModuleId, boolean>;
+  /** Phone notifications (bill reminders and alerts) are switched on. */
+  notificationsOn: boolean;
   alertThresholds: AlertThresholds;
   billReminders: BillReminders;
   onboarded: boolean;
   lockEnabled: boolean;
   /** Background of the dashboard balance card. */
-  chartStyle?: ChartStyle;
+  chartStyle: ChartStyle;
 }
 
 // ---- Debts (milestone 2) ----

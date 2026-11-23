@@ -64,7 +64,7 @@ export function QuickAddButton({ testID = 'quick-add', defaultDate }: { testID?:
           ]}>
           <View style={styles.clip}>
             <GradientFill colors={c.hero} />
-            <Text style={styles.plus} maxFontSizeMultiplier={1.2}>
+            <Text style={[styles.plus, { color: c.onHero.ink }]} maxFontSizeMultiplier={1.2}>
               +
             </Text>
           </View>
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   anchor: { ...StyleSheet.absoluteFill, alignItems: 'flex-end', justifyContent: 'flex-end', padding: QUICK_ADD_MARGIN },
   fab: { width: QUICK_ADD_SIZE, height: QUICK_ADD_SIZE, borderRadius: QUICK_ADD_SIZE / 2 },
   clip: { flex: 1, borderRadius: QUICK_ADD_SIZE / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  plus: { color: '#FFFFFF', fontSize: 34, lineHeight: 40, fontWeight: '500' },
+  plus: { fontSize: 34, lineHeight: 40, fontWeight: '500' },
   list: { gap: Spacing.two, paddingBottom: Spacing.two },
   row: {
     flexDirection: 'row',

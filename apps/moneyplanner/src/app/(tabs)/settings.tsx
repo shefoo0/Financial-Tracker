@@ -6,7 +6,8 @@ import { Alert, Linking, View } from 'react-native';
 
 import { Avatar, Button, Card, EmptyState, ListRow, MoneyField, Screen, ScreenHeader, SectionHeader, SelectField, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useData, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
+import { useData, useRepoQuery } from '@/data/DataProvider';
+import { useSettingSetter } from '@/data/useSettingSetter';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import { exportAllCsv, restoreBackupFromFile } from '@/data/backup';
 import { backupBeforeChange, exportBackupAndRecord, formatBackupTime } from '@/data/backup/auto';
@@ -29,7 +30,7 @@ import { ChartStyleSetting } from '@/features/settings/ChartStyleSetting';
 import { PRIVACY_POLICY_URL } from '@/features/settings/links';
 import { formatDate, today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
-import type { Fils, Settings } from '@/types';
+import type { Fils } from '@/types';
 
 const showError = (title: string, e: unknown) => Alert.alert(title, e instanceof Error ? e.message : String(e));
 
@@ -38,7 +39,7 @@ export default function SettingsScreen() {
   const { repo, bump } = useData();
   const { active } = useProfiles();
   const { data: settings, error, reload } = useRepoQuery((r) => r.getSettings());
-  const update = useRepoMutation((r, patch: Partial<Settings>) => r.updateSettings(patch));
+  const { set, busy: saving } = useSettingSetter();
 
   // The text box shows what's saved until the user starts typing.
   const [currencyDraft, setCurrency] = useState<string | null>(null);
@@ -48,7 +49,8 @@ export default function SettingsScreen() {
   const [balanceKey, setBalanceKey] = useState(0);
   const [bufferKey, setBufferKey] = useState(0);
   const [newBuffer, setNewBuffer] = useState<Fils | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(false);
+  const busy = running || saving;
   const [copiesOpen, setCopiesOpen] = useState(false);
   const { meta: backupMeta, copies } = useBackupInfo();
 
@@ -90,13 +92,13 @@ export default function SettingsScreen() {
   };
 
   const run = async (title: string, fn: () => Promise<void>) => {
-    setBusy(true);
+    setRunning(true);
     try {
       await fn();
     } catch (e) {
       showError(title, e);
     } finally {
-      setBusy(false);
+      setRunning(false);
     }
   };
 
@@ -104,28 +106,26 @@ export default function SettingsScreen() {
     const problem = validateCurrency(currency);
     setCurrencyError(problem);
     if (problem) return;
-    await run('Could not save', async () => {
-      await update({ currency: currency.trim() });
-    });
+    await set({ currency: currency.trim() });
   };
 
-  const saveBalance = () =>
-    run('Could not save', async () => {
-      const balance = signedBalance(newBalance, overdrawn);
-      const date = today();
-      await update({ startingBalance: balance, startingBalanceDate: date });
+  const saveBalance = async () => {
+    const balance = signedBalance(newBalance, overdrawn);
+    const date = today();
+    if (!(await set({ startingBalance: balance, startingBalanceDate: date }))) return;
+    await run('Could not save', async () => {
       await repo.upsertBalanceSnapshot({ date, balance }); // an anchor for the balance history chart
       setNewBalance(null);
       setOverdrawn(false);
       setBalanceKey((k) => k + 1);
     });
+  };
 
-  const saveBuffer = () =>
-    run('Could not save', async () => {
-      await update({ buffer: newBuffer ?? 0 });
-      setNewBuffer(null);
-      setBufferKey((k) => k + 1);
-    });
+  const saveBuffer = async () => {
+    if (!(await set({ buffer: newBuffer ?? 0 }))) return;
+    setNewBuffer(null);
+    setBufferKey((k) => k + 1);
+  };
 
   const restore = () =>
     run('Could not restore', async () => {
@@ -176,9 +176,7 @@ export default function SettingsScreen() {
         <Button label="Manage profiles" variant="secondary" onPress={() => router.push('/profiles')} testID="settings-manage-profiles" />
         <T variant="label">Appearance</T>
         <AppearanceSetting testID="settings-appearance" />
-        <ChartStyleSetting value={settings.chartStyle} onChange={async (v) => {
-            await update({ chartStyle: v });
-          }} />
+        <ChartStyleSetting value={settings.chartStyle} onChange={(v) => set({ chartStyle: v })} />
       </Card>
 
       <SectionHeader title="Money" />
@@ -197,10 +195,7 @@ export default function SettingsScreen() {
           value={paydayToChoice(settings.payday)}
           options={PAYDAY_OPTIONS}
           onChange={(v) => {
-            const d = choiceToPayday(v);
-            run('Could not save', async () => {
-              await update({ payday: paydayForSettings(d) });
-            });
+            set({ payday: paydayForSettings(choiceToPayday(v)) });
           }}
           testID="settings-payday"
         />
@@ -227,8 +222,8 @@ export default function SettingsScreen() {
         <Button label="Save buffer" onPress={saveBuffer} disabled={busy || newBuffer == null} testID="settings-buffer-save" />
       </Card>
 
-      <AlertsSettings settings={settings} update={update} />
-      <LockSettings settings={settings} update={update} />
+      <AlertsSettings settings={settings} />
+      <LockSettings settings={settings} />
 
       <SectionHeader title="Categories" />
       <Card>

@@ -1,5 +1,4 @@
-import { today } from '@/lib/dates';
-import type { Category, Settings } from '@/types';
+import type { Category } from '@/types';
 
 /** The starting categories (editable by the user). Ids are stable so backups and rules keep working. */
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -22,21 +21,4 @@ export const DEFAULT_CATEGORIES: Category[] = [
   ['other', 'Other', 'cost'],
 ].map(([id, name, kind], sort) => ({ id, name, kind: kind as Category['kind'], sort, archived: false, monthlyLimit: null }));
 
-/** AED 1,000 in fils: the starting buffer, changeable in Settings. */
-export const DEFAULT_BUFFER = 100000;
-
-export function defaultSettings(now: Date = new Date()): Settings {
-  return {
-    currency: 'AED',
-    payday: null,
-    startingBalance: 0,
-    startingBalanceDate: today(now),
-    buffer: DEFAULT_BUFFER,
-    enabledModules: { debts: true, cheques: false, alerts: true, import: true },
-    alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
-    billReminders: { on: true, leadDays: 1, muted: [] },
-    onboarded: false,
-    lockEnabled: false,
-    chartStyle: 'plain',
-  };
-}
+export { DEFAULT_BUFFER, defaultSettings } from './settingsSchema';

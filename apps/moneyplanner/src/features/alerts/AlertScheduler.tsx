@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { usePlanInput } from '@/data/DataProvider';
-import { buildAlerts } from '@/engine';
+import { alertsFor } from '@/features/plan/memo';
 import { cancelAll, getPermission, installForegroundHandler, scheduleAt, ensureChannel } from './notifications';
 import { buildBills, planNotifications } from './plan';
 import { useDay } from './useDay';
@@ -37,12 +37,11 @@ export function AlertScheduler() {
           if (cancelled) return;
           const permission = await getPermission();
           if (cancelled) return;
-          // enabledModules.alerts is the stored "phone notifications on" flag (never shown as a module).
-          if (!data.settings.enabledModules.alerts || permission.state !== 'granted') {
+          if (!data.settings.notificationsOn || permission.state !== 'granted') {
             await cancelAll();
             return;
           }
-          const planned = planNotifications(buildAlerts(data, day), data.settings.lockEnabled, new Date(), buildBills(data, day), data.settings.billReminders);
+          const planned = planNotifications(alertsFor(data, day), data.settings.lockEnabled, new Date(), buildBills(data, day), data.settings.billReminders);
           await ensureChannel();
           await cancelAll();
           for (const n of planned) {

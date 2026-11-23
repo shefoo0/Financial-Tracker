@@ -1,7 +1,7 @@
 // In-memory repository: same behaviour as SQLite. Used by tests and the web preview.
 import { defaultSettings, DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import { chartStyleOf } from '@/constants/theme';
+import { applySettingsPatch, keepDeviceLocal, settingsFromStored } from '@/data/settingsSchema';
 import type {
   Category,
   BalanceSnapshot,
@@ -73,22 +73,12 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     balanceSnapshots = [];
   }
 
-  /** Defaults filled in under the given values, with the nested objects merged too (like SQLite's readSettings). */
-  function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
-    const p = clone(patch);
-    return {
-      ...base,
-      ...p,
-      enabledModules: { ...defaultSettings().enabledModules, ...(p.enabledModules ?? base.enabledModules) },
-      alertThresholds: { ...defaultSettings().alertThresholds, ...(p.alertThresholds ?? base.alertThresholds) },
-      billReminders: { ...defaultSettings().billReminders, ...(p.billReminders ?? base.billReminders) },
-      chartStyle: chartStyleOf(p.chartStyle ?? base.chartStyle),
-    };
-  }
+  /** `base` with the patch applied, checked by the settings schema (nested objects merged with the defaults). */
+  const mergeSettings = (base: Settings, patch: Partial<Settings>): Settings => applySettingsPatch(base, clone(patch));
 
   function replaceAll(d: Partial<BackupData>) {
     reset();
-    if (d.settings) settings = mergeSettings(settings, d.settings);
+    if (d.settings) settings = settingsFromStored(d.settings);
     if (d.categories) categories = clone(d.categories);
     if (d.recurring) recurring = clone(d.recurring);
     if (d.overrides) overrides = clone(d.overrides);
@@ -283,9 +273,9 @@ export function createMemoryRepository(seed?: Partial<BackupData>): Repository {
     },
     async importAll(data) {
       // The lock belongs to this phone, so a backup never changes it.
-      const { lockEnabled } = settings;
+      const before = settings;
       replaceAll(data);
-      settings = { ...settings, lockEnabled };
+      settings = keepDeviceLocal(settings, before);
     },
     async deleteAll() {
       reset();

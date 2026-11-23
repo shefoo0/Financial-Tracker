@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { T } from '@/components/ui';
-import { useTheme } from '@/hooks/use-theme';
+import { useCardTone } from '@/hooks/use-card-tone';
 import type { HistoryDay } from '@/engine/history';
 import { type ChartStyleName } from '@/constants/theme';
 import { balanceLabel, shortDate } from '@/features/dashboard/helpers';
@@ -16,16 +16,14 @@ import { ForecastChart } from './ForecastChart';
  * this card re-renders while dragging.
  */
 export function ForecastHero({ fc, todayStr, currency, buffer, history, chartStyle = 'plain' }: { fc: Forecast; todayStr: ISODate; currency: string; buffer: Fils; history?: HistoryDay[]; chartStyle?: ChartStyleName }) {
-  const c = useTheme();
-  const plain = chartStyle === 'plain';
-  const ink = plain ? c.text : '#FFFFFF';
+  const { ink, sub } = useCardTone(chartStyle);
   const [range, setRange] = useState<Range>('2M');
   const [scrub, setScrub] = useState<SeriesPoint | null>(null);
   const label = scrub ? scrub.title : balanceLabel(fc.asOf, todayStr);
   const balance = scrub ? scrub.balance : fc.balanceAsOf;
   return (
     <>
-      <T variant="caption" style={{ color: plain ? c.textSecondary : '#FFFFFF', letterSpacing: 1, fontWeight: '700' }} testID="dashboard-balance-caption">
+      <T variant="caption" style={{ color: sub, letterSpacing: 1, fontWeight: '700' }} testID="dashboard-balance-caption">
         {label.toUpperCase()}
       </T>
       <T

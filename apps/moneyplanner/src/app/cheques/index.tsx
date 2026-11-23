@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, EmptyState, HeroCard, Screen, ScreenHeader, SectionHeader, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { usePlanInput, useRepoMutation, useRepoQuery } from '@/data/DataProvider';
+import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import { ChequeRow } from '@/features/cheques/ChequeRow';
 import { chequeCoverage, groupCheques, inDaysLabel } from '@/features/cheques/logic';
 import { useToday } from '@/features/dashboard/useToday';
@@ -17,20 +17,12 @@ const open = (id: string) => router.push({ pathname: '/cheques/[id]', params: { 
 const openNew = (series: boolean) => router.push({ pathname: '/cheques/[id]', params: series ? { id: 'new', series: '1' } : { id: 'new' } });
 
 export default function ChequesScreen() {
-  const plan = usePlanInput();
-  const list = useRepoQuery((r) => r.listCheques());
-  const data = plan.data;
-  const all = list.data;
-  const error = plan.error ?? list.error;
-  const reload = () => {
-    plan.reload();
-    list.reload();
-  };
+  const { data, error, reload } = usePlanInput();
   const today = useToday();
   const [showCancelled, setShowCancelled] = useState(false);
   const save = useRepoMutation((r, c: Cheque) => r.upsertCheques([c]));
 
-  if (!data || !all) {
+  if (!data) {
     return (
       <Screen testID="cheques-screen">
         <Stack.Screen options={{ title: 'Cheques' }} />
@@ -44,9 +36,8 @@ export default function ChequesScreen() {
     );
   }
 
-  // The list is read directly (the plan input leaves cheques out while the module is off).
   const currency = data.settings.currency;
-  const { upcoming, cleared, cancelled } = groupCheques([...all]);
+  const { upcoming, cleared, cancelled } = groupCheques([...data.cheques]);
   const coverage = chequeCoverage(data, upcoming, today);
   const total = upcoming.reduce((s, c) => s + c.amount, 0);
   const next = upcoming[0];
@@ -77,7 +68,7 @@ export default function ChequesScreen() {
     <Screen testID="cheques-screen">
       <Stack.Screen options={{ title: 'Cheques' }} />
       <ScreenHeader title="Cheques" />
-      {all.length === 0 ? (
+      {data.cheques.length === 0 ? (
         <EmptyState
           title="No cheques yet"
           message="Add post-dated cheques, such as rent, to see each one against your projected balance on its date."

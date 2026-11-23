@@ -8,7 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { ChartStyle } from '@/types';
 
-export function ChartStyleSetting({ value, onChange, testID = 'chart-style' }: { value?: ChartStyle; onChange: (v: ChartStyle) => Promise<void> | void; testID?: string }) {
+export function ChartStyleSetting({ value, onChange, testID = 'chart-style' }: { value: ChartStyle; onChange: (v: ChartStyle) => Promise<unknown> | void; testID?: string }) {
   const c = useTheme();
   const dark = useColorScheme() === 'dark';
   return (

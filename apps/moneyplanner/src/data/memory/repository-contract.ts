@@ -1,7 +1,8 @@
 // Shared contract suite: run against every Repository implementation.
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type Repository } from '@/data/repository';
-import type { CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
+import { SETTING_KEYS } from '@/data/settingsSchema';
+import type { Settings, CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
 
 export const rec = (o: Partial<RecurringItem> = {}): RecurringItem => ({
   id: 'r1', kind: 'cost', name: 'Rent', categoryId: 'housing', amount: 500000,
@@ -49,6 +50,21 @@ export const crule = (o: Partial<CategoryRuleRecord> = {}): CategoryRuleRecord =
   id: 'cr1', pattern: 'CAREEM', categoryId: 'transport', createdAt: '2026-04-01T08:00:00.000Z', ...o,
 });
 
+/** A non-default value for every setting; the contract fails when a schema key has no sample here. */
+export const SETTING_SAMPLES: Settings = {
+  currency: 'USD',
+  payday: 15,
+  startingBalance: 12345,
+  startingBalanceDate: '2026-02-03',
+  buffer: 777,
+  notificationsOn: false,
+  alertThresholds: { debtCautionPct: 41, debtHighPct: 51, cardUsagePct: 81 },
+  billReminders: { on: false, leadDays: 2, muted: ['a'] },
+  onboarded: true,
+  lockEnabled: true,
+  chartStyle: 'sunset',
+};
+
 export function runRepositoryContract(name: string, make: () => Promise<Repository>) {
   describe(`Repository contract: ${name}`, () => {
     let repo: Repository;
@@ -57,12 +73,26 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       await repo.init();
     });
 
+    it('stores every key of the settings schema (update, read back, export)', async () => {
+      expect(Object.keys(SETTING_SAMPLES).sort()).toEqual([...SETTING_KEYS].sort());
+      await repo.updateSettings(SETTING_SAMPLES);
+      expect(await repo.getSettings()).toEqual(SETTING_SAMPLES);
+      expect((await repo.exportAll()).settings).toEqual(SETTING_SAMPLES);
+      for (const key of SETTING_KEYS) {
+        // One key at a time on a fresh profile: only that key changes.
+        await repo.deleteAll();
+        const before = await repo.getSettings();
+        const after = await repo.updateSettings({ [key]: SETTING_SAMPLES[key] });
+        expect(after).toEqual({ ...before, [key]: SETTING_SAMPLES[key] });
+      }
+    });
+
     it('has defaults after init, and init twice is safe', async () => {
       await repo.init();
       const s = await repo.getSettings();
       expect(s.currency).toBe('AED');
       expect(s.onboarded).toBe(false);
-      expect(s.enabledModules.debts).toBe(true);
+      expect(s.notificationsOn).toBe(true);
       expect(await repo.listCategories()).toEqual(DEFAULT_CATEGORIES);
       expect(await repo.listRecurring()).toEqual([]);
       expect(await repo.listTransactions()).toEqual([]);
@@ -75,10 +105,10 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       await repo.updateSettings({ buffer: 5000 });
       const again = await repo.getSettings();
       expect(again).toMatchObject({ onboarded: true, startingBalance: 123456, payday: 25, buffer: 5000 });
-      await repo.updateSettings({ payday: null, enabledModules: { ...again.enabledModules, cheques: true } });
+      await repo.updateSettings({ payday: null, notificationsOn: false });
       const last = await repo.getSettings();
       expect(last.payday).toBeNull();
-      expect(last.enabledModules.cheques).toBe(true);
+      expect(last.notificationsOn).toBe(false);
     });
 
     it('applies overlapping updateSettings calls one after the other without losing any', async () => {
@@ -127,10 +157,10 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
 
     it('fills in missing nested settings with defaults', async () => {
       const data = await repo.exportAll();
-      const partial = { ...data, settings: { ...data.settings, enabledModules: { cheques: true }, alertThresholds: { cardUsagePct: 70 } } } as any;
+      const partial = { ...data, settings: { ...data.settings, notificationsOn: false, alertThresholds: { cardUsagePct: 70 } } } as any;
       await repo.importAll(partial);
       const s = await repo.getSettings();
-      expect(s.enabledModules).toEqual({ debts: true, cheques: true, alerts: true, import: true });
+      expect(s.notificationsOn).toBe(false);
       expect(s.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 70 });
       const s2 = await repo.updateSettings({ alertThresholds: { cardUsagePct: 60 } as any });
       expect(s2.alertThresholds.debtHighPct).toBe(50);
@@ -297,8 +327,8 @@ export function runRepositoryContract(name: string, make: () => Promise<Reposito
       got[0].name = 'mutated again';
       expect((await repo.listRecurring())[0].name).toBe('Rent');
       const s = await repo.getSettings();
-      s.enabledModules.cheques = true;
-      expect((await repo.getSettings()).enabledModules.cheques).toBe(false);
+      s.billReminders.muted.push('x');
+      expect((await repo.getSettings()).billReminders.muted).toEqual([]);
     });
 
     describe('debts and cheques', () => {

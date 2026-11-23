@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { BarList, ForecastHero } from '@/components/charts';
@@ -20,13 +20,12 @@ import {
 import { chartStyleOf, Radius, Spacing } from '@/constants/theme';
 import { useData, usePlanInput } from '@/data/DataProvider';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
-import { balanceHistory, forecast as runForecast, monthSummary, yearSummary } from '@/engine';
 import { QuickAddButton, QuickAddSpacer } from '@/features/quickadd/QuickAddButton';
 import { ProfileButton } from '@/features/profiles/ProfileButton';
-import { categoryBars, monthShort } from '@/features/dashboard/helpers';
+import { monthShort } from '@/features/dashboard/helpers';
 import { ErrorScreen, LoadingScreen, Stepper, TableText } from '@/features/dashboard/Parts';
-import { buildUpcoming, categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
-import { useToday } from '@/features/dashboard/useToday';
+import { categoryColor, categoryEmoji } from '@/features/dashboard/upcoming';
+import { useDashboardModel } from '@/features/dashboard/useDashboardModel';
 import { AlertsCard } from '@/features/alerts/AlertsCard';
 import { markPaid } from '@/features/payday/markPaid';
 import { PaydayCard } from '@/features/payday/PaydayCard';
@@ -35,7 +34,7 @@ import { ReportsCard } from '@/features/reports/ReportsCard';
 import { UndoBar } from '@/features/payday/UndoBar';
 import type { UpcomingItem } from '@/features/dashboard/upcoming';
 import { useTheme } from '@/hooks/use-theme';
-import { addMonthKey, formatMonth, monthKey } from '@/lib/dates';
+import { addMonthKey, formatMonth } from '@/lib/dates';
 import { formatCompact, formatMoney, formatMoneyTrim } from '@/lib/money';
 import type { PlanInput } from '@/types';
 
@@ -54,24 +53,12 @@ function DashboardBody({ input }: { input: PlanInput }) {
   const router = useRouter();
   const c = useTheme();
   const { active } = useProfiles();
-  const todayStr = useToday();
-  const currentMonth = monthKey(todayStr);
-  const [month, setMonth] = useState(currentMonth);
-  const [year, setYear] = useState(Number(currentMonth.slice(0, 4)));
-  const [catScope, setCatScope] = useState<'month' | 'year'>('month');
+  const { todayStr, currentMonth, month, setMonth, year, setYear, catScope, setCatScope, empty, fc, history, ms, ys, upcoming, bars, rows } = useDashboardModel(input);
   const { repo, bump } = useData();
   const [undo, setUndo] = useState<{ message: string; run: () => Promise<void> } | null>(null);
   const dismissUndo = useCallback(() => setUndo(null), []);
   const { currency, buffer } = input.settings;
   const money = (v: number) => formatMoney(v, currency);
-
-  const empty = input.recurring.length === 0 && input.transactions.length === 0 && input.debts.length === 0 && input.cheques.length === 0;
-
-  const fc = useMemo(() => runForecast(input, { today: todayStr, days: 60, months: 12 }), [input, todayStr]);
-  const ms = useMemo(() => monthSummary(month, input), [month, input]);
-  const ys = useMemo(() => yearSummary(year, input), [year, input]);
-  const history = useMemo(() => balanceHistory(input, todayStr, 400), [input, todayStr]);
-  const upcoming = useMemo(() => buildUpcoming(input, todayStr), [input, todayStr]);
 
   const onPaid = async (u: UpcomingItem) => {
     try {
@@ -129,19 +116,6 @@ function DashboardBody({ input }: { input: PlanInput }) {
     );
   }
 
-  const bars = categoryBars(catScope === 'month' ? ms.costsByCategory : ys.costsByCategory, input.categories);
-
-  const rows: { label: string; get: (i: number) => number | null; kind?: 'pct' | 'money'; bold?: boolean }[] = [
-    { label: 'Recurring income', get: (i) => ys.months[i].recurringIncome },
-    { label: 'One-time income', get: (i) => ys.months[i].oneTimeIncome },
-    { label: 'Total income', get: (i) => ys.months[i].totalIncome, bold: true },
-    { label: 'Recurring costs', get: (i) => ys.months[i].recurringCosts },
-    { label: 'One-time costs', get: (i) => ys.months[i].oneTimeCosts },
-    { label: 'Total spend', get: (i) => ys.months[i].totalSpend, bold: true },
-    { label: 'Free money', get: (i) => ys.months[i].freeMoney, bold: true },
-    { label: 'Cumulative free money', get: (i) => ys.cumulativeFreeMoney[i] },
-    { label: 'Spent %', get: (i) => ys.months[i].spentPct, kind: 'pct' },
-  ];
   const labelW = 150;
   const colMin = 104;
 

@@ -2,3 +2,7 @@ export { BalanceChart, ChartLegend } from './BalanceChart';
 export { ForecastChart } from './ForecastChart';
 export { ForecastHero } from './ForecastHero';
 export { BarList } from './BarList';
+export { ChartFrame, type ChartGeometry } from './ChartFrame';
+export { RangeChips, type RangeOption } from './RangeChips';
+export { useScrub } from './useScrub';
+export { balanceChart, chartById, CHARTS, type ChartDef, type ChartSeries } from './registry';

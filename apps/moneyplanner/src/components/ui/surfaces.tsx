@@ -2,7 +2,8 @@ import { useId, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { chartStyleOf, ChartStyles, Palette, PlainCard, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
+import { Palette, PlainCard, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
+import { useCardTone } from '@/hooks/use-card-tone';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { Glass, GradientFill, hiddenFromA11y, withAlpha } from './internal';
@@ -62,9 +63,9 @@ export function HeroCard({
 }) {
   const c = useTheme();
   const dark = useColorScheme() === 'dark';
-  const gradient = chartStyle === 'plain' ? null : ChartStyles[chartStyleOf(chartStyle)].gradient ?? c.hero;
+  const { gradient } = useCardTone(chartStyle);
   const plain = PlainCard[dark ? 'dark' : 'light'];
-  const shadow = gradient ? withAlpha(gradient[0], 0.35) : dark ? 'rgba(0,0,0,0)' : c.shadow;
+  const shadow = gradient ? withAlpha(gradient[0], 0.35) : c.shadow;
   return (
     <View
       style={[{ borderRadius: Radius.xl, boxShadow: `0 14px 30px ${shadow}` }, style]}
@@ -73,7 +74,7 @@ export function HeroCard({
       accessibilityLabel={accessibilityLabel}>
       <View style={[styles.hero, gradient ? null : { backgroundColor: plain.bg, borderWidth: 1, borderColor: plain.border }]}>
         {gradient && <GradientFill colors={gradient} />}
-        {gradient && <View style={styles.sheen} {...hiddenFromA11y} pointerEvents="none" />}
+        {gradient && <View style={[styles.sheen, { backgroundColor: c.onHero.sheen }]} {...hiddenFromA11y} pointerEvents="none" />}
         <View style={styles.heroContent}>{children}</View>
       </View>
     </View>
@@ -95,13 +96,14 @@ export function IconBadge({ glyph, color, size = 38 }: { glyph: string; color: s
 
 /** Circle with a gradient from the profile colour and the white initial of the name. */
 export function Avatar({ name, color, size = 32 }: { name: string; color: number; size?: number }) {
+  const c = useTheme();
   const i = ((color % Palette.length) + Palette.length) % Palette.length;
   const initial = (name.trim().charAt(0) || '?').toUpperCase();
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }} {...hiddenFromA11y}>
       <GradientFill colors={[Palette[i], Palette[(i + 3) % Palette.length]]} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.18)' }]} />
-      <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: size * 0.44, lineHeight: size * 0.6 }} maxFontSizeMultiplier={1.2}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: c.onHero.shade }]} />
+      <Text style={{ color: c.onHero.ink, fontWeight: '800', fontSize: size * 0.44, lineHeight: size * 0.6 }} maxFontSizeMultiplier={1.2}>
         {initial}
       </Text>
     </View>
@@ -147,8 +149,8 @@ export function StatTile({
 /** Small rounded label, tinted by tone. */
 export function Pill({ label, tone = 'default' }: { label: string; tone?: Tone }) {
   const c = useTheme();
-  const color = { default: c.text, secondary: c.textSecondary, accent: c.accent, positive: c.positive, negative: c.negative, warning: c.warning, onHero: '#FFFFFF' }[tone];
-  const bg = tone === 'onHero' ? 'rgba(255,255,255,0.22)' : withAlpha(tone === 'default' || tone === 'secondary' ? c.textSecondary : color, 0.16);
+  const color = { default: c.text, secondary: c.textSecondary, accent: c.accent, positive: c.positive, negative: c.negative, warning: c.warning, onHero: c.onHero.ink }[tone];
+  const bg = tone === 'onHero' ? c.onHero.badge : withAlpha(tone === 'default' || tone === 'secondary' ? c.textSecondary : color, 0.16);
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
       <T variant="caption" tone={tone} style={{ fontWeight: '700' }}>
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
   card: { padding: Spacing.three, gap: Spacing.two },
   hero: { borderRadius: Radius.xl, overflow: 'hidden' },
   heroContent: { padding: 20, gap: Spacing.two },
-  sheen: { position: 'absolute', top: -70, right: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.12)' },
+  sheen: { position: 'absolute', top: -70, right: -50, width: 200, height: 200, borderRadius: 100 },
   tile: { flex: 1, minWidth: 96, padding: 12, gap: 4 },
   tileValue: { fontSize: 18, lineHeight: 24, fontWeight: '800' },
   pill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.pill },

@@ -1,7 +1,7 @@
 // The Alerts on/off switch with the permission explainer. Used by Settings and
-// anywhere else the Alerts module can be switched on (e.g. the setup wizard):
+// anywhere else phone notifications can be switched on (e.g. the setup wizard):
 //
-//   const alerts = useAlertsSwitch(settings.enabledModules, (patch) => update(patch));
+//   const alerts = useAlertsSwitch(settings.notificationsOn);
 //   <ToggleRow value={alerts.value} onChange={alerts.onChange} ... />
 //   {alerts.sheet}
 //
@@ -11,7 +11,7 @@ import { Linking, View } from 'react-native';
 
 import { Button, Sheet, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import type { ModuleId, Settings } from '@/types';
+import { useSettingSetter } from '@/data/useSettingSetter';
 import { getPermission, requestPermission } from './notifications';
 
 type Stage = 'explain' | 'denied' | null;
@@ -62,11 +62,12 @@ export function AlertsExplainerSheet({
   );
 }
 
-export function useAlertsSwitch(enabledModules: Record<ModuleId, boolean>, update: (patch: Partial<Settings>) => Promise<unknown>) {
+export function useAlertsSwitch(notificationsOn: boolean) {
+  const { set } = useSettingSetter();
   const [stage, setStage] = useState<Stage>(null);
   const [busy, setBusy] = useState(false);
 
-  const setModule = (v: boolean) => update({ enabledModules: { ...enabledModules, alerts: v } });
+  const setModule = (v: boolean) => set({ notificationsOn: v });
 
   const onChange = async (v: boolean) => {
     if (!v) {
@@ -104,5 +105,5 @@ export function useAlertsSwitch(enabledModules: Record<ModuleId, boolean>, updat
   const sheet: ReactNode = (
     <AlertsExplainerSheet stage={stage} busy={busy} onAllow={onAllow} onInAppOnly={onInAppOnly} onOpenSettings={onOpenSettings} onClose={() => setStage(null)} />
   );
-  return { value: enabledModules.alerts, onChange, sheet };
+  return { value: notificationsOn, onChange, sheet };
 }

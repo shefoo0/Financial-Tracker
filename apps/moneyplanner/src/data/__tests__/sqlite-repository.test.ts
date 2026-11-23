@@ -228,7 +228,7 @@ describe('a full v1 database and a v1 backup in the v2 app', () => {
     expect(s).toMatchObject({ onboarded: true, startingBalance: 650000, buffer: 200000 });
     // Settings the v1 app never wrote come from the defaults.
     expect(s.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 });
-    expect(s.enabledModules).toMatchObject({ debts: true, alerts: false });
+    expect(s.notificationsOn).toBe(false); // migrated from the old enabledModules.alerts row
 
     await repo.upsertDebt(loan());
     await repo.upsertDebt(card());

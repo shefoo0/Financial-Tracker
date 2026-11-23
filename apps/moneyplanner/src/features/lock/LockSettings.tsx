@@ -1,5 +1,6 @@
 // Settings -> Lock this profile: set, change and turn off the PIN, and the
 // Face ID / fingerprint switch. The lock belongs to the open profile only.
+import { useSettingSetter } from '@/data/useSettingSetter';
 import { useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 
@@ -18,7 +19,8 @@ type Step = { kind: 'current' } | { kind: 'new' } | { kind: 'again'; first: stri
 
 const TITLES: Record<Mode, string> = { set: 'Set a PIN', change: 'Change PIN', off: 'Turn off the lock' };
 
-export function LockSettings({ settings, update }: { settings: Settings; update: (patch: Partial<Settings>) => Promise<unknown> }) {
+export function LockSettings({ settings }: { settings: Settings }) {
+  const { update } = useSettingSetter();
   const { active } = useProfiles();
   const { markUnlocked } = useLockSession();
   const [mode, setMode] = useState<Mode | null>(null);

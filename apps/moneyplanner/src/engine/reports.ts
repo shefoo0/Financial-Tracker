@@ -1,5 +1,6 @@
 // Quarterly and yearly reports (Pro): pure functions on a PlanInput, integer fils, 'YYYY-MM-DD' dates.
 // Facts only: the wording never gives advice.
+import { defaultSettings } from '@/data/defaults';
 import type { Fils, ISODate, MonthKey, PlanInput } from '@/types';
 import { addDays, addMonthKey, addMonths, compareDates, diffDays, monthEnd, monthStart, MONTHS, toISODate } from '@/lib/dates';
 import { formatMoneyTrim, percent } from '@/lib/money';
@@ -620,18 +621,7 @@ export function sampleInput(todayStr: ISODate): PlanInput {
     }
   }
   return {
-    settings: {
-      currency: 'AED',
-      payday: 25,
-      startingBalance: 2500000,
-      startingBalanceDate: start,
-      buffer: 500000,
-      enabledModules: { debts: true, cheques: true, alerts: true, import: false },
-      alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
-      billReminders: { on: true, leadDays: 1, muted: [] },
-      onboarded: true,
-      lockEnabled: false,
-    },
+    settings: { ...defaultSettings(), payday: 25, startingBalance: 2500000, startingBalanceDate: start, buffer: 500000, onboarded: true },
     categories: SAMPLE_CATEGORIES,
     recurring: [
       rec('demo-salary', 'Salary', 'income', 1800000, 25, null),

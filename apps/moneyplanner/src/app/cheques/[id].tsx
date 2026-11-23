@@ -5,7 +5,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 're
 
 import { Button, Card, DateField, EmptyState, MoneyField, Screen, Segmented, T, TextField, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useRepoMutation, useRepoQuery, usePlanInput } from '@/data/DataProvider';
+import { useRepoMutation, usePlanInput } from '@/data/DataProvider';
 import { SeriesEditor } from '@/features/cheques/SeriesEditor';
 import {
   emptyChequeForm,
@@ -28,17 +28,16 @@ export default function ChequeScreen() {
   const id = first(params.id) ?? 'new';
   const isNew = id === 'new';
   const today = useToday();
-  const settings = usePlanInput();
-  const list = useRepoQuery((r) => r.listCheques());
+  const plan = usePlanInput();
   const [cached, setCached] = useState<Cheque | null>(null);
-  const existing = list.data?.find((c) => c.id === id) ?? null;
+  const existing = plan.data?.cheques.find((c) => c.id === id) ?? null;
   // Keep showing the cheque while it is being deleted (the list refreshes before we leave).
   if (existing && existing !== cached) setCached(existing);
   const item = existing ?? cached;
-  const currency = settings.data?.settings.currency;
+  const currency = plan.data?.settings.currency;
 
-  if (!list.data || !currency) {
-    const error = list.error ?? settings.error;
+  if (!plan.data || !currency) {
+    const error = plan.error;
     return (
       <Screen>
         {error ? (
@@ -48,10 +47,7 @@ export default function ChequeScreen() {
             action={
               <Button
                 label="Try again"
-                onPress={() => {
-                  list.reload();
-                  settings.reload();
-                }}
+                onPress={plan.reload}
                 testID="cheque-retry"
               />
             }
@@ -79,7 +75,7 @@ export default function ChequeScreen() {
       </KeyboardAvoidingView>
     );
   }
-  return <ChequeEditor key={id} item={isNew ? null : item} all={list.data} currency={currency} today={today} />;
+  return <ChequeEditor key={id} item={isNew ? null : item} all={plan.data.cheques} currency={currency} today={today} />;
 }
 
 function ChequeEditor({ item, all, currency, today }: { item: Cheque | null; all: Cheque[]; currency: string; today: string }) {

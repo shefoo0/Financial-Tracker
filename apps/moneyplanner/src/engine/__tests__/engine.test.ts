@@ -1,3 +1,4 @@
+import { defaultSettings } from '@/data/defaults';
 import {
   expandRecurring,
   forecast,
@@ -50,19 +51,7 @@ const tx = (over: Partial<Transaction>): Transaction => ({
   planned: false,
   ...over,
 });
-const settings = (over: Partial<Settings> = {}): Settings => ({
-  currency: 'AED',
-  payday: null,
-  startingBalance: 0,
-  startingBalanceDate: '2026-01-01',
-  buffer: 0,
-  enabledModules: { debts: false, cheques: false, alerts: false, import: false },
-  alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
-  billReminders: { on: true, leadDays: 1, muted: [] },
-  onboarded: true,
-  lockEnabled: false,
-  ...over,
-});
+const settings = (over: Partial<Settings> = {}): Settings => ({ ...defaultSettings(), startingBalanceDate: '2026-01-01', buffer: 0, onboarded: true, ...over });
 const input = (over: Partial<PlanInput> = {}): PlanInput => ({
   settings: settings(),
   categories: [],

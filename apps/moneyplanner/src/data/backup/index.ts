@@ -3,11 +3,9 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type Repository } from '@/data/repository';
-import { CHART_STYLE_NAMES } from '@/constants/theme';
-import { defaultSettings } from '@/data/defaults';
-import { isValidISODate } from '@/lib/dates';
+import { inRange, isAmount, isBool, isDate, isId, isInt, isObj, isStr, nullOr } from '@/data/guards';
+import { readBackupSettings } from '@/data/settingsSchema';
 import type {
-  ChartStyle,
   Category,
   BalanceSnapshot,
   CategoryRuleRecord,
@@ -19,7 +17,6 @@ import type {
   ImportTemplate,
   OccurrenceOverride,
   RecurringItem,
-  Settings,
   Transaction,
 } from '@/types';
 
@@ -33,19 +30,7 @@ export function serializeBackup(data: BackupData): string {
   return JSON.stringify(data, null, 2);
 }
 
-type Obj = Record<string, unknown>;
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isStr = (v: unknown): v is string => typeof v === 'string';
-const isId = (v: unknown): v is string => isStr(v) && v.length > 0;
-const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
-/** A money value in fils: a safe integer. */
-const isMoney = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v);
-const isAmount = (v: unknown): v is number => isMoney(v) && v >= 0;
-const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
-const isDate = (v: unknown): v is string => isStr(v) && isValidISODate(v);
 const isKind = (v: unknown) => v === 'income' || v === 'cost';
-const nullOr = (v: unknown, check: (x: unknown) => boolean) => v === null || check(v);
-const inRange = (v: unknown, min: number, max: number) => isInt(v) && v >= min && v <= max;
 
 function isSchedule(v: unknown): boolean {
   if (!isObj(v)) return false;
@@ -192,51 +177,6 @@ const isSnapshot = (v: unknown): v is BalanceSnapshot => isObj(v) && isStr(v.dat
 
 const hasUniqueIds = (list: { id: string }[]) => new Set(list.map((x) => x.id)).size === list.length;
 
-/** Only these keys are read from a backup; anything else is ignored. */
-function readSettings(v: unknown): Settings | null {
-  if (!isObj(v)) return null;
-  const base = defaultSettings();
-  const { enabledModules: em, alertThresholds: at } = v;
-  if (!isObj(em) || !Object.values(em).every(isBool)) return null;
-  if (!isObj(at) || !Object.values(at).every(isInt)) return null;
-  if (
-    !isStr(v.currency) ||
-    !nullOr(v.payday, (p) => inRange(p, 1, 31)) ||
-    !isMoney(v.startingBalance) ||
-    !isDate(v.startingBalanceDate) ||
-    !isMoney(v.buffer) ||
-    !isBool(v.onboarded) ||
-    !isBool(v.lockEnabled)
-  ) {
-    return null;
-  }
-  const modules = { ...base.enabledModules };
-  for (const k of Object.keys(modules) as (keyof typeof modules)[]) if (isBool(em[k])) modules[k] = em[k] as boolean;
-  const thresholds = { ...base.alertThresholds };
-  for (const k of Object.keys(thresholds) as (keyof typeof thresholds)[]) if (isInt(at[k])) thresholds[k] = at[k] as number;
-  const bills = { ...base.billReminders };
-  const br = v.billReminders;
-  if (isObj(br)) {
-    if (isBool(br.on)) bills.on = br.on;
-    if (isInt(br.leadDays) && br.leadDays >= 0 && br.leadDays <= 3) bills.leadDays = br.leadDays;
-    if (Array.isArray(br.muted) && br.muted.every(isStr)) bills.muted = [...br.muted];
-  }
-  return {
-    currency: v.currency,
-    payday: v.payday as number | null,
-    startingBalance: v.startingBalance,
-    startingBalanceDate: v.startingBalanceDate,
-    buffer: v.buffer,
-    enabledModules: modules,
-    alertThresholds: thresholds,
-    billReminders: bills,
-    onboarded: v.onboarded,
-    // A backup from another phone must not lock the user out of this one.
-    lockEnabled: false,
-    chartStyle: isStr(v.chartStyle) && (CHART_STYLE_NAMES as readonly string[]).includes(v.chartStyle) ? (v.chartStyle as ChartStyle) : 'plain',
-  };
-}
-
 /** Reads backup file text. Throws an Error with a user-friendly message if it isn't a valid backup. */
 export function parseBackup(text: string): BackupData {
   let raw: unknown;
@@ -249,7 +189,7 @@ export function parseBackup(text: string): BackupData {
   if (!isInt(raw.version) || raw.version < 1) throw new Error(DAMAGED);
   if (raw.version > BACKUP_VERSION) throw new Error('This backup was made by a newer version of the app. Update the app and try again.');
   const listOk = (v: unknown, check: (x: unknown) => boolean) => Array.isArray(v) && v.every(check);
-  const settings = readSettings(raw.settings);
+  const settings = readBackupSettings(raw.settings);
   if (
     !isStr(raw.exportedAt) ||
     !settings ||

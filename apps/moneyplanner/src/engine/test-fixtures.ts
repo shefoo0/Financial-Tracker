@@ -1,16 +1,11 @@
+import { defaultSettings } from '@/data/defaults';
 import type { Cheque, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, PlanInput, RecurringItem, Settings } from '@/types';
 
 export const settings = (over: Partial<Settings> = {}): Settings => ({
-  currency: 'AED',
-  payday: null,
-  startingBalance: 0,
+  ...defaultSettings(),
   startingBalanceDate: '2026-01-01',
   buffer: 0,
-  enabledModules: { debts: true, cheques: true, alerts: true, import: false },
-  alertThresholds: { debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 80 },
-  billReminders: { on: true, leadDays: 1, muted: [] },
   onboarded: true,
-  lockEnabled: false,
   ...over,
 });
 

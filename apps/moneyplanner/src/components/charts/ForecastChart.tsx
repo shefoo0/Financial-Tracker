@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { T } from '@/components/ui';
-import { useTheme } from '@/hooks/use-theme';
-import { ChartStyles, Radius, Spacing, type ChartStyleName } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Spacing, type ChartStyleName } from '@/constants/theme';
+import { useCardTone } from '@/hooks/use-card-tone';
 import type { HistoryDay } from '@/engine/history';
 import type { Fils, ForecastDay, ForecastMonth } from '@/types';
 import { BalanceChart, ChartLegend } from './BalanceChart';
-import { buildSeries, describeSeries, RANGES, todayIndexOf, type Range, type SeriesPoint } from './chartMath';
+import { RangeChips } from './RangeChips';
+import { balanceSeries } from './registry';
+import { describeSeries, RANGES, todayIndexOf, type Range, type SeriesPoint } from './chartMath';
 
 /** The hero balance chart with its 1M / 2M / 6M / 1Y range chips underneath. */
 export function ForecastChart({
@@ -36,11 +36,9 @@ export function ForecastChart({
   chartStyle?: ChartStyleName;
   testID?: string;
 }) {
-  const c = useTheme();
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const plain = chartStyle === 'plain';
-  const lineColors = ChartStyles[chartStyle].lines[scheme];
-  const points = useMemo(() => buildSeries(range, days, months, history), [range, days, months, history]);
+  const tone = useCardTone(chartStyle);
+  const { plain, lines: lineColors } = tone;
+  const points = useMemo(() => balanceSeries(range, days, months, history)[0].points, [range, days, months, history]);
   const r0 = RANGES.find((r) => r.key === range);
   const spoken = r0?.spoken ?? '';
   const hasActual = todayIndexOf(points) >= 0;
@@ -58,29 +56,16 @@ export function ForecastChart({
         testID={testID}
       />
       {hasActual && <ChartLegend colors={lineColors} onHero={!plain} testID={testID ? `${testID}-legend` : undefined} />}
-      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', alignSelf: 'center', gap: Spacing.one, padding: 3, borderRadius: Radius.pill, backgroundColor: plain ? c.backgroundSelected : 'rgba(255,255,255,0.16)' }}>
-        {RANGES.map((r) => {
-          const on = r.key === range;
-          return (
-            <Pressable
-              key={r.key}
-              onPress={() => {
-                onScrub?.(null);
-                onRangeChange(r.key);
-              }}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on, checked: on }}
-              accessibilityLabel={`Show the ${r.spoken}`}
-              testID={testID ? `${testID}-range-${r.key}` : undefined}
-              hitSlop={4}
-              style={{ minWidth: 52, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.pill, backgroundColor: on ? (plain ? c.accent : '#FFFFFF') : 'transparent' }}>
-              <T variant="label" maxFontSizeMultiplier={1.3} style={{ color: on ? (plain ? c.onAccent : '#12142B') : plain ? c.text : '#FFFFFF', fontWeight: '700' }}>
-                {r.label}
-              </T>
-            </Pressable>
-          );
-        })}
-      </View>
+      <RangeChips
+        ranges={RANGES}
+        value={range}
+        onChange={(r) => {
+          onScrub?.(null);
+          onRangeChange(r);
+        }}
+        tone={tone}
+        testID={testID}
+      />
     </View>
   );
 }

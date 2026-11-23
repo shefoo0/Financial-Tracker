@@ -165,11 +165,16 @@ describe('parseBackup validation', () => {
   });
   it('ignores unknown settings keys and fills in missing nested ones', () => {
     const parsed = parseBackup(
-      text({ settings: { ...data.settings, evil: 1, enabledModules: { ...data.settings.enabledModules, hack: true }, alertThresholds: { cardUsagePct: 70, other: 3 } } }),
+      text({ settings: { ...data.settings, evil: 1, alertThresholds: { cardUsagePct: 70, other: 3 } } }),
     );
     expect(parsed.settings).not.toHaveProperty('evil');
-    expect(parsed.settings.enabledModules).not.toHaveProperty('hack');
     expect(parsed.settings.alertThresholds).toEqual({ debtCautionPct: 40, debtHighPct: 50, cardUsagePct: 70 });
+  });
+  it('reads the old enabledModules.alerts flag as notificationsOn, and notificationsOn when both are there', () => {
+    const { notificationsOn: _n, ...rest } = data.settings;
+    expect(parseBackup(text({ settings: { ...rest, enabledModules: { debts: true, cheques: false, alerts: false, import: true } } })).settings.notificationsOn).toBe(false);
+    expect(parseBackup(text({ settings: { ...rest, enabledModules: { alerts: false }, notificationsOn: true } })).settings.notificationsOn).toBe(true);
+    expect(parseBackup(text({ settings: rest })).settings.notificationsOn).toBe(true);
   });
   it('reads the chart card style; a backup without it, or with an unknown one, gets plain', () => {
     expect(parseBackup(text({ settings: { ...data.settings, chartStyle: 'ocean' } })).settings.chartStyle).toBe('ocean');

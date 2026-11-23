@@ -33,7 +33,7 @@ export function ColorPicker({ value, onChange, testID = 'profile-color' }: { val
                 borderColor: selected ? c.accent : 'transparent',
               }}>
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
-                {selected ? <T variant="label" style={{ color: '#FFFFFF' }}>✓</T> : null}
+                {selected ? <T variant="label" tone="onHero">✓</T> : null}
               </View>
             </Pressable>
           );

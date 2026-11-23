@@ -1,5 +1,5 @@
 // Entry cards on the Plan tab for the Debts and Cheques screens (milestone 2),
-// shown only while their module is switched on. Owned by the lead.
+// always shown, with the Import statements card.
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 

@@ -1,8 +1,3 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
- */
-
 import '@/global.css';
 
 import { Platform } from 'react-native';
@@ -13,6 +8,51 @@ import { Platform } from 'react-native';
 // WCAG AA (4.5:1) on `background` and on `glass` over the aurora in both
 // schemes. Use positive/negative/warning together with a sign, word or icon,
 // never colour alone. White text meets AA on every hero gradient stop.
+/**
+ * Ink and chart colours for content drawn on a gradient hero card (white text, white-ish chart lines, a light
+ * tooltip). The same in both schemes because the gradients are. Every ink meets AA on every gradient stop.
+ */
+const onHero = {
+  ink: '#FFFFFF',
+  inkSecondary: 'rgba(255,255,255,0.82)',
+  positive: '#07663C',
+  negative: '#B01E55',
+  /** Chart gridlines, y/x labels, the zero line, the buffer line, the scrub cursor and the dot outline. */
+  grid: 'rgba(255,255,255,0.16)',
+  label: 'rgba(255,255,255,0.82)',
+  zero: 'rgba(255,255,255,0.5)',
+  buffer: 'rgba(255,255,255,0.85)',
+  cursor: 'rgba(255,255,255,0.9)',
+  dot: 'rgba(0,0,0,0.4)',
+  /** Range chips: track, selected chip and its text; the small badge fill. */
+  pill: 'rgba(255,255,255,0.16)',
+  pillOn: '#FFFFFF',
+  pillOnText: '#12142B',
+  badge: 'rgba(255,255,255,0.22)',
+  /** Scrub tooltip (light card on the gradient): background, text, secondary text. */
+  tipBg: 'rgba(255,255,255,0.96)',
+  tipInk: '#12142B',
+  tipSub: '#4A4D68',
+  /** Decorative highlight blob on the hero card. */
+  sheen: 'rgba(255,255,255,0.12)',
+  /** Shade over a profile avatar photo-like tile. */
+  shade: 'rgba(0,0,0,0.18)',
+} as const;
+
+/** Colours the same in both schemes: scrims, tooltip shadow and the undo bar. */
+const fixed = {
+  /** Behind bottom sheets and pop-ups. */
+  scrim: 'rgba(3,4,12,0.55)',
+  scrimLight: 'rgba(0,0,0,0.4)',
+  tooltipShadow: '0 6px 18px rgba(20,10,60,0.28)',
+  /** Dark snackbar (undo bar): background, text, action. */
+  toast: '#1B1E3F',
+  toastInk: '#FFFFFF',
+  toastAction: '#34D399',
+  /** Thumb of a switch. */
+  thumb: '#FFFFFF',
+} as const;
+
 export const Colors = {
   light: {
     text: '#12142B',
@@ -40,6 +80,8 @@ export const Colors = {
     /** Glow colour for chart lines and the selected tab. */
     glow: '#0B7A5E',
     tabBar: 'rgba(255,255,255,0.80)',
+    onHero,
+    ...fixed,
   },
   dark: {
     text: '#EEF2FF',
@@ -61,11 +103,11 @@ export const Colors = {
     hero: ['#0A6B53', '#0B7A5E', '#11866A'],
     glow: '#34D399',
     tabBar: 'rgba(10,12,24,0.85)',
+    onHero,
+    ...fixed,
   },
 } as const;
 
-export const CHART_STYLE_NAMES = ['plain', 'ocean', 'emerald', 'sunset', 'graphite'] as const;
-export type ChartStyleName = (typeof CHART_STYLE_NAMES)[number];
 
 /**
  * Backgrounds for the dashboard balance card. 'plain' is solid white (light) or near-black (dark) with the normal text
@@ -84,16 +126,17 @@ const onGradientBoth = { light: onGradient, dark: onGradient };
  * Plain light: deep ink blue vs the emerald accent; plain dark: white vs the emerald accent; gradients: white vs a warm yellow.
  * Every colour is at least 3:1 against its card (graphics), checked in ChartStyleSetting.test.
  */
-export const ChartStyles: Record<
-  ChartStyleName,
-  { label: string; gradient: readonly string[] | null; lines: { light: ChartLineColors; dark: ChartLineColors } }
-> = {
+export const ChartStyles = {
   plain: { label: 'Plain', gradient: null, lines: { light: { actual: '#1E3A8A', forecast: '#0B7A5E' }, dark: { actual: '#FFFFFF', forecast: '#34D399' } } },
   ocean: { label: 'Ocean', gradient: ['#1F4FD8', '#1670C7', '#0B7F8F'], lines: onGradientBoth },
   emerald: { label: 'Emerald', gradient: ['#0E7A4F', '#0A7F62', '#0A7E86'], lines: onGradientBoth },
   sunset: { label: 'Sunset', gradient: ['#B45309', '#C2410C', '#B91C1C'], lines: onGradientBoth },
   graphite: { label: 'Graphite', gradient: ['#1F2937', '#374151'], lines: onGradientBoth },
-};
+} satisfies Record<string, { label: string; gradient: readonly string[] | null; lines: { light: ChartLineColors; dark: ChartLineColors } }>;
+
+/** The card styles, derived from ChartStyles (the one list). */
+export type ChartStyleName = keyof typeof ChartStyles;
+export const CHART_STYLE_NAMES = Object.keys(ChartStyles) as ChartStyleName[];
 
 /** A stored or restored value that is no longer a card style (e.g. the removed 'violet') becomes 'plain'. */
 export function chartStyleOf(v: unknown): ChartStyleName {
@@ -108,7 +151,7 @@ export const Palette = ['#B85A1E', '#1E4FA8', '#14855A', '#C93A4E', '#17739C', '
 
 export const Radius = { sm: 12, md: 18, lg: 22, xl: 28, pill: 999 } as const;
 
-/** Keys whose value is a single colour (not the aurora/hero lists). */
+/** Keys whose value is a single colour (not the aurora/hero lists or the onHero group). */
 export type ThemeColor = {
   [K in keyof typeof Colors.light]: (typeof Colors.light)[K] extends string ? K : never;
 }[keyof typeof Colors.light];

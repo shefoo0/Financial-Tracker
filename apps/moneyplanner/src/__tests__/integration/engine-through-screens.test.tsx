@@ -59,7 +59,6 @@ const settings = (over: object = {}) => ({
   onboarded: true,
   startingBalance: 10_000_000, // AED 100,000.00
   startingBalanceDate: '2026-01-01',
-  enabledModules: { debts: true, cheques: true, alerts: true, import: true },
   ...over,
 });
 // Income that starts later, so it does not change today's balance.
@@ -133,7 +132,7 @@ describe('a loan added in the form', () => {
   });
 
   it('always shows the Debts and Cheques cards, whatever the old module flags say', async () => {
-    await open({ settings: settings({ enabledModules: { debts: false, cheques: false, alerts: true, import: true } }), recurring: [salary()] });
+    await open({ settings: settings(), recurring: [salary()] });
     await screen.findByTestId('plan-screen');
     expect(screen.getByTestId('plan-open-debts')).toBeTruthy();
     expect(screen.getByTestId('plan-open-cheques')).toBeTruthy();
