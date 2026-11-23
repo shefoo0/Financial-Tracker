@@ -22,7 +22,7 @@ import {
   money,
   type GenStatement,
   type TruthRow,
-} from './random-statements.gen';
+} from '../random-statements.gen';
 
 // Each test parses about 100 generated statements: a few seconds, more on a busy machine (pre-flight, CI).
 jest.setTimeout(60_000);

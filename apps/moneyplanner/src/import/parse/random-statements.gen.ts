@@ -1,3 +1,4 @@
+// Test helper (not imported by app code): seeded statement generators for __tests__/random-statements.test.ts.
 // Test helper (not a test): builds random statements together with the ground truth the parsers must read back.
 // Everything is driven by a seeded PRNG, so a failing seed can be replayed: genXxx(seed).
 import { strToU8, zipSync } from 'fflate';
