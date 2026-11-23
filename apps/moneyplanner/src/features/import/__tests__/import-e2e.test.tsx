@@ -4,7 +4,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { strToU8, zipSync } from 'fflate';
 import { useEffect, useState, type ReactElement } from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { Spacing } from '@/constants/theme';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import DashboardScreen from '@/app/(tabs)/index';
@@ -234,6 +235,9 @@ describe('credit card statement with CR refunds', () => {
       ['REFUND NOON.COM', 'income', 12000],
       ['PAYMENT RECEIVED - THANK YOU', 'income', 200000],
     ]);
+    // The Import bar clears the phone's navigation buttons / home bar (34 here) instead of sitting under them.
+    const bar = StyleSheet.flatten(screen.getByTestId('review-bar').props.style);
+    expect(bar.paddingBottom).toBe(Spacing.three + 34);
     // The card payment only pays off the card: it is listed but unticked, labelled, and not imported.
     expect(screen.getByTestId('review-card-payment-3')).toBeTruthy();
     expect(summary()).toBe('Import 3 items · AED 144.90 spending · AED 120 income');

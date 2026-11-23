@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuroraBackground, Button, Card, DateField, EmptyState, Pill, Screen, ScreenHeader, Sheet, T } from '@/components/ui';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -185,6 +185,8 @@ function RowView({
 
 function ReviewBody({ session, data }: { session: ImportSession; data: ReviewData }) {
   const c = useTheme();
+  // The bottom bar sits above the phone's navigation buttons or gesture bar (the app draws edge to edge).
+  const bottomInset = useSafeAreaInsets().bottom;
   const { categories, settings } = data;
   const currency = settings.currency;
   const saveRule = useRepoMutation((r, rule: Parameters<typeof r.upsertCategoryRule>[0]) => r.upsertCategoryRule(rule));
@@ -353,7 +355,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
             ListHeaderComponent={header}
-            ListFooterComponent={<View style={{ height: 190 }} />}
+            ListFooterComponent={<View style={{ height: 190 + bottomInset }} />}
             renderSectionHeader={({ section }) => (
               <T variant="caption" tone="secondary" accessibilityRole="header" style={styles.dayHeader}>
                 {formatDate(section.date)}
@@ -385,7 +387,7 @@ function ReviewBody({ session, data }: { session: ImportSession; data: ReviewDat
         </SafeAreaView>
       </View>
 
-      <View style={[styles.bar, { backgroundColor: c.backgroundElement, borderTopColor: c.border }]}>
+      <View style={[styles.bar, { backgroundColor: c.backgroundElement, borderTopColor: c.border, paddingBottom: Spacing.three + bottomInset }]} testID="review-bar">
         {error ? (
           <T variant="caption" tone="negative" accessibilityRole="alert" testID="review-error">
             {error}
