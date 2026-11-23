@@ -36,7 +36,8 @@ for flow in "$flows_dir"/*.yaml; do
   # the flow once. App failures are never retried.
   infra=0
   if [ "$ok" = 0 ]; then
-    grep -qE "device offline|DeviceServerDiedException|device .* not found" "$debug_dir/$name.out" 2>/dev/null && infra=1
+    # Maestro's console says only "[Failed]"; the reason is in maestro.log inside its debug output folder.
+    grep -rqE "device offline|DeviceServerDiedException|device .* not found" "$debug_dir/$name.out" "$debug_dir/$name" 2>/dev/null && infra=1
     # Only the system's own apps freezing counts; Money Planner crashing is a real failure.
     maestro "$@" hierarchy 2>/dev/null | grep -qE "(Pixel Launcher|System UI|Launcher3|Google Play services) isn.t responding" && infra=1
   fi
