@@ -2,7 +2,7 @@
 
 Notes for the lead (not part of the store text):
 
-- Pro (reports, statement import, one-time purchase) is NOT built yet. The descriptions below describe the app as it will be at public launch. For the closed test, use the "Release notes" section, which says plainly that these arrive in an update.
+- Status 2026-11-23: reports, statement import and money accounts (milestone 3b) are built and unlocked in Pro preview builds; the Pro purchase itself (milestone 4, T14) is NOT built yet. The descriptions describe the app at public launch. For the closed test, use the "Release notes" section, which says plainly what arrives in an update.
 - When Pro ships, change: nothing in the descriptions. Before that, for the closed-test listing only, you may delete the "Pro" paragraph and the "Reports and import" bullets in "Google Play full description" and the matching lines in "App Store description", so the page does not promise features testers cannot open. Also update "Release notes", "Data safety" (add the purchase line below) and the privacy policy if a purchase SDK is added.
 - Fill in `jokester-fidgety97@bravealias.com` in privacy-policy.md and support.md and the privacy policy URL in the consoles.
 - Features in the text that are still open on the PROGRESS.md release bar (bill reminders with lead time, faster entry with recent chips, optional category limits, import): remove any that are not built when you submit.
@@ -43,6 +43,11 @@ PLAN YOUR MONEY
 - Categories you can rename, plus an optional monthly limit per category
 - Fast entry with recent items and your last category
 
+ACCOUNTS AND CARDS
+- Your balance is the total of your bank and cash accounts; tap it to see each one
+- Card purchases count as spending when you make them and add to what you owe; the bank pays the card on its due date, and the payment is not counted twice
+- Move money between your own accounts without it counting as spending or income
+
 DEBTS, CARDS AND CHEQUES
 - Loans with payment day and end date
 - Credit cards with limit, balance and available credit, and a repayment plan the forecast follows
@@ -70,6 +75,7 @@ PRO: ONE-TIME PURCHASE
 Planning, forecast, debts, cheques, alerts, profiles, lock and backups are free. Pro is a single purchase, not a subscription:
 - Quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a PDF you can share
 - Statement import from CSV, Excel, OFX, PDF, photos and shared text. Reading happens on your phone and the files never leave it
+- Several bank and cash accounts, the account of each item and a default account, and statements imported straight into an account or onto a card
 
 Made with the UAE in mind: AED by default, cheques, card instalments and monthly salary. Money Planner is a tracking tool and does not give financial advice. It is not a bank, does not lend money and does not hold your money.
 
@@ -100,6 +106,11 @@ PLAN YOUR MONEY
 • Categories you can rename, plus an optional monthly limit for each
 • Fast entry with recent items and your last category
 
+ACCOUNTS AND CARDS
+• Your balance is the total of your bank and cash accounts; tap it to see each one
+• Card purchases count as spending when you make them and add to what you owe; the bank pays the card on its due date, and the payment is not counted twice
+• Move money between your own accounts without it counting as spending or income
+
 DEBTS, CARDS AND CHEQUES
 • Loans with payment day and end date
 • Credit cards with limit, balance and available credit, and a repayment plan that drives the forecast
@@ -128,6 +139,7 @@ PRO: ONE-TIME PURCHASE
 The planner is free to use: forecast, debts, cheques, alerts, profiles, lock and backups. Pro is paid once. It is not a subscription.
 • Quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a shareable PDF
 • Statement import from CSV, Excel, OFX, PDF, photos and shared text, read on your phone. The files never leave it
+• Several bank and cash accounts, the account of each item and a default account, and statements imported straight into an account or onto a card
 
 Built with the UAE in mind: AED by default, post-dated cheques, card instalments and a monthly salary.
 
@@ -159,7 +171,7 @@ Category: All other app types (not a game). Answers: violence No, sexual content
 
 ## Google Play Data safety
 
-Checked in the code on 2026-11-22: a search for fetch, XMLHttpRequest, WebSocket and http(s) URLs in `src/` found no network calls (only Expo's local libraries). Libraries used: expo-sqlite, expo-secure-store, expo-notifications (local only), expo-local-authentication, expo-sharing, expo-document-picker, expo-print, expo-file-system.
+Checked in the code on 2026-11-23: a search for fetch, XMLHttpRequest, WebSocket and http(s) URLs in `src/` found no network calls in the app (the one `fetch` is in `files.web.ts`, the web build's reader for a file the user picked in the browser; it is not in the phone app). Libraries used: expo-sqlite, expo-secure-store, expo-notifications (local only), expo-local-authentication, expo-sharing, expo-document-picker, expo-image-picker (camera and photo picker), expo-print, expo-file-system, expo-text-extractor (on-device text recognition: Google ML Kit on Android, Apple Vision on iOS), expo-pdf-text-extract and react-native-pdf-thumbnail (PDF text and pages, on the device). The ML Kit text model comes with Google Play services on the phone; the app makes no request of its own.
 
 - Does your app collect or share any of the required user data types? **No.**
 - Is all of the user data collected by your app encrypted in transit? Not applicable (no data collected, no transmission). If the console forces an answer: Yes / not applicable.
@@ -174,7 +186,7 @@ Checked in the code on 2026-11-22: a search for fetch, XMLHttpRequest, WebSocket
 - **Financial features declaration:** Select "Personal finance management" (budgeting and tracking only). Select none of: loans, banking or digital wallet, payments, investment, insurance, buy-now-pay-later provider, cryptocurrency. Answer to "Does your app offer personal loans?": No. The app is not a lender, does not offer credit, does not move money and does not connect to bank accounts. Debts, cards and instalments are only records the user types in. The app does not give financial advice: alert wording states facts only.
 - **App access:** all functionality is available without login; the optional PIN lock is per profile. Reviewers need no credentials.
 - **Ads:** the app contains no ads.
-- **Permissions:** POST_NOTIFICATIONS (reminders and alerts, asked in context after an explanation), RECEIVE_BOOT_COMPLETED (so scheduled reminders survive a restart), USE_BIOMETRIC and USE_FINGERPRINT (optional unlock). No SMS, contacts, location or storage permissions. Photos and files are picked with the system picker.
+- **Permissions:** POST_NOTIFICATIONS (reminders and alerts, asked in context after an explanation), RECEIVE_BOOT_COMPLETED (so scheduled reminders survive a restart), USE_BIOMETRIC and USE_FINGERPRINT (optional unlock), CAMERA (only when the user chooses to photograph a statement or receipt to import; asked at that moment). No SMS, contacts, location or storage permissions. Photos and files are picked with the system picker.
 - **Government app / health / news declarations:** No.
 
 ## Accessibility features
@@ -192,8 +204,10 @@ Claim only what works across common tasks (verify on a device during the closed 
 ## Release notes
 
 First closed test, version 1.0.0:
-- Set up in three steps: salary, payday and today's balance.
-- Forecast for 60 days and 24 months, safe to spend until payday, one-tap Paid.
-- Recurring bills, one-time items, loans, cards, instalments and cheques.
-- Bill reminders and alerts, PIN lock, profiles, backups and CSV export.
-- Quarterly and yearly reports and statement import (Pro, one-time purchase) are coming in an update. Please tell us what is slow or confusing.
+- Set up in three steps: salary, payday and balance.
+- Forecast for 60 days and 24 months, safe to spend until payday.
+- Bills, one-time items, loans, cards, instalments and cheques.
+- Bank and cash accounts, card purchases, moving money.
+- Reminders, alerts, PIN lock, profiles, backups and CSV export.
+- Reports, statement import and several accounts are Pro (one-time); the purchase comes in an update.
+Tell us what is slow or confusing.

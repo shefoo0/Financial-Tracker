@@ -1,6 +1,6 @@
 # Money Planner privacy policy
 
-Last updated: 22 November 2026
+Last updated: 23 November 2026
 
 Money Planner ("the app") is a personal money planner. This page explains what the app does with your information. In short: your data stays on your phone.
 
@@ -10,11 +10,17 @@ Nothing. The app has no account, no sign-up, no ads, no analytics and no crash r
 
 ## What the app stores on your phone
 
-Everything you enter, in a database inside the app on your phone: profile names, your balance, income, bills, one-time items, categories, loans, cards, instalment plans, cheques, payment history and settings. Each profile has its own separate data.
+Everything you enter, in a database inside the app on your phone: profile names, your accounts and their balances, income, bills, one-time items, categories, loans, cards, instalment plans, cheques, payment history and settings. Each profile has its own separate data.
+
+When you import a statement, the app keeps the rows you choose to import, a short record of the import (file name, date and number of rows), and, so the next statement from the same source is quicker, its column layout, the account or card it belongs to, and the category choices you asked it to remember.
 
 If you turn on the lock for a profile, the app keeps a salted hash of your PIN (not the PIN itself) in your phone's secure storage.
 
 The app also keeps automatic backup copies of the last 7 days on your phone, inside the app's own storage.
+
+## Camera and photos
+
+The app uses the camera only when you choose to take a photo of a statement or receipt to import, and opens your photos only when you pick one. Photos are read on your phone and are not uploaded or kept by the app.
 
 ## Notifications
 
@@ -27,12 +33,13 @@ If you choose biometric unlock, your phone's operating system checks your finger
 ## Files you create or choose
 
 - Backups, spreadsheet (CSV) exports and PDF reports are files you create. They are shared only when you pick where to send or save them with your phone's share sheet. After that, the file is under your control and the app cannot manage it. Keep backup files somewhere safe: they contain your money data.
-- If you import a statement (a file, a photo or shared text), the app reads it on your phone. It is not uploaded anywhere.
+- If you import a statement (a file, a photo or shared text), the app reads it on your phone. It is not uploaded anywhere. Text in a photo or a scanned page is read by your phone's own text recognition (Google ML Kit on Android, Apple Vision on iPhone), on the device.
+- If a PDF statement needs a password, the password is used only to open that file. It is not saved.
 - Restoring a backup reads the file you choose.
 
 ## Purchases
 
-The Pro unlock is a one-time purchase handled by Google Play or the App Store. They process your payment under their own policies. The app does not see your payment details.
+The Pro unlock is a one-time purchase handled by Google Play or the App Store, directly, with no other company in between. They process your payment under their own policies. The app does not see your payment details; it only asks the store whether Pro was bought on your store account (also when you use Restore purchases).
 
 ## Sharing
 
