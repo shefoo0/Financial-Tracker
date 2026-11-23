@@ -39,7 +39,8 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [~] Randomized import tests (test agent): generated statements in every format with random amounts and dates, checked against the ground truth
   - [x] Plan agreed (2026-11-23): free = one bank account + cards, Pro = more accounts, per-item/recurring account and a default account; card forecast from actual purchases; spec "Milestone 3b decisions"
   - [x] A1 data: accounts (bank/cash; main = the Settings balance, named), accountId/cardId on items, recurring, imports and layouts, default account setting, schema v6 (NULL = main account, no copying; upgrade tested from v1-v5), backup v3 (v1/v2 still restore), CSV Account column
-  - [ ] A2 engine · A3 import · A4 screens · review · tests · device runs
+  - [x] A2 engine: total of accounts in Balance today, forecast, history and report balances (per-account breakdown adds up); card items never move cash, card forecast bills actual purchases per statement (statement day before the due day) under the full/minimum/fixed plan; Month "paid to cards" for cards with recorded purchases (others unchanged); transfers (transferId, added to the unreleased schema v6) never income or spending; 1,161 tests
+  - [ ] A3 import · A4 screens · review · tests · device runs
 - [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
 - [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
 
