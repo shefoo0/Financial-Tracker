@@ -110,6 +110,16 @@ export interface BillReminders {
 
 /** Look of the dashboard balance card: solid white/black, or one of four gradients. */
 export type ChartStyle = ChartStyleName;
+/** Months shown each side of today on the balance chart. */
+export type ChartRange = '1M' | '2M' | '6M' | '1Y';
+/** The period of the Home spending-by-category card. */
+export type SpendingPeriod = 'month' | 'year';
+
+/** One Home card in the saved layout: its id (see features/home/layout.ts) and whether it is shown. */
+export interface HomeLayoutEntry {
+  id: string;
+  visible: boolean;
+}
 
 export interface Settings {
   /** Label shown next to amounts. No conversion is done. */
@@ -130,6 +140,16 @@ export interface Settings {
   lockEnabled: boolean;
   /** Background of the dashboard balance card. */
   chartStyle: ChartStyle;
+  /** Range chip the balance chart starts on. */
+  chartRange: ChartRange;
+  /** Period of the spending-by-category card. */
+  spendingPeriod: SpendingPeriod;
+  /** The Home cards in order, with show/hide. Saved per profile; app updates never rearrange it. */
+  homeLayout: HomeLayoutEntry[];
+  /** One-time tips the user has dismissed. */
+  tipsSeen: string[];
+  /** How many times Home has been opened (the "Edit Home" tip waits for 3). */
+  homeVisits: number;
 }
 
 // ---- Debts (milestone 2) ----

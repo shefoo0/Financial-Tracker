@@ -1,10 +1,10 @@
-// Settings -> Lock this profile: set, change and turn off the PIN, and the
+// Settings -> Lock (its own screen) -> Lock this profile: set, change and turn off the PIN, and the
 // Face ID / fingerprint switch. The lock belongs to the open profile only.
 import { useSettingSetter } from '@/data/useSettingSetter';
 import { useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 
-import { Button, Card, SectionHeader, Sheet, T, ToggleRow } from '@/components/ui';
+import { Button, Card, Sheet, T, ToggleRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useProfiles } from '@/data/profiles/ProfileProvider';
 import type { Settings } from '@/types';
@@ -121,7 +121,6 @@ export function LockSettings({ settings }: { settings: Settings }) {
 
   return (
     <View testID="settings-lock">
-      <SectionHeader title="Lock" />
       <Card>
         <ToggleRow
           label="Lock this profile"

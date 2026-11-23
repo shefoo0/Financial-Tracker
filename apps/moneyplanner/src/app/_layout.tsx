@@ -75,6 +75,10 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="recurring/[id]" options={{ presentation: 'modal', title: 'Recurring item' }} />
             <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'One-time item' }} />
+            <Stack.Screen name="home-edit" options={{ title: 'Edit Home' }} />
+            <Stack.Screen name="backups" options={{ title: 'Backups & export' }} />
+            <Stack.Screen name="about" options={{ title: 'About' }} />
+            <Stack.Screen name="lock-settings" options={{ title: 'Lock' }} />
             <Stack.Screen name="categories" options={{ title: 'Categories' }} />
             <Stack.Screen name="profiles" options={{ title: 'Profiles' }} />
             <Stack.Screen name="debts/index" options={{ title: '', headerBackTitle: 'Plan' }} />

@@ -39,6 +39,9 @@ export function ChartFrame({
   labelColor,
   todayColor,
   onScrub,
+  showToday = true,
+  formatTick = compactAmount,
+  speak,
   under,
   over,
   overlay,
@@ -55,6 +58,12 @@ export function ChartFrame({
   labelColor: string;
   todayColor: string;
   onScrub?: (p: SeriesPoint | null) => void;
+  /** Draw the "Today" marker at the last actual point (balance charts); monthly charts leave it out. */
+  showToday?: boolean;
+  /** y-axis label of a tick value (default: compact money, "12.5k"). */
+  formatTick?: (v: number) => string;
+  /** What the screen reader says for a point (default: the balance wording). */
+  speak?: (p: SeriesPoint, currency: string) => string;
   under?: (g: ChartGeometry) => ReactNode;
   over?: (g: ChartGeometry) => ReactNode;
   overlay?: (g: ChartGeometry) => ReactNode;
@@ -63,7 +72,7 @@ export function ChartFrame({
   const [width, setWidth] = useState(0);
   const plotW = Math.max(1, width - GUTTER);
   const plotH = height - XAXIS;
-  const scrub = useScrub({ points, plotW, currency, onScrub });
+  const scrub = useScrub({ points, plotW, currency, onScrub, speak });
   const s = scaleSeries(
     points.map((p) => p.balance),
     plotW,
@@ -73,7 +82,7 @@ export function ChartFrame({
   const ticks = niceTicks(s.min, s.max);
   const xLabels = axisDateLabels(points);
   const todayIdx = todayIndexOf(points);
-  const todayPt = todayIdx >= 0 ? s.points[todayIdx] : null;
+  const todayPt = showToday && todayIdx >= 0 ? s.points[todayIdx] : null;
   const g: ChartGeometry = {
     s,
     width,
@@ -100,7 +109,7 @@ export function ChartFrame({
             {under?.(g)}
             {ticks.map((t) => (
               <SvgText key={`t${t}`} x={width - 2} y={s.y(t) + 3.5} fontSize={10.5} textAnchor="end" fill={labelColor}>
-                {compactAmount(t)}
+                {formatTick(t)}
               </SvgText>
             ))}
             {xLabels.map((l) => {

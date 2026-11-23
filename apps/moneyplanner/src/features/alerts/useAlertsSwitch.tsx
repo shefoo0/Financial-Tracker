@@ -16,23 +16,29 @@ import { getPermission, requestPermission } from './notifications';
 
 type Stage = 'explain' | 'denied' | null;
 
-export function AlertsExplainerSheet({
-  stage,
-  busy,
-  onAllow,
-  onInAppOnly,
-  onOpenSettings,
-  onClose,
-}: {
+interface ExplainerProps {
   stage: Stage;
   busy: boolean;
   onAllow: () => void;
   onInAppOnly: () => void;
   onOpenSettings: () => void;
   onClose: () => void;
-}) {
+}
+
+export function AlertsExplainerSheet(props: ExplainerProps) {
   return (
-    <Sheet visible={stage !== null} onClose={onClose} title={stage === 'denied' ? 'Notifications are off' : 'Alerts and notifications'} testID="alerts-explainer">
+    <Sheet visible={props.stage !== null} onClose={props.onClose} title={explainerTitle(props.stage)} testID="alerts-explainer">
+      <AlertsExplainerBody {...props} />
+    </Sheet>
+  );
+}
+
+export const explainerTitle = (stage: Stage) => (stage === 'denied' ? 'Notifications are off' : 'Alerts and notifications');
+
+/** The explainer text and buttons without a sheet around them (for showing inside another sheet). */
+export function AlertsExplainerBody({ stage, busy, onAllow, onInAppOnly, onOpenSettings, onClose }: ExplainerProps) {
+  return (
+    <View testID="alerts-explainer-body">
       {stage === 'denied' ? (
         <View style={{ gap: Spacing.three }}>
           <T testID="alerts-denied-text">
@@ -58,7 +64,7 @@ export function AlertsExplainerSheet({
           <Button label="Not now" variant="plain" onPress={onClose} testID="alerts-explainer-close" />
         </View>
       )}
-    </Sheet>
+    </View>
   );
 }
 
@@ -105,5 +111,9 @@ export function useAlertsSwitch(notificationsOn: boolean) {
   const sheet: ReactNode = (
     <AlertsExplainerSheet stage={stage} busy={busy} onAllow={onAllow} onInAppOnly={onInAppOnly} onOpenSettings={onOpenSettings} onClose={() => setStage(null)} />
   );
-  return { value: notificationsOn, onChange, sheet };
+  const body: ReactNode = (
+    <AlertsExplainerBody stage={stage} busy={busy} onAllow={onAllow} onInAppOnly={onInAppOnly} onOpenSettings={onOpenSettings} onClose={() => setStage(null)} />
+  );
+  /** `stage` is non-null while the explainer is showing; `body` is its content for use inside another sheet. */
+  return { value: notificationsOn, onChange, sheet, stage, body };
 }

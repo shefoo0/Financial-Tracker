@@ -15,6 +15,7 @@ export function TextField({
   hint,
   multiline,
   keyboardType,
+  onBlur,
   testID,
 }: {
   label: string;
@@ -25,6 +26,8 @@ export function TextField({
   hint?: string;
   multiline?: boolean;
   keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'email-address';
+  /** Called when the field loses focus or the keyboard's Return/Done key is pressed (for save-on-blur fields). */
+  onBlur?: () => void;
   testID?: string;
 }) {
   const c = useTheme();
@@ -49,7 +52,10 @@ export function TextField({
         accessibilityLabel={label}
         testID={testID}
         onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onBlur={() => {
+          setFocused(false);
+          onBlur?.();
+        }}
         style={[styles.input, { color: c.text, borderColor: error ? c.negative : focused ? c.accent : c.border, backgroundColor: c.backgroundElement }, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
       />
     </FieldShell>

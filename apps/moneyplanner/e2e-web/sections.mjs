@@ -1,6 +1,15 @@
 export const sections = [];
 const add = (name, fn) => sections.push([name, fn]);
 
+// Settings is a short list: rows open sheets (Appearance, Notifications, Money) or screens (Lock, Backups, About).
+const closeSheet = async (d) => { await d.page.mouse.click(8, 8); await d.settle(300); }; // the dimmed backdrop above the sheet
+const commit = async (d) => { await d.page.keyboard.press('Tab'); await d.settle(400); }; // blur saves a field
+const openSheet = async (d, row, ready) => { await d.tab('Settings'); await d.tap('#' + row); await d.see('#' + ready); };
+const setCardStyle = async (d, name) => { await openSheet(d, 'settings-appearance-row', 'chart-style-' + name); await d.tap('#chart-style-' + name); await closeSheet(d); };
+const setAppearance = async (d, v) => { await openSheet(d, 'settings-appearance-row', 'settings-appearance-' + v); await d.tap('#settings-appearance-' + v); await closeSheet(d); };
+const openLock = async (d) => { if (!(await d.has('#lock-settings-screen'))) { await d.tab('Settings'); await d.tap('#settings-lock-row'); } await d.see('#lock-settings-screen'); };
+const inputValue = (d, id) => d.page.locator(`[data-testid="${id}"]`).filter({ visible: true }).first().inputValue();
+
 add('1 Wizard', async (d, step) => {
   await step('step 1 of 3: salary (with the welcome text)', async () => { await d.see('#onboarding-screen'); await d.see('Welcome', { exact: true }); await d.see('Step 1 of 3'); await d.see('Your salary'); await d.shot('welcome'); });
   await step('type salary 18000', async () => { await d.type('#onboarding-salary', '18000'); });
@@ -72,8 +81,8 @@ add('2 Plan: recurring items', async (d, step) => {
       await shot('hist-light');
       await d.page.emulateMedia({ colorScheme: 'dark' }); await d.settle(400); await shot('hist-dark');
       await d.page.emulateMedia({ colorScheme: 'light' }); await d.settle(300);
-      await d.tab('Settings'); await d.see('#chart-style-ocean'); await d.tap('#chart-style-ocean'); await d.tab('Home'); await d.settle(400); await shot('hist-ocean');
-      await d.tab('Settings'); await d.tap('#chart-style-plain'); await d.tab('Home'); await d.settle(300);
+      await setCardStyle(d, 'ocean'); await d.tab('Home'); await d.settle(400); await shot('hist-ocean');
+      await setCardStyle(d, 'plain'); await d.tab('Home'); await d.settle(300);
     }
   });
   await step('Home chart: drag the mouse across it, tooltip shows a date and an amount, big number follows, then 1Y', async () => {
@@ -384,7 +393,7 @@ const pin = async (d, prefix, digits) => {
 
 add('6 Alerts', async (d, step) => {
   await step('Settings: the phone notifications switch is on by default; notifications say "not available in the web preview"', async () => {
-    await d.tab('Settings'); await d.see('#settings-alerts'); await d.see('#settings-alerts-status'); await d.shot('settings-alerts');
+    await openSheet(d, 'settings-notifications-row', 'settings-alerts'); await d.see('#settings-alerts-status'); await d.shot('settings-alerts');
   });
   await step('Settings: Bill reminders is on; set the lead time to 2 days, then back to 1 day', async () => {
     await d.see('#settings-bill-reminders'); await d.see('#settings-bill-lead-1');
@@ -393,23 +402,23 @@ add('6 Alerts', async (d, step) => {
     await d.shot('settings-bill-lead'); await d.tap('#settings-bill-lead-1'); await d.settle(300);
   });
   await step('Home Coming up: the bell mutes and unmutes reminders for an item', async () => {
-    await d.tab('Home'); await d.see('#dashboard-upcoming');
+    await closeSheet(d); await d.tab('Home'); await d.see('#dashboard-upcoming');
     // Only costs have a bell; a run of just this section has only the salary, so there is nothing to toggle.
-    if (!(await d.has('#upcoming-bell-0'))) { await d.tab('Settings'); await d.see('#settings-alerts'); return; }
+    if (!(await d.has('#upcoming-bell-0'))) { await openSheet(d, 'settings-notifications-row', 'settings-alerts'); return; }
     const bell = () => d.page.locator('[data-testid="upcoming-bell-0"]').filter({ visible: true }).first();
     await bell().click(); await d.settle(400);
     if (!(await bell().innerText()).includes('🔕')) throw new Error('bell did not switch the reminder off');
     await d.shot('home-bell-muted');
     await bell().click(); await d.settle(400);
     if (!(await bell().innerText()).includes('🔔')) throw new Error('bell did not switch the reminder back on');
-    await d.tab('Settings'); await d.see('#settings-alerts');
+    await openSheet(d, 'settings-notifications-row', 'settings-alerts');
   });
   await step('set alert levels low (caution 5%, high 10%, card 20%) and save', async () => {
-    await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await d.type('#settings-threshold-card', '20');
-    await d.tap('#settings-thresholds-save'); await d.settle(300); await d.shot('alerts-thresholds');
+    await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await d.type('#settings-threshold-card', '20'); await commit(d);
+    await d.see('✓ Saved', { exact: false }); await d.shot('alerts-thresholds');
   });
   await step('Home shows the alerts card with debt and card alerts', async () => {
-    await d.tab('Home'); await d.see('#alerts-card'); await d.see('#alert-0'); await d.shot('home-alerts');
+    await closeSheet(d); await d.tab('Home'); await d.see('#alerts-card'); await d.see('#alert-0'); await d.shot('home-alerts');
     const txt = await d.text('#alerts-card');
     if (!/debt|card|balance|cheque/i.test(txt)) throw new Error(`alerts card has no recognisable alert: ${txt.slice(0, 200)}`);
   });
@@ -418,17 +427,16 @@ add('6 Alerts', async (d, step) => {
     if (/you should/i.test(txt)) throw new Error(`advice wording in alerts: ${txt}`);
   });
   await step('restore thresholds (40 / 50 / 80)', async () => {
-    await d.tab('Settings'); await d.type('#settings-threshold-caution', '40'); await d.type('#settings-threshold-high', '50'); await d.type('#settings-threshold-card', '80');
-    await d.tap('#settings-thresholds-save'); await d.settle(300);
+    await openSheet(d, 'settings-notifications-row', 'settings-alerts'); await d.type('#settings-threshold-high', '50'); await d.type('#settings-threshold-caution', '40'); await d.type('#settings-threshold-card', '80'); await commit(d);
   });
   await step('Phone notifications off keeps the alerts card on Home (alerts always show in the app)', async () => {
-    await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await d.tap('#settings-thresholds-save'); await d.settle(300);
+    await d.type('#settings-threshold-caution', '5'); await d.type('#settings-threshold-high', '10'); await commit(d);
     await d.tap('#settings-notifications'); await d.settle(300);
-    await d.tab('Home'); await d.see('#dashboard-screen'); await d.settle(300);
+    await closeSheet(d); await d.tab('Home'); await d.see('#dashboard-screen'); await d.settle(300);
     await d.see('#alerts-card'); await d.shot('home-notifications-off');
-    await d.tab('Settings'); await d.tap('#settings-notifications'); await d.settle(300);
-    await d.tab('Home'); await d.see('#alerts-card');
-    await d.tab('Settings'); await d.type('#settings-threshold-caution', '40'); await d.type('#settings-threshold-high', '50'); await d.tap('#settings-thresholds-save');
+    await openSheet(d, 'settings-notifications-row', 'settings-notifications'); await d.tap('#settings-notifications'); await d.settle(300);
+    await closeSheet(d); await d.tab('Home'); await d.see('#alerts-card');
+    await openSheet(d, 'settings-notifications-row', 'settings-alerts'); await d.type('#settings-threshold-high', '50'); await d.type('#settings-threshold-caution', '40'); await commit(d); await closeSheet(d);
   });
 });
 
@@ -457,7 +465,7 @@ add('7 Profiles and appearance', async (d, step) => {
     await d.tab('Plan'); await d.see('Rent'); await d.seeText('#plan-total-income', /18,000\.00/); await d.shot('me-plan-after-switch');
   });
   await step('rename Layla to "Layla K" in Manage profiles', async () => {
-    await d.tab('Settings'); await d.tap('#settings-manage-profiles'); await d.see('#profiles-screen');
+    await d.tab('Settings'); await d.tap('#settings-profile'); await d.see('#profiles-screen');
     await d.tap('#profile-edit-1'); await d.type('#profile-edit-name-input', 'Layla K'); await d.tap('#profile-edit-save');
     await d.see('Layla K'); await d.shot('profiles-renamed');
   });
@@ -466,24 +474,24 @@ add('7 Profiles and appearance', async (d, step) => {
     await d.tap('#profile-delete-confirm'); await d.notSee('Layla K', { exact: true });
   });
   await step('Appearance: Dark, Light, System with screenshots (Settings and Home)', async () => {
-    await d.back(); await d.see('#settings-appearance-dark');
+    await d.back(); await d.tap('#settings-appearance-row'); await d.see('#settings-appearance-dark'); await d.see('#appearance-preview');
     for (const v of ['dark', 'light', 'system']) {
       await d.tap(`#settings-appearance-${v}`); await d.settle(300); await d.shot(`settings-${v}`);
     }
-    await d.tap('#settings-appearance-dark'); await d.tab('Home'); await d.settle(300); await d.shot('home-dark');
+    await d.tap('#settings-appearance-dark'); await closeSheet(d); await d.tab('Home'); await d.settle(300); await d.shot('home-dark');
     await d.tab('Month'); await d.settle(300); await d.shot('month-dark');
     await d.tab('Plan'); await d.settle(300); await d.shot('plan-dark');
-    await d.tab('Settings'); await d.tap('#settings-appearance-light'); await d.tab('Home'); await d.settle(300); await d.shot('home-light');
+    await setAppearance(d, 'light'); await d.tab('Home'); await d.settle(300); await d.shot('home-light');
   });
   await step('Chart card: Plain by default (dark text), Ocean turns Home white-on-gradient, back to Plain', async () => {
     const ink = async () => d.page.evaluate(() => { const e = [...document.querySelectorAll('[data-testid="dashboard-balance-caption"]')].find((x) => x.offsetParent !== null && !x.closest('[inert]')); return e ? getComputedStyle(e).color : ''; });
     await d.tab('Home'); await d.settle(300);
     if (!/^rgb\(\s*(85|18),/.test(await ink())) throw new Error('plain card should use dark text, got ' + await ink());
-    await d.tab('Settings'); await d.see('#chart-style-ocean'); await d.tap('#chart-style-ocean'); await d.tab('Home'); await d.settle(400);
+    await setCardStyle(d, 'ocean'); await d.tab('Home'); await d.settle(400);
     if (await ink() !== 'rgb(255, 255, 255)') throw new Error('ocean card should use white text, got ' + await ink());
     await d.shot('home-ocean');
     if (process.env.CHART_SHOT_DIR) await d.page.screenshot({ path: `${process.env.CHART_SHOT_DIR}/chart-ocean.png` });
-    await d.tab('Settings'); await d.tap('#chart-style-plain'); await d.tab('Home'); await d.settle(300);
+    await setCardStyle(d, 'plain'); await d.tab('Home'); await d.settle(300);
     if (await ink() === 'rgb(255, 255, 255)') throw new Error('plain card should not use white text');
     await d.shot('home-plain');
   });
@@ -567,23 +575,23 @@ add('9 Categories', async (d, step) => {
 
 add('10 Lock (PIN)', async (d, step) => {
   await step('turn Lock on: set PIN 1234 and confirm it', async () => {
-    await d.tab('Settings'); await d.tap('#settings-lock-toggle'); await d.see('#pin-prompt'); await d.shot('pin-set');
+    await openLock(d); await d.tap('#settings-lock-toggle'); await d.see('#pin-prompt'); await d.shot('pin-set');
     await pin(d, 'pin', '1234'); await d.settle(300);
     await pin(d, 'pin', '1234'); await d.see('#settings-lock-change'); await d.shot('lock-on');
   });
-  await step('app stays open right after setting the PIN', async () => { await d.see('#settings-screen'); });
-  await step('short background (10 s) does not lock', async () => { await d.backgroundFor(10_000); await d.see('#settings-screen'); await d.notSee('#lock-screen'); });
+  await step('app stays open right after setting the PIN', async () => { await d.see('#lock-settings-screen'); });
+  await step('short background (10 s) does not lock', async () => { await d.backgroundFor(10_000); await d.see('#lock-settings-screen'); await d.notSee('#lock-screen'); });
   await step('background over 60 s re-locks; wrong PIN is refused; right PIN opens', async () => {
-    await d.tab('Settings'); await d.backgroundFor(65_000); await d.see('#lock-screen'); await d.shot('lock-screen');
-    await pin(d, 'lock', '9999'); await d.see('#lock-message'); await d.notSee('#settings-screen'); await d.shot('lock-wrong-pin');
+    await d.backgroundFor(65_000); await d.see('#lock-screen'); await d.shot('lock-screen');
+    await pin(d, 'lock', '9999'); await d.see('#lock-message'); await d.notSee('#lock-settings-screen'); await d.shot('lock-wrong-pin');
     await pin(d, 'lock', '1234'); await d.see('#dashboard-screen'); await d.shot('unlocked');
   });
   await step('Forgot PIN sheet opens and cancels', async () => {
     await d.backgroundFor(65_000); await d.see('#lock-screen'); await d.tap('#lock-forgot'); await d.see('#lock-forgot-sheet'); await d.shot('lock-forgot'); await d.tap('#lock-forgot-cancel');
-    await pin(d, 'lock', '1234'); await d.see('#dashboard-screen'); await d.tab('Settings');
+    await pin(d, 'lock', '1234'); await d.settle(300);
   });
   await step('Change PIN to 5678', async () => {
-    await d.tap('#settings-lock-change'); await d.see('#pin-prompt');
+    await openLock(d); await d.tap('#settings-lock-change'); await d.see('#pin-prompt');
     await pin(d, 'pin', '1234'); await d.settle(300);
     await pin(d, 'pin', '5678'); await d.settle(300);
     await pin(d, 'pin', '5678'); await d.settle(400); await d.see('#settings-lock-change');
@@ -591,39 +599,53 @@ add('10 Lock (PIN)', async (d, step) => {
   await step('turn Lock off (needs the PIN)', async () => {
     await d.tap('#settings-lock-toggle'); await d.see('#pin-prompt'); await pin(d, 'pin', '5678'); await d.settle(400);
     await d.notSee('#settings-lock-change'); await d.shot('lock-off');
-    await d.backgroundFor(65_000); await d.notSee('#lock-screen'); await d.see('#settings-screen');
+    await d.backgroundFor(65_000); await d.notSee('#lock-screen');
   });
 });
 
 add('11 Settings: money, exports and backup', async (d, step) => {
-  await step('update balance to 7000', async () => {
-    await d.tab('Settings'); await d.type('#settings-balance', '7000'); await d.tap('#settings-balance-save'); await d.settle(300); await d.seeText('#settings-balance-current', /7,000\.00/);
+  await step('Settings is a short list: the eight rows show their values and no long scroll is needed', async () => {
+    await d.tab('Settings'); await d.see('#settings-list');
+    for (const id of ['settings-profile', 'settings-appearance-row', 'settings-lock-row', 'settings-notifications-row', 'settings-money-row', 'settings-categories', 'settings-backups-row', 'settings-about-row']) await d.see('#' + id);
+    const fits = await d.page.evaluate(() => { const r = document.querySelector('[data-testid="settings-about-row"]').getBoundingClientRect(); return r.bottom <= window.innerHeight; });
+    if (!fits) throw new Error('the About row is below the fold: Settings should fit one screen');
+    await d.shot('settings-short');
   });
-  await step('update buffer to 2500', async () => {
-    await d.type('#settings-buffer', '2500'); await d.tap('#settings-buffer-save'); await d.settle(300); await d.seeText('#settings-buffer-current', /2,500\.00/);
+  await step('Money sheet: balance 7000 saves on blur and shows "Saved"', async () => {
+    await d.tap('#settings-money-row'); await d.see('#money-sheet');
+    await d.type('#settings-balance', '7000'); await commit(d); await d.see('✓ Saved', { exact: false }); await d.seeText('#settings-balance-current', /7,000\.00/);
+  });
+  await step('buffer 2500 saves', async () => {
+    await d.type('#settings-buffer', '2500'); await commit(d);
+    if (await inputValue(d, 'settings-buffer') !== '2500.00') throw new Error('buffer field did not keep 2500.00');
+  });
+  await step('invalid amount shows an error and is not saved', async () => {
+    await d.type('#settings-buffer', '12.345'); await commit(d); await d.see('Enter an amount like 1,500.00.');
+    await d.type('#settings-buffer', '2500'); await commit(d);
   });
   await step('payday change to day 28 is shown', async () => {
     await d.tap('#settings-payday'); await d.tap('#settings-payday-option-28'); await d.settle(300); await d.see('Day 28', { exact: true });
   });
   await step('currency label save keeps the label', async () => {
-    await d.type('#settings-currency', 'AED'); await d.settle(100); await d.see('#settings-currency-save');
+    await d.type('#settings-currency', 'AED'); await commit(d); await closeSheet(d); await d.seeText('#settings-money-row', /AED 7,000\.00 · Day 28/);
   });
   await step('Home shows the new balance', async () => { await d.tab('Home'); await d.see('AED 7,000', { exact: true }); await d.tab('Settings'); });
-  await step('tap backup and the one CSV export (no crash)', async () => {
+  await step('Backups & export screen: tap backup and the one CSV export (no crash)', async () => {
+    await d.tap('#settings-backups-row'); await d.see('#backups-screen');
     for (const id of ['settings-backup', 'settings-export-csv']) { await d.tap('#' + id); await d.settle(500); }
     for (const id of ['settings-export-debts-csv', 'settings-export-cheques-csv', 'settings-delete-all']) if (await d.has('#' + id)) throw new Error(`${id} should be gone from Settings`);
-    await d.see('#settings-screen'); await d.shot('settings-after-exports');
+    await d.see('#backups-screen'); await d.shot('backups-after-exports');
   });
-  await step('Restore button opens the picker without crashing', async () => { await d.tap('#settings-restore'); await d.settle(500); await d.see('#settings-screen'); });
-  await step('About shows version and the not-advice note', async () => { await d.see('#settings-version'); await d.see('not financial advice'); });
+  await step('Restore button opens the picker without crashing', async () => { await d.tap('#settings-restore'); await d.settle(500); await d.see('#backups-screen'); await d.back(); await d.see('#settings-screen'); });
+  await step('About shows version and the not-advice note', async () => { await d.tap('#settings-about-row'); await d.see('#settings-version'); await d.see('not financial advice'); await d.back(); await d.see('#settings-screen'); });
 });
 
 add('12 Delete profile', async (d, step) => {
   await step('Settings has no Delete all data; the data note points to Manage profiles', async () => {
-    await d.tab('Settings'); await d.notSee('Delete all data'); await d.seeText('#settings-data-note', /Manage profiles/);
+    await d.tab('Settings'); await d.tap('#settings-backups-row'); await d.notSee('Delete all data'); await d.seeText('#settings-data-note', /Manage profiles/); await d.back(); await d.see('#settings-screen');
   });
   await step('the only profile can be deleted: cancel keeps it', async () => {
-    await d.tap('#settings-manage-profiles'); await d.see('#profiles-screen'); await d.tap('#profile-delete-0'); await d.see('#profile-delete-sheet');
+    await d.tap('#settings-profile'); await d.see('#profiles-screen'); await d.tap('#profile-delete-0'); await d.see('#profile-delete-sheet');
     await d.see('only profile'); await d.shot('delete-only-profile');
     await d.tap('#profile-delete-cancel'); await d.see('#profiles-screen');
   });

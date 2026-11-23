@@ -3,8 +3,9 @@
 // the backup reader and the "this phone keeps its own value" rule of importAll. A new setting is one entry here
 // (plus the field in the Settings type); the contract test in __tests__/settings-schema.test.ts proves it round-trips.
 import { chartStyleOf } from '@/constants/theme';
+import { defaultHomeLayout, validateHomeLayout } from '@/features/home/layout';
 import { today } from '@/lib/dates';
-import type { AlertThresholds, BillReminders, Settings } from '@/types';
+import type { AlertThresholds, BillReminders, ChartRange, Settings } from '@/types';
 import { inRange, isBool, isDate, isInt, isMoney, isObj, isStr, nullOr, type Obj } from './guards';
 
 export interface SettingDescriptor<T> {
@@ -21,6 +22,7 @@ export interface SettingDescriptor<T> {
   deviceLocal?: boolean;
 }
 
+export const CHART_RANGES: readonly ChartRange[] = ['1M', '2M', '6M', '1Y'];
 export const DEFAULT_BUFFER = 100000;
 
 /** Fills `defaults` with each valid field of `v` (a field is valid when its check passes). */
@@ -57,6 +59,11 @@ export const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingDescriptor<Setti
   onboarded: { default: () => false, validate: (v) => (isBool(v) ? v : undefined), required: true },
   lockEnabled: { default: () => false, validate: (v) => (isBool(v) ? v : undefined), required: true, deviceLocal: true },
   chartStyle: { default: () => 'plain', validate: (v) => chartStyleOf(v) },
+  chartRange: { default: () => '2M', validate: (v) => (CHART_RANGES.includes(v as ChartRange) ? (v as ChartRange) : undefined) },
+  homeLayout: { default: () => defaultHomeLayout(), validate: validateHomeLayout },
+  tipsSeen: { default: () => [], validate: (v) => (Array.isArray(v) && v.every(isStr) ? [...new Set(v)] : undefined) },
+  homeVisits: { default: () => 0, validate: (v) => (inRange(v, 0, 1_000_000) ? (v as number) : undefined) },
+  spendingPeriod: { default: () => 'month', validate: (v) => (v === 'month' || v === 'year' ? v : undefined) },
 };
 
 type Key = keyof Settings;

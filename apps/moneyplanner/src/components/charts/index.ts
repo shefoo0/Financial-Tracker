@@ -6,3 +6,5 @@ export { ChartFrame, type ChartGeometry } from './ChartFrame';
 export { RangeChips, type RangeOption } from './RangeChips';
 export { useScrub } from './useScrub';
 export { balanceChart, chartById, CHARTS, type ChartDef, type ChartSeries } from './registry';
+export { ChartCard } from './ChartCard';
+export { ADDABLE_CHARTS } from './registry';

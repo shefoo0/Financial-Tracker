@@ -1,4 +1,4 @@
-# Settings -> Manage profiles -> delete the only profile (typed name) -> a fresh profile starts at the wizard.
+# Settings -> Profile row (manage profiles) -> delete the only profile (typed name) -> a fresh profile starts at the wizard.
 appId: com.shefoo.moneyplanner
 name: Delete profile returns to the wizard
 ---
@@ -18,7 +18,7 @@ name: Delete profile returns to the wizard
 - assertVisible:
     id: settings-screen
 - tapOn:
-    id: settings-manage-profiles
+    id: settings-profile
 - assertVisible:
     id: profiles-screen
 - tapOn:

@@ -2,6 +2,7 @@
 import { DEFAULT_CATEGORIES } from '@/data/defaults';
 import { BACKUP_FORMAT, BACKUP_VERSION, type Repository } from '@/data/repository';
 import { SETTING_KEYS } from '@/data/settingsSchema';
+import { defaultHomeLayout } from '@/features/home/layout';
 import type { Settings, CategoryRuleRecord, Cheque, ImportRecord, ImportTemplate, CreditCard, DebtOverride, DebtPayment, InstalmentPlan, Loan, OccurrenceOverride, RecurringItem, Transaction } from '@/types';
 
 export const rec = (o: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -63,6 +64,12 @@ export const SETTING_SAMPLES: Settings = {
   onboarded: true,
   lockEnabled: true,
   chartStyle: 'sunset',
+  chartRange: '1Y',
+  spendingPeriod: 'year',
+  // A full layout (a stored one is completed with the missing cards): reversed, every other card hidden, one chart added.
+  homeLayout: [...defaultHomeLayout().reverse().map((e, i) => ({ ...e, visible: i % 2 === 0 })), { id: 'chart:savings-rate', visible: true }],
+  tipsSeen: ['edit-balance'],
+  homeVisits: 4,
 };
 
 export function runRepositoryContract(name: string, make: () => Promise<Repository>) {

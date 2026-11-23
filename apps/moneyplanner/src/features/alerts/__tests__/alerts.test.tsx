@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { Linking, Pressable } from 'react-native';
 
-import SettingsScreen from '@/app/(tabs)/settings';
+import { AlertsSheet } from '@/features/edit';
 import { useRepoMutation } from '@/data/DataProvider';
 import { defaultSettings } from '@/data/defaults';
 import { buildAlerts } from '@/engine';
@@ -154,7 +154,7 @@ describe('Settings -> Alerts', () => {
 
   it('explains first, then asks for permission, then turns alerts on', async () => {
     N.getPermissionsAsync.mockResolvedValue(undetermined);
-    const { repo } = await renderWithRepo(<SettingsScreen />, { settings: off });
+    const { repo } = await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
     await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     expect(await screen.findByTestId('alerts-explainer')).toBeTruthy();
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
@@ -168,7 +168,7 @@ describe('Settings -> Alerts', () => {
     N.getPermissionsAsync.mockResolvedValue(undetermined);
     N.requestPermissionsAsync.mockResolvedValue(denied);
     const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
-    await renderWithRepo(<SettingsScreen />, { settings: off });
+    await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
     await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     await fireEvent.press(await screen.findByTestId('alerts-allow'));
     expect(await screen.findByTestId('alerts-denied-text')).toBeTruthy();
@@ -177,7 +177,7 @@ describe('Settings -> Alerts', () => {
   });
 
   it('turns on without the explainer when permission is already granted, and shows the status', async () => {
-    const { repo } = await renderWithRepo(<SettingsScreen />, { settings: off });
+    const { repo } = await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: off });
     await fireEvent(await screen.findByTestId('settings-notifications'), 'valueChange', true);
     await waitFor(async () => expect((await repo.getSettings()).notificationsOn).toBe(true));
     expect(screen.queryByTestId('alerts-explainer')).toBeNull();
@@ -186,18 +186,19 @@ describe('Settings -> Alerts', () => {
 
   it('shows Notifications: off when denied', async () => {
     N.getPermissionsAsync.mockResolvedValue(denied);
-    await renderWithRepo(<SettingsScreen />, { settings: base });
+    await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: base });
     expect(await screen.findByText('Notifications: off')).toBeTruthy();
   });
 
   it('validates and saves the thresholds', async () => {
-    const { repo } = await renderWithRepo(<SettingsScreen />, { settings: base });
+    const { repo } = await renderWithRepo(<AlertsSheet visible onClose={() => undefined} withReminders />, { settings: base });
     await fireEvent.changeText(await screen.findByTestId('settings-threshold-caution'), '60');
-    await fireEvent.press(screen.getByTestId('settings-thresholds-save'));
+    await fireEvent(screen.getByTestId('settings-threshold-caution'), 'blur');
     expect(await screen.findByText('The caution level must be lower than the high level.')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('settings-threshold-caution'), '35');
     await fireEvent.changeText(screen.getByTestId('settings-threshold-card'), '90');
-    await fireEvent.press(screen.getByTestId('settings-thresholds-save'));
+    await fireEvent(screen.getByTestId('settings-threshold-card'), 'blur');
     await waitFor(async () => expect((await repo.getSettings()).alertThresholds).toEqual({ debtCautionPct: 35, debtHighPct: 50, cardUsagePct: 90 }));
+    expect(await screen.findByText(/Saved/)).toBeTruthy();
   });
 });

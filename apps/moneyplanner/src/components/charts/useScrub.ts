@@ -16,12 +16,15 @@ export function useScrub({
   plotW,
   currency,
   onScrub,
+  speak = speakPoint,
 }: {
   points: SeriesPoint[];
   /** Width of the plot area in pixels (the x scale used to find the nearest point). */
   plotW: number;
   currency: string;
   onScrub?: (p: SeriesPoint | null) => void;
+  /** What the screen reader says for a point (default: the balance wording; charts of other units pass their own). */
+  speak?: (p: SeriesPoint, currency: string) => string;
 }) {
   const [active, setActive] = useState<number | null>(null);
   const [pinned, setPinned] = useState(false);
@@ -100,7 +103,7 @@ export function useScrub({
     const i = at === null ? (dir === 1 ? 0 : points.length - 1) : Math.min(points.length - 1, Math.max(0, at + dir));
     setPinned(true);
     select(i);
-    AccessibilityInfo.announceForAccessibility?.(speakPoint(points[i], currency));
+    AccessibilityInfo.announceForAccessibility?.(speak(points[i], currency));
   };
 
   const cur = active !== null ? points[active] : null;
@@ -119,7 +122,7 @@ export function useScrub({
     accessibility: {
       accessible: true as const,
       accessibilityRole: 'adjustable' as const,
-      accessibilityValue: cur ? { text: speakPoint(cur, currency) } : undefined,
+      accessibilityValue: cur ? { text: speak(cur, currency) } : undefined,
       accessibilityActions: [
         { name: 'increment', label: 'Next point' },
         { name: 'decrement', label: 'Previous point' },

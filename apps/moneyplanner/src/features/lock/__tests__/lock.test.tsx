@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { AppState, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import SettingsScreen from '@/app/(tabs)/settings';
+import { LockSettingsScreen } from '@/features/settings/LockSettingsScreen';
 import { defaultSettings } from '@/data/defaults';
 import { createMemoryProfileStore } from '@/data/profiles/memory-profile-store';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
@@ -322,7 +322,7 @@ describe('Settings -> Lock', () => {
   const idOf = async (store: { init(): Promise<{ activeProfileId: string }> }) => (await store.init()).activeProfileId;
 
   it('sets a PIN by entering it twice', async () => {
-    const { repo, store } = await renderWithRepo(<SettingsScreen />, { settings: base });
+    const { repo, store } = await renderWithRepo(<LockSettingsScreen />, { settings: base });
     await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
     await enter('pin', '2468');
     await fireEvent.press(screen.getByTestId('pin-submit'));
@@ -333,7 +333,7 @@ describe('Settings -> Lock', () => {
   });
 
   it('rejects a second entry that differs', async () => {
-    const { repo, store } = await renderWithRepo(<SettingsScreen />, { settings: base });
+    const { repo, store } = await renderWithRepo(<LockSettingsScreen />, { settings: base });
     await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
     await enter('pin', '2468');
     await fireEvent.press(screen.getByTestId('pin-submit'));
@@ -344,14 +344,14 @@ describe('Settings -> Lock', () => {
   });
 
   it('needs at least 4 digits', async () => {
-    await renderWithRepo(<SettingsScreen />, { settings: base });
+    await renderWithRepo(<LockSettingsScreen />, { settings: base });
     await fireEvent(await screen.findByTestId('settings-lock-toggle'), 'valueChange', true);
     await enter('pin', '12');
     expect(screen.getByTestId('pin-submit').props.accessibilityState.disabled).toBe(true);
   });
 
   async function withPin() {
-    const view = await renderWithRepo(<SettingsScreen />, { settings: { ...base, lockEnabled: true } });
+    const view = await renderWithRepo(<LockSettingsScreen />, { settings: { ...base, lockEnabled: true } });
     const id = await idOf(view.store);
     await lockStore.setPin(id, '1234');
     return { ...view, id };

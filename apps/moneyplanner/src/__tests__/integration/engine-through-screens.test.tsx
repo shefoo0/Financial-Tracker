@@ -16,6 +16,7 @@ import { defaultSettings } from '@/data/defaults';
 import { createMemoryProfileStore } from '@/data/profiles/memory-profile-store';
 import { ProfileProvider } from '@/data/profiles/ProfileProvider';
 import type { BackupData } from '@/data/repository';
+import { defaultHomeLayout, toggleCard } from '@/features/home/layout';
 
 import { params, resetRouterMock } from '../../../test-support/expo-router-mock';
 import { recurring, transaction } from '../../../test-support/render';
@@ -123,6 +124,8 @@ describe('a loan added in the form', () => {
     expect(monthRow).toBeTruthy();
     expect(within(screen.getByTestId('month-summary')).getByLabelText('Total spend: AED 1,500.00')).toBeTruthy();
 
+    // The end-of-month list is hidden by default: show it for this check.
+    await repo.updateSettings({ homeLayout: toggleCard(defaultHomeLayout(), 'endOfMonth') });
     await goTo('dashboard');
     const next = await screen.findByTestId('dashboard-upcoming');
     expect(within(next).getByLabelText(/Car loan payment, in 5 days.*cost AED 1,500\.00/)).toBeTruthy();

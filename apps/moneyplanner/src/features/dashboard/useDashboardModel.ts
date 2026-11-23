@@ -26,7 +26,8 @@ export function useDashboardModel(input: PlanInput) {
   const currentMonth = monthKey(todayStr);
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(Number(currentMonth.slice(0, 4)));
-  const [catScope, setCatScope] = useState<'month' | 'year'>('month');
+  // The period of the spending-by-category card is a setting (edited in its pencil sheet and in Settings).
+  const catScope: 'month' | 'year' = input.settings.spendingPeriod === 'year' ? 'year' : 'month';
 
   const empty = input.recurring.length === 0 && input.transactions.length === 0 && input.debts.length === 0 && input.cheques.length === 0;
   const fc = forecastFor(input, todayStr, 60, 12);
@@ -48,5 +49,5 @@ export function useDashboardModel(input: PlanInput) {
     { label: 'Spent %', get: (i) => ys.months[i].spentPct, kind: 'pct' },
   ];
 
-  return { todayStr, currentMonth, month, setMonth, year, setYear, catScope, setCatScope, empty, fc, history, ms, ys, upcoming, bars, rows };
+  return { todayStr, currentMonth, month, setMonth, year, setYear, catScope, empty, fc, history, ms, ys, upcoming, bars, rows };
 }

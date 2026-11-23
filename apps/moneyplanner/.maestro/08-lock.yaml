@@ -16,10 +16,8 @@ name: Lock with a PIN
 - tapOn:
     id: onboarding-start
 - tapOn: "Settings"
-- scrollUntilVisible:
-    element:
-      id: settings-lock-toggle
-    direction: DOWN
+- tapOn:
+    id: settings-lock-row
 - tapOn:
     id: settings-lock-toggle
 - assertVisible:
@@ -46,10 +44,8 @@ name: Lock with a PIN
 - tapOn:
     id: pin-submit
     optional: true
-- scrollUntilVisible:
-    element:
-      id: settings-lock-change
-    direction: DOWN
+- assertVisible:
+    id: settings-lock-change
 # Restart without clearing data: the profile opens locked.
 - stopApp
 - launchApp
