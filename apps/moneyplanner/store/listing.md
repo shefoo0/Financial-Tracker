@@ -2,8 +2,8 @@
 
 Notes for the lead (not part of the store text):
 
-- Status 2026-11-23: reports, statement import and money accounts (milestone 3b) are built and unlocked in Pro preview builds; the Pro purchase itself (milestone 4, T14) is NOT built yet. The descriptions describe the app at public launch. For the closed test, use the "Release notes" section, which says plainly what arrives in an update.
-- When Pro ships, change: nothing in the descriptions. Before that, for the closed-test listing only, you may delete the "Pro" paragraph and the "Reports and import" bullets in "Google Play full description" and the matching lines in "App Store description", so the page does not promise features testers cannot open. Also update "Release notes", "Data safety" (add the purchase line below) and the privacy policy if a purchase SDK is added.
+- Status 2026-11-24: the Pro one-time purchase is built (milestone 4, T14: Google Play Billing and StoreKit through the free expo-iap library; product `com.shefoo.moneyplanner.pro`). Create that product in Play Console (managed product, one-time) and App Store Connect (non-consumable) before testers can buy it; until then the Pro screen says Pro isn't on sale yet.
+- The descriptions, Data safety, privacy label and privacy policy already cover the purchase (it goes straight to the store; no other server).
 - Fill in `jokester-fidgety97@bravealias.com` in privacy-policy.md and support.md and the privacy policy URL in the consoles.
 - Features in the text that are still open on the PROGRESS.md release bar (bill reminders with lead time, faster entry with recent chips, optional category limits, import): remove any that are not built when you submit.
 - Not claimed anywhere: bank connection, advice, loans, a Pro price (set in the store consoles).
@@ -167,7 +167,7 @@ Category: All other app types (not a game). Answers: violence No, sexual content
 
 ## App Store privacy label
 
-**Data Not Collected.** The app has no account, no analytics, no ads, no crash reporting and no network calls. Data stays on the device. (When Pro ships, the App Store handles the purchase itself; if a purchase SDK that talks to its own server is added, re-check: purchase history would then be "Purchases", not linked to identity, used for app functionality.)
+**Data Not Collected.** The app has no account, no analytics, no ads, no crash reporting and makes no network calls of its own. Data stays on the device. The Pro purchase is made by the App Store itself (StoreKit, through expo-iap, which has no server of its own); the app only asks StoreKit whether Pro is owned.
 
 ## Google Play Data safety
 
@@ -179,14 +179,14 @@ Checked in the code on 2026-11-23: a search for fetch, XMLHttpRequest, WebSocket
 - Data types, each marked **Not collected / Not shared**: location, personal info, financial info, health and fitness, messages, photos and videos, audio, files and docs, calendar, contacts, app activity, web browsing, app info and performance, device or other IDs.
 - Why "financial info" is not collected: the amounts, bills and balances the user types are kept only in a database on the phone and are never sent to the developer or anyone else. Google's definition of "collect" is transmitting data off the device.
 - What the app does on the device (for the privacy policy, not Data safety fields): notifications are scheduled locally; the PIN is stored as a salted hash in the phone's secure storage; fingerprint and face unlock are handled by the operating system and the app only receives yes or no; the user may share a backup, CSV or PDF file through the system share sheet, which is the user's own action; imported statement files and photos are read on the device.
-- Add when Pro ships: **Purchase history** is handled by Google Play Billing. If a purchase SDK is added that sends data to its own server, answer "Collected: Purchase history, App functionality, not shared" and update the privacy policy.
+- Pro purchase (checked 2026-11-24): made through Google Play Billing (expo-iap 6.4.2, MIT, no server of its own, no API key, none of its optional paid services set up). The app asks Google Play whether Pro is owned and keeps a yes/no flag in the phone's secure storage; nothing is sent to the developer, so purchase history is **not collected** by the app (Google Play handles it under its own policy). Permission added by Play Billing: `com.android.vending.BILLING`.
 
 ## Google Play declarations
 
 - **Financial features declaration:** Select "Personal finance management" (budgeting and tracking only). Select none of: loans, banking or digital wallet, payments, investment, insurance, buy-now-pay-later provider, cryptocurrency. Answer to "Does your app offer personal loans?": No. The app is not a lender, does not offer credit, does not move money and does not connect to bank accounts. Debts, cards and instalments are only records the user types in. The app does not give financial advice: alert wording states facts only.
 - **App access:** all functionality is available without login; the optional PIN lock is per profile. Reviewers need no credentials.
 - **Ads:** the app contains no ads.
-- **Permissions:** POST_NOTIFICATIONS (reminders and alerts, asked in context after an explanation), RECEIVE_BOOT_COMPLETED (so scheduled reminders survive a restart), USE_BIOMETRIC and USE_FINGERPRINT (optional unlock), CAMERA (only when the user chooses to photograph a statement or receipt to import; asked at that moment). No SMS, contacts, location or storage permissions. Photos and files are picked with the system picker.
+- **Permissions:** POST_NOTIFICATIONS (reminders and alerts, asked in context after an explanation), RECEIVE_BOOT_COMPLETED (so scheduled reminders survive a restart), USE_BIOMETRIC and USE_FINGERPRINT (optional unlock), CAMERA (only when the user chooses to photograph a statement or receipt to import; asked at that moment), com.android.vending.BILLING (the Pro one-time purchase through Google Play). No SMS, contacts, location or storage permissions. Photos and files are picked with the system picker.
 - **Government app / health / news declarations:** No.
 
 ## Accessibility features
@@ -209,5 +209,5 @@ First closed test, version 1.0.0:
 - Bills, one-time items, loans, cards, instalments and cheques.
 - Bank and cash accounts, card purchases, moving money.
 - Reminders, alerts, PIN lock, profiles, backups and CSV export.
-- Reports, statement import and several accounts are Pro (one-time); the purchase comes in an update.
+- Charts, reports, statement import and several accounts are Pro: a one-time purchase, with Restore.
 Tell us what is slow or confusing.

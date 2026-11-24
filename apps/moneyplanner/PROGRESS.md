@@ -54,7 +54,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [ ] Developer: remove cards that were added as bank accounts and add them again as credit cards; re-test on the phone
 - [~] Milestone 4 — Pro unlock and store (started 2026-11-24; each step is committed and pushed when done, so a new session can resume here)
   - [ ] M4.1 Accessibility pass: labels/roles/hints on every control, large text (font scaling) on key screens, contrast of tokens light + dark, 44pt targets; tests
-  - [ ] M4.2 T14 Pro one-time purchase + Restore (free open-source store library, no RevenueCat, no server): Pro screen, price from the store, restore, cached entitlement, pro_preview builds unchanged; tests. Real purchase test waits for the Play account (on hold)
+  - [x] M4.2 T14 Pro one-time purchase + Restore (e6d41fb): expo-iap 6.4.2 (MIT, no server, no key) behind src/lib/purchases.ts + store.ts (store.web.ts: none); ProProvider remembers the unlock in secure storage, checks the store at start (refund locks), restore; /pro screen (features, store price, buy, restore; "can't be bought in this version" without a store); every Unlock Pro opens it; 18 tests; listing/Data safety/spec updated. [ ] Developer at release: create product `com.shefoo.moneyplanner.pro` (Play: managed product; App Store: non-consumable) and test a real purchase with a licence tester (Play account on hold). [ ] Native build check (Android run)
   - [ ] M4.3 QC (qc-inspector): store rules, listing limits, privacy answers vs code, placeholders; fix findings
   - [ ] M4.4 Store screenshots (scripts/screenshots.mjs) into store/screenshots
   - [ ] M4.5 Privacy + support pages into docs/ (scripts/publish-pages.mjs) for GitHub Pages
