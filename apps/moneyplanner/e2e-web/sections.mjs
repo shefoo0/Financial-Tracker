@@ -699,7 +699,15 @@ add('11 Settings: money, exports and backup', async (d, step) => {
   await step('currency label save keeps the label', async () => {
     await d.type('#settings-currency', 'AED'); await commit(d); await closeSheet(d); await d.seeText('#settings-money-row', /AED 7,000\.00 · Day 28/);
   });
-  await step('Home shows the new balance', async () => { await d.tab('Home'); await d.see('AED 7,000', { exact: true }); await d.tab('Settings'); });
+  await step('Home shows the new balance (what the cards owe comes off it; "By account" shows the main account at 7,000)', async () => {
+    await d.tab('Home');
+    if (await d.has('#dashboard-balance-breakdown')) {
+      await d.tap('#dashboard-balance-breakdown'); await d.see('#balance-by-account');
+      if ((await d.page.locator('[data-testid="balance-account-main"][aria-label$=": AED 7,000.00"]').count()) === 0) throw new Error('the main account is not AED 7,000.00 by account');
+      await d.settle(600); await d.page.mouse.click(8, 8); await d.settle(400);
+    } else await d.see('AED 7,000', { exact: true });
+    await d.tab('Settings');
+  });
   await step('Backups & export screen: tap backup and the one CSV export (no crash)', async () => {
     await d.tap('#settings-backups-row'); await d.see('#backups-screen');
     for (const id of ['settings-backup', 'settings-export-csv']) { await d.tap('#' + id); await d.settle(500); }
@@ -833,7 +841,7 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
       await d.see('#balance-by-account');
       if ((await d.page.locator('[aria-label="Savings: AED 500.00"]').count()) === 0) throw new Error('Savings: AED 500.00 not shown by account');
       await d.shot('home-balance-by-account');
-    } else await d.notSee('#balance-by-account');
+    } else if ((await d.page.locator('[aria-label="Savings: AED 500.00"]').count()) > 0) throw new Error('a free user has a second bank account');
     await closeHomeSheet();
   });
   await step('Pro: Move money from the + button is not spending or income in Month', async () => {
