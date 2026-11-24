@@ -35,13 +35,13 @@ Research: `ideas/2026-11-21-similar-modular-finance-forecast.md`, `ideas/2026-11
 | Listing limits | `node scripts/check-listing.mjs apps/moneyplanner/store/listing.md` | all fields pass |
 | Pre-flight (every CI check + web walkthrough, free and Pro preview) | `node scripts/preflight.mjs apps/moneyplanner --pro-preview` | all 12 steps pass (8b71f51) |
 | Android build + 9 Maestro flows on an emulator | `android.yml` | pass (run 45406352340, free build with the purchase) |
-| iPhone simulator: 9 Maestro flows + screenshots | `ios-simulator.yml` | see "Final runs" |
+| iPhone simulator: 9 Maestro flows + screenshots | `ios-simulator.yml` | pass (run 45413350000) |
 | Accessibility | roles/labels scan, contrast test (light + dark ≥ 4.5:1), targets ≥ 44pt, Reduce motion | pass |
 
 ### Final runs
 - Android: [run 45406352340](https://github.com/shefoo0/Financial-Tracker/actions/runs/45406352340), free build on 8b71f51 — APK built (debug key; the upload key comes at release), target API check passed, all 9 Maestro flows passed.
 - Android Pro preview (for testing Pro on the phone): [run 45379895335](https://github.com/shefoo0/Financial-Tracker/actions/runs/45379895335) — all 9 flows passed on the e2e re-run.
-- iPhone simulator: [run 45413350000](https://github.com/shefoo0/Financial-Tracker/actions/runs/45413350000) on c729b4a (new Expo build) — see PROGRESS.md for its result.
+- iPhone simulator: [run 45413350000](https://github.com/shefoo0/Financial-Tracker/actions/runs/45413350000) on c729b4a (new Expo build with the purchase library) — all 9 Maestro flows and the store screenshot flow passed; screenshots in the `moneyplanner-ios-simulator` artifact.
 
 ## Review and QC verdicts
 - **QC (qc-inspector, 2026-11-24): FAIL → fixed.** One blocker: for a free user, saving a new bank account left the
