@@ -9,6 +9,7 @@ import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import { useSettingSetter } from '@/data/useSettingSetter';
 import { accountBalances, cardsOwed } from '@/engine';
 import { buildAccount, canAddAccount, pickableAccounts, validateAccountName } from '@/features/accounts/helpers';
+import { showPro } from '@/features/pro/showPro';
 import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
 import { today } from '@/lib/dates';
@@ -16,8 +17,7 @@ import { formatMoney } from '@/lib/money';
 import { usePro } from '@/lib/pro';
 import { MAIN_ACCOUNT_ID, type Account, type AccountType, type Fils, type ISODate } from '@/types';
 
-export const ACCOUNTS_PRO_TITLE = 'Pro comes with the next update';
-const accountsPro = () => Alert.alert(ACCOUNTS_PRO_TITLE, 'More bank and cash accounts, choosing the account of each item and a default account come with Pro. Your main account, your cards and your debts stay free.');
+const accountsPro = showPro;
 
 type Editing = { mode: 'add' } | { mode: 'edit'; id: string } | null;
 /** What a new item is: a bank or cash account here, or a card or debt (saved in Debts, so it is what you owe). */

@@ -129,7 +129,8 @@
         }
       ],
       "./plugins/with-mlkit-ocr-dependency",
-      "./plugins/with-proguard-rules"
+      "./plugins/with-proguard-rules",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -6,7 +6,11 @@ import { cheque, income, input, loan, settings } from '@/engine/test-fixtures';
 import { today } from '@/lib/dates';
 import { usePro } from '@/lib/pro';
 
+import { router } from '../../../../test-support/expo-router-mock';
 import { renderWithRepo } from '../../../../test-support/render';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('expo-router', () => require('../../../../test-support/expo-router-mock'));
 import { debtPayoffChart, incomeVsSpendingChart, savingsRateChart } from '../addedCharts';
 import { ChartCard } from '../ChartCard';
 import type { ChartDef } from '../registry';
@@ -71,12 +75,10 @@ describe('ChartCard: free and Pro', () => {
     expect(screen.queryByTestId('chart-card-debt-payoff-unlock')).toBeNull();
   });
 
-  it('Unlock Pro is a live button (an explanation, nothing is charged)', async () => {
-    const alert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => undefined);
+  it('Unlock Pro is a live button that opens the Pro screen', async () => {
     await draw(savingsRateChart);
     await fireEvent.press(screen.getByTestId('chart-card-savings-rate-unlock'));
-    expect(alert).toHaveBeenCalledWith(expect.stringMatching(/Pro/), expect.stringMatching(/Nothing is charged/));
-    alert.mockRestore();
+    expect(router.push).toHaveBeenCalledWith('/pro');
   });
 });
 

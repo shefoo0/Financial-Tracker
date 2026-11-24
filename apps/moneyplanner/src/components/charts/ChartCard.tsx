@@ -1,11 +1,12 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { Button, Card, Pill, Sheet, T } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
 import { sampleInput } from '@/engine';
 import { EditButton } from '@/features/edit';
+import { showPro } from '@/features/pro/showPro';
 import { useTheme } from '@/hooks/use-theme';
 import { usePro } from '@/lib/pro';
 import type { ISODate, PlanInput } from '@/types';
@@ -18,7 +19,7 @@ import type { ChartDef, ChartSeries, SeriesTone } from './registry';
 const TOOLTIP_W = 176;
 const MAX_BAR = 14;
 
-export const unlockChartsPro = () => Alert.alert('Pro comes with the next update', 'Charts and reports will unlock with Pro. Nothing is charged today.');
+export const unlockChartsPro = showPro;
 
 /** Spoken summary: for each series its lowest and highest point. */
 function describe(def: ChartDef, series: ChartSeries[], rangeSpoken: string, currency: string): string {
@@ -205,7 +206,7 @@ export function ChartCard({ def, input, today, testID = `chart-card-${def.id}` }
       {sample ? (
         // Compact and on the left: Home's floating "+" sits bottom-right, so a full-width button ran under it.
         <View style={{ alignSelf: 'flex-start' }}>
-          <Button label="Unlock Pro" onPress={unlockChartsPro} testID={`${testID}-unlock`} accessibilityHint="Pro comes with the next update" />
+          <Button label="Unlock Pro" onPress={unlockChartsPro} testID={`${testID}-unlock`} accessibilityHint="Opens Money Planner Pro" />
         </View>
       ) : null}
 

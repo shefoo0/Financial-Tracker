@@ -12,9 +12,6 @@ const WHAT = [
   { glyph: '💬', title: 'A bank SMS', text: 'Share it from Messages, or paste it here' },
 ];
 
-export const PRO_ALERT_TITLE = 'Pro comes with the next update';
-export const PRO_ALERT_MESSAGE = 'Importing statements and reports will be part of Money Planner Pro, a one-time purchase. Everything else stays free.';
-
 export function ImportIntro({ pro }: { pro: boolean }) {
   const c = useTheme();
   return (

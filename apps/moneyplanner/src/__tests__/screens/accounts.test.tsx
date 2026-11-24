@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
-import Accounts, { ACCOUNTS_PRO_TITLE } from '@/app/accounts';
+import Accounts from '@/app/accounts';
 import { defaultSettings } from '@/data/defaults';
 import { card } from '@/engine/test-fixtures';
 import { buildAccount, validateAccountName } from '@/features/accounts/helpers';
@@ -121,7 +121,6 @@ describe('Accounts screen', () => {
 
   it('free: one main account plus cards and debts; a bank or cash account, or a default, shows the Pro message', async () => {
     mockPro = false;
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { repo } = await renderWithRepo(<Accounts />, { settings });
     await fireEvent.press(await screen.findByTestId('accounts-add'));
     // A free user starts on a credit card (free); a bank account is Pro.
@@ -130,11 +129,11 @@ describe('Accounts screen', () => {
     await fireEvent.press(await screen.findByTestId('account-kind-option-bank'));
     await fireEvent.changeText(screen.getByTestId('account-name'), 'ADCB');
     await fireEvent.press(screen.getByTestId('account-save'));
-    expect(alert).toHaveBeenCalledWith(ACCOUNTS_PRO_TITLE, expect.stringMatching(/your cards and your debts stay free/));
+    expect(router.push).toHaveBeenCalledWith('/pro');
     await fireEvent.press(screen.getByTestId('account-cancel'));
     expect(screen.queryByTestId('accounts-default')).toBeNull();
     await fireEvent.press(screen.getByTestId('accounts-default-locked'));
-    expect(alert).toHaveBeenCalledTimes(2);
+    expect(router.push).toHaveBeenCalledTimes(2);
     expect(await repo.listAccounts()).toEqual([]);
   });
 });

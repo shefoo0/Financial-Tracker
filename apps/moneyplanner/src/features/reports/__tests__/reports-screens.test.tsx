@@ -56,11 +56,10 @@ describe('free user', () => {
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/reports/[key]', params: { key: sampleReport(today()).period.key } }));
   });
 
-  it('Unlock Pro says it comes with the next update', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  it('Unlock Pro opens the Pro screen', async () => {
     await renderWithRepo(<ReportsScreen />, seed);
     await fireEvent.press(await screen.findByTestId('report-unlock'));
-    expect(alert).toHaveBeenCalledWith('Pro comes with the next update', expect.any(String));
+    expect(router.push).toHaveBeenCalledWith('/pro');
   });
 
   it('report screen shows the sample only and no PDF button', async () => {

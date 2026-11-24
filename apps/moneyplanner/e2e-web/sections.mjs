@@ -532,12 +532,12 @@ add('8b Import: a free user sees the Pro screen', async (d, step) => {
     }
     await d.shot('import-pro-screen');
   });
-  await step('Unlock Pro explains that Pro comes with the next update (no crash)', async () => {
+  await step('Unlock Pro opens the Pro screen: what Pro adds; the web build has no store, so no buy button', async () => {
     if (!free) return;
-    await d.clearAlerts(); await d.tap('#import-unlock'); await d.settle(300);
-    const alerts = JSON.stringify(await d.alerts());
-    if (!/Pro comes with the next update/.test(alerts)) throw new Error('no Pro alert: ' + alerts);
-    await d.see('#import-screen');
+    await d.tap('#import-unlock'); await d.see('#pro-screen'); await d.see('Statement import');
+    await d.see('#pro-unavailable'); if (await d.has('#pro-buy')) throw new Error('a buy button without a store');
+    await d.shot('pro-screen');
+    await d.back(); await d.see('#import-screen');
   });
   await step('the review and column screens are the Pro screen for a free user (never parse)', async () => {
     if (!free) return;
@@ -819,10 +819,9 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
     await d.tap('#account-kind'); await d.tap('#account-kind-option-bank');
     await d.type('#account-name', 'Savings'); await d.type('#account-balance', '500');
     if (!proBuild) {
-      await d.tap('#account-save');
-      const alerts = await d.alerts();
-      if (!alerts.some((a) => /Pro comes with the next update/.test(a.title))) throw new Error(`expected the Pro message, got ${JSON.stringify(alerts)}`);
-      await d.tap('#account-cancel');
+      await d.tap('#account-save'); await d.see('#pro-screen'); await d.back();
+      await d.see('#accounts-screen');
+      if (await d.has('#account-cancel')) await d.tap('#account-cancel');
       return;
     }
     await d.tap('#account-save');

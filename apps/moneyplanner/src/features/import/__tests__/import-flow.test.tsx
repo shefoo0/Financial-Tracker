@@ -1,5 +1,4 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 
 import { readImport } from '@/import/read';
 import { readBytes } from '@/import/read/files';
@@ -53,9 +52,8 @@ describe('free users', () => {
     for (const id of ['import-choose-file', 'import-take-photo', 'import-choose-photo', 'import-paste-sms', 'import-sms-input', 'import-read']) {
       expect(screen.queryByTestId(id)).toBeNull();
     }
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     await fireEvent.press(screen.getByTestId('import-unlock'));
-    expect(alert).toHaveBeenCalledWith('Pro comes with the next update', expect.any(String));
+    expect(router.push).toHaveBeenCalledWith('/pro');
   });
 
   it('never read a shared item, and the item is dropped', async () => {
