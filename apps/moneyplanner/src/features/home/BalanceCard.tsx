@@ -40,6 +40,7 @@ export function BalanceCard({ ctx }: { ctx: HomeCtx }) {
           void set({ chartRange: r });
         }}
         onBalancePress={() => ctx.openSheet('balance')}
+        breakdownLabel={(ctx.input.accounts ?? []).some((a) => !a.archived) || ctx.input.debts.some((d) => d.type === 'card' && !d.archived) ? 'By account ›' : null}
       />
     </HeroCard>
   );

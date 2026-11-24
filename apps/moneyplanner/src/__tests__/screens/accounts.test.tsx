@@ -53,10 +53,24 @@ describe('Accounts screen', () => {
   it('Pro: adds an account with its balance and date', async () => {
     const { repo } = await renderWithRepo(<Accounts />, { settings });
     await fireEvent.press(await screen.findByTestId('accounts-add'));
+    await fireEvent.press(screen.getByTestId('account-kind'));
+    await fireEvent.press(await screen.findByTestId('account-kind-option-cash'));
     await fireEvent.changeText(screen.getByTestId('account-name'), 'Cash');
-    await fireEvent.press(screen.getByText('Cash'));
     await fireEvent.press(screen.getByTestId('account-save'));
     await waitFor(async () => expect((await repo.listAccounts()).map((a) => [a.name, a.type])).toEqual([['Cash', 'cash']]));
+  });
+
+  it('an overdrawn bank account saves a negative balance; a card shows what it owes as a minus and "Add a credit card" opens the card form', async () => {
+    const { repo } = await renderWithRepo(<Accounts />, { settings, debts: [card({ id: 'visa', name: 'Visa', balance: 30000, balanceDate: '2026-01-01' })] });
+    expect((await screen.findByTestId('account-card-visa')).props.accessibilityLabel).toMatch(/off your balance, -?AED/);
+    await fireEvent.press(screen.getByTestId('accounts-add-card'));
+    expect(router.push).toHaveBeenCalledWith('/debts/new?type=card');
+    await fireEvent.press(screen.getByTestId('accounts-add'));
+    await fireEvent.changeText(screen.getByTestId('account-name'), 'Overdraft');
+    await fireEvent.changeText(screen.getByTestId('account-balance'), '120');
+    await fireEvent.press(screen.getByTestId('account-overdrawn'));
+    await fireEvent.press(screen.getByTestId('account-save'));
+    await waitFor(async () => expect((await repo.listAccounts()).map((a) => a.startingBalance)).toEqual([-12000]));
   });
 
   it('renames the main account (its balance stays the one set on Home)', async () => {
@@ -89,13 +103,35 @@ describe('Accounts screen', () => {
     await waitFor(async () => expect((await repo.getSettings()).defaultAccountId).toBe('sav'));
   });
 
-  it('free: one main account plus cards; adding an account or a default shows the Pro message', async () => {
+  it('adding: choosing a credit card or a loan continues to the Debts form', async () => {
+    await renderWithRepo(<Accounts />, { settings });
+    await fireEvent.press(await screen.findByTestId('accounts-add'));
+    await fireEvent.press(screen.getByTestId('account-kind'));
+    await fireEvent.press(await screen.findByTestId('account-kind-option-card'));
+    expect(screen.queryByTestId('account-name')).toBeNull();
+    expect(screen.getByTestId('account-debt-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('account-save'));
+    expect(router.push).toHaveBeenCalledWith('/debts/new?type=card');
+    await fireEvent.press(screen.getByTestId('accounts-add'));
+    await fireEvent.press(screen.getByTestId('account-kind'));
+    await fireEvent.press(await screen.findByTestId('account-kind-option-loan'));
+    await fireEvent.press(screen.getByTestId('account-save'));
+    expect(router.push).toHaveBeenCalledWith('/debts/new?type=loan');
+  });
+
+  it('free: one main account plus cards and debts; a bank or cash account, or a default, shows the Pro message', async () => {
     mockPro = false;
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { repo } = await renderWithRepo(<Accounts />, { settings });
     await fireEvent.press(await screen.findByTestId('accounts-add'));
-    expect(alert).toHaveBeenCalledWith(ACCOUNTS_PRO_TITLE, expect.stringMatching(/Your main account and your cards stay free/));
-    expect(screen.queryByTestId('account-name')).toBeNull();
+    // A free user starts on a credit card (free); a bank account is Pro.
+    expect(screen.getByTestId('account-debt-note')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('account-kind'));
+    await fireEvent.press(await screen.findByTestId('account-kind-option-bank'));
+    await fireEvent.changeText(screen.getByTestId('account-name'), 'ADCB');
+    await fireEvent.press(screen.getByTestId('account-save'));
+    expect(alert).toHaveBeenCalledWith(ACCOUNTS_PRO_TITLE, expect.stringMatching(/your cards and your debts stay free/));
+    await fireEvent.press(screen.getByTestId('account-cancel'));
     expect(screen.queryByTestId('accounts-default')).toBeNull();
     await fireEvent.press(screen.getByTestId('accounts-default-locked'));
     expect(alert).toHaveBeenCalledTimes(2);

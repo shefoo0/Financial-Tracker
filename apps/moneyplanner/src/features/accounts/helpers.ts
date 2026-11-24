@@ -27,7 +27,7 @@ export function buildAccount(args: { name: string; type: AccountType; balance: F
     id: newId(),
     name: args.name.trim(),
     type: args.type,
-    startingBalance: Math.max(0, Math.round(args.balance)),
+    startingBalance: Math.round(args.balance),
     startingBalanceDate: args.date,
     archived: false,
     sort,

@@ -38,10 +38,12 @@ export function startOf(accountId: string, input: Pick<PlanInput, 'settings' | '
 
 /**
  * Whether a cash flow on `date` in `accountId` is still to be added to that account's balance: flows on or before
- * the account's starting balance date are already in it.
+ * the account's starting balance date are already in it. A move between the user's own accounts on that day counts,
+ * though: it is made after setting the balance (developer, 2026-11-24: a move made today did nothing).
  */
-export function countsAfterStart(accountId: string, date: ISODate, input: Pick<PlanInput, 'settings' | 'accounts'>): boolean {
-  return compareDates(date, startOf(accountId, input).date) > 0;
+export function countsAfterStart(accountId: string, date: ISODate, input: Pick<PlanInput, 'settings' | 'accounts'>, transfer = false): boolean {
+  const c = compareDates(date, startOf(accountId, input).date);
+  return transfer ? c >= 0 : c > 0;
 }
 
 /** Every bank/cash account the totals include: the main one first, then the others in their order (archived too). */

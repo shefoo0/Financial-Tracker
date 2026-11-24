@@ -26,7 +26,7 @@ import {
 
 import { accountOf, cardOf, cashAccounts, countsAfterStart, isTransfer, startOf, totalStartingBalance } from './accounts';
 import { occurrencesInRange } from './recurring';
-import { debtOutflows } from './debts/schedule';
+import { activeDebts, cardCharges, cardOwedAt, debtOutflows } from './debts/schedule';
 import { chequesInRange } from './debts/cheques';
 
 // ---- Summaries ----
@@ -197,8 +197,8 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
   const mainFrom = addDays(sbd, 1);
   const byDay = new Map<ISODate, ForecastEvent[]>();
   let balanceAsOf = totalStartingBalance(input);
-  const isCash = (item: { date: ISODate; accountId?: string | null; cardId?: string | null }) =>
-    !cardOf(item, input) && countsAfterStart(accountOf(item, input), item.date, input);
+  const isCash = (item: { date: ISODate; accountId?: string | null; cardId?: string | null; transferId?: string | null }) =>
+    !cardOf(item, input) && countsAfterStart(accountOf(item, input), item.date, input, isTransfer(item));
   const add = (e: ForecastEvent) => {
     if (compareDates(e.date, asOf) <= 0) balanceAsOf += e.kind === 'income' ? e.amount : -e.amount;
     else push(byDay, e.date, e);
@@ -210,18 +210,32 @@ export function forecast(input: PlanInput, opts: { today: ISODate; days?: number
       add({ date: o.date, label: o.name, kind: o.kind, amount: o.amount, source: 'recurring', refId: o.recurringId });
     }
     for (const t of input.transactions) {
-      if (compareDates(t.date, flowFrom) < 0 || compareDates(t.date, flowTo) > 0 || !isCash(t)) continue;
+      // From the earliest start day itself: a move between accounts on an account's start day counts.
+      if (compareDates(t.date, earliestStart) < 0 || compareDates(t.date, flowTo) > 0 || !isCash(t)) continue;
       add({ date: t.date, label: t.description, kind: t.kind, amount: t.amount, source: 'transaction', refId: t.id });
     }
   }
 
-  // Debt payments and cheques leave the main account.
+  // Debt payments and cheques leave the main account. A card payment after today only moves money from the bank to
+  // the card (what the card owes is already off the balance), so it is left out of the forecast.
   if (compareDates(mainFrom, flowTo) <= 0) {
     for (const p of debtOutflows(input, mainFrom, flowTo)) {
+      if (p.kind === 'card' && compareDates(p.date, asOf) > 0) continue;
       add({ date: p.date, label: p.label, kind: 'cost', amount: p.amount, source: 'debt', refId: p.debtId });
     }
     for (const c of chequesInRange(input, mainFrom, flowTo)) {
       add({ date: c.date, label: `Cheque to ${c.payee}`, kind: 'cost', amount: c.amount, source: 'cheque', refId: c.id });
+    }
+  }
+
+  // Cards: what each owes today comes off the balance; later purchases, instalments on the card and interest lower
+  // it on their dates (the card's payment then moves nothing).
+  for (const card of activeDebts(input)) {
+    if (card.type !== 'card') continue;
+    balanceAsOf -= cardOwedAt(card, input, asOf);
+    for (const c of cardCharges(card, input, flowTo)) {
+      if (compareDates(c.date, asOf) <= 0) continue;
+      push(byDay, c.date, { date: c.date, label: c.label, kind: c.amount >= 0 ? 'cost' : 'income', amount: Math.abs(c.amount), source: c.kind === 'purchase' ? 'transaction' : 'debt', refId: c.refId });
     }
   }
 

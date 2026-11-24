@@ -5,16 +5,15 @@ import { View } from 'react-native';
 import { Button, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { usePlanInput } from '@/data/DataProvider';
-import { accountBalances, remainingOf } from '@/engine';
+import { accountBalances, cardsOwed } from '@/engine';
 import { today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
-import type { CreditCard } from '@/types';
 
 export function AccountBreakdown({ onNavigate }: { onNavigate?: () => void }) {
   const { data: input } = usePlanInput();
   if (!input) return null;
   const balances = accountBalances(input, today()).filter((b) => !b.archived || b.balance !== 0);
-  const cards = input.debts.filter((d): d is CreditCard => d.type === 'card' && !d.archived);
+  const cards = cardsOwed(input, today());
   // Nothing to break down with only the main account and no cards.
   if (balances.length < 2 && cards.length === 0) return null;
   const currency = input.settings.currency;
@@ -34,9 +33,9 @@ export function AccountBreakdown({ onNavigate }: { onNavigate?: () => void }) {
         By account
       </T>
       {balances.map((b) => line(b.id, b.name, formatMoney(b.balance, currency), `balance-account-${b.id}`))}
-      {cards.map((d) => line(d.id, `${d.name} (owed)`, formatMoney(-remainingOf(d, input), currency), `balance-card-${d.id}`, 'secondary'))}
+      {cards.map((d) => line(d.id, `${d.name} (owed)`, formatMoney(-d.owed, currency), `balance-card-${d.id}`, 'secondary'))}
       <T variant="caption" tone="secondary">
-        The balance is the total of your bank and cash accounts. Card purchases are paid from the bank on the card&apos;s due date.
+        The balance is your bank and cash accounts minus what you owe on your cards. A card purchase lowers it the day you buy; paying the card only moves money from the bank to the card.
       </T>
       <Button
         label="Manage accounts"

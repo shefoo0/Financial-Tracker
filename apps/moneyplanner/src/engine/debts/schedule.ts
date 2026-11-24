@@ -68,10 +68,22 @@ function regularMonths(logs: DebtPayment[]): Set<string> {
   return new Set(logs.filter((p) => p.kind === 'regular').map((p) => monthKey(p.date)));
 }
 
+/** Something that adds to what a card owes (a refund is negative). */
+export interface CardCharge {
+  date: ISODate;
+  amount: Fils;
+  label: string;
+  /** The item, plan or card it comes from. */
+  refId: string;
+  kind: 'purchase' | 'instalment' | 'interest';
+}
+
 interface Sim {
   payments: DebtScheduledPayment[];
   /** Balance left after the last simulated payment. */
   remaining: Fils;
+  /** Cards: estimated interest added to the balance, dated on the due date it follows. */
+  interest?: { date: ISODate; amount: Fils }[];
 }
 
 function loanSim(loan: Loan, input: PlanInput, to: ISODate): Sim {
@@ -162,18 +174,18 @@ export const interestFor = (card: CreditCard, balance: Fils): Fils =>
  * Purchases (and refunds, negative) charged to a card after its balance date, oldest first: one-time items and
  * recurring items with this cardId, up to `to`. Transfers are not purchases. `actualOnly` leaves out planned items.
  */
-export function cardPurchases(card: CreditCard, input: PlanInput, to: ISODate, actualOnly = false): { date: ISODate; amount: Fils }[] {
+export function cardPurchases(card: CreditCard, input: PlanInput, to: ISODate, actualOnly = false): CardCharge[] {
   const from = addDays(card.balanceDate, 1);
   if (compareDates(from, to) > 0) return [];
-  const out: { date: ISODate; amount: Fils }[] = [];
+  const out: CardCharge[] = [];
   for (const t of input.transactions ?? []) {
     if (t.cardId !== card.id || t.transferId || (actualOnly && t.planned)) continue;
     if (compareDates(t.date, from) < 0 || compareDates(t.date, to) > 0) continue;
-    out.push({ date: t.date, amount: t.kind === 'cost' ? t.amount : -t.amount });
+    out.push({ date: t.date, amount: t.kind === 'cost' ? t.amount : -t.amount, label: t.description, refId: t.id, kind: 'purchase' });
   }
   if (!actualOnly) {
     const onCard = (input.recurring ?? []).filter((r) => r.cardId === card.id);
-    for (const o of occurrencesInRange(onCard, input.overrides ?? [], from, to)) out.push({ date: o.date, amount: o.kind === 'cost' ? o.amount : -o.amount });
+    for (const o of occurrencesInRange(onCard, input.overrides ?? [], from, to)) out.push({ date: o.date, amount: o.kind === 'cost' ? o.amount : -o.amount, label: o.name, refId: o.recurringId, kind: 'purchase' });
   }
   return out.sort((a, b) => compareDates(a.date, b.date));
 }
@@ -200,6 +212,7 @@ function cardSim(card: CreditCard, input: PlanInput, to: ISODate): Sim {
     .filter((p) => compareDates(p.date, card.balanceDate) > 0);
   const lastInstalment = instalments.reduce<ISODate>((m, p) => (compareDates(p.date, m) > 0 ? p.date : m), '0000-00-00');
   const payments: DebtScheduledPayment[] = [];
+  const interest: { date: ISODate; amount: Fils }[] = [];
   const first = monthKey(card.balanceDate);
   for (let i = 0; i < MAX_MONTHS; i++) {
     const month = addMonthKey(first, i);
@@ -219,9 +232,41 @@ function cardSim(card: CreditCard, input: PlanInput, to: ISODate): Sim {
         payments.push({ debtId: card.id, date: o?.newDate ?? orig, originalDate: orig, amount: pay, kind: 'card', label: `${card.name} payment` });
       }
     }
-    if (card.plan !== 'full') balance += interestFor(card, balance);
+    if (card.plan !== 'full') {
+      const charge = interestFor(card, balance);
+      if (charge > 0) {
+        balance += charge;
+        interest.push({ date: orig, amount: charge });
+      }
+    }
   }
-  return { payments, remaining: balance };
+  return { payments, remaining: balance, interest };
+}
+
+/**
+ * Everything that adds to what a card owes after its balance date, up to `to`, oldest first: purchases (refunds
+ * negative), the instalments of plans that sit on the card, and estimated interest. These are the card's spending in
+ * the balance; paying the card only moves money from the bank to the card.
+ */
+export function cardCharges(card: CreditCard, input: PlanInput, to: ISODate): CardCharge[] {
+  const plans: CardCharge[] = activeDebts(input)
+    .filter((d): d is InstalmentPlan => d.type === 'plan' && d.cardId === card.id)
+    .flatMap((p) => planInstalments(p, input).payments)
+    .filter((p) => compareDates(p.date, card.balanceDate) > 0 && compareDates(p.date, to) <= 0)
+    .map((p) => ({ date: p.date, amount: p.amount, label: `${p.label} (on ${card.name})`, refId: p.debtId, kind: 'instalment' }));
+  const interest: CardCharge[] = (cardSim(card, input, to).interest ?? [])
+    .filter((x) => compareDates(x.date, to) <= 0)
+    .map((x) => ({ ...x, label: `${card.name} interest (estimate)`, refId: card.id, kind: 'interest' }));
+  return [...cardPurchases(card, input, to), ...plans, ...interest].sort((a, b) => compareDates(a.date, b.date));
+}
+
+/** What a card owes at the end of `date`: its balance, plus charges, minus payments made (logged or scheduled) by then. */
+export function cardOwedAt(card: CreditCard, input: PlanInput, date: ISODate): Fils {
+  if (compareDates(date, card.balanceDate) < 0) return Math.max(0, card.balance);
+  const charges = sum(cardCharges(card, input, date));
+  const logged = sum(loggedAfter(input, card.id, card.balanceDate).filter((p) => compareDates(p.date, date) <= 0));
+  const scheduled = sum(cardSim(card, input, date).payments.filter((p) => compareDates(p.date, date) <= 0));
+  return Math.max(0, card.balance + charges - logged - scheduled);
 }
 
 function simulate(debt: Debt, input: PlanInput, to: ISODate): Sim {

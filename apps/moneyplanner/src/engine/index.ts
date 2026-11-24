@@ -30,6 +30,6 @@ export type {
   ReportSummary,
 } from './reports';
 export { accountOf, cardOf, isTransfer, cashAccounts, startOf } from './accounts';
-export { accountBalances, accountBalanceAt, totalBalanceAt } from './balances';
+export { accountBalances, accountBalanceAt, cardsOwed, totalBalanceAt } from './balances';
 export { cardsWithPurchases } from './forecast';
 export { cardPurchases, statementDateFor } from './debts/schedule';

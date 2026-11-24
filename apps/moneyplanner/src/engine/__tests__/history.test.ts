@@ -43,10 +43,12 @@ describe('balanceHistory', () => {
       cheques: [cheque, upcoming],
     });
     const h = balanceHistory(inp, TODAY, 4);
+    // The card owed the AED 30 it was paid on 22 Nov until then: that is off the balance (milestone 3b), and the payment
+    // itself only moves money from the bank to the card.
     expect(h.map((d) => [d.date, d.balance])).toEqual([
-      ['2026-11-19', 200000],
-      ['2026-11-20', 150000],
-      ['2026-11-21', 143000],
+      ['2026-11-19', 197000],
+      ['2026-11-20', 147000],
+      ['2026-11-21', 140000],
       ['2026-11-22', 140000],
     ]);
   });

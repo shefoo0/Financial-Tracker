@@ -799,16 +799,25 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
     await d.tap('#account-main'); await d.type('#account-name', 'ENBD current'); await d.tap('#account-save');
     await d.see('ENBD current'); await d.settle(600); await d.shot('accounts-renamed');
   });
-  await step('free: adding an account shows what Pro adds; Pro: add "Savings" with AED 500', async () => {
+  await step('Add: choose what it is; a credit card continues to the card form (free)', async () => {
+    await d.tap('#accounts-add'); await d.see('#account-kind');
+    await d.tap('#account-kind'); await d.tap('#account-kind-option-card'); await d.see('#account-debt-note'); await d.shot('accounts-add-kind');
+    await d.tap('#account-save'); await d.see('#debt-screen');
+    await d.back(); await d.see('#accounts-screen');
+  });
+  await step('free: a bank account shows what Pro adds; Pro: add "Savings" with AED 500', async () => {
     await d.clearAlerts();
     await d.tap('#accounts-add');
+    await d.tap('#account-kind'); await d.tap('#account-kind-option-bank');
+    await d.type('#account-name', 'Savings'); await d.type('#account-balance', '500');
     if (!proBuild) {
+      await d.tap('#account-save');
       const alerts = await d.alerts();
       if (!alerts.some((a) => /Pro comes with the next update/.test(a.title))) throw new Error(`expected the Pro message, got ${JSON.stringify(alerts)}`);
-      await d.notSee('#account-name');
+      await d.tap('#account-cancel');
       return;
     }
-    await d.type('#account-name', 'Savings'); await d.type('#account-balance', '500'); await d.tap('#account-save');
+    await d.tap('#account-save');
     await d.see('Savings'); await d.settle(600); await d.shot('accounts-added');
   });
   await step('Home: the balance sheet shows the balance by account (Pro, with a second account)', async () => {
@@ -818,7 +827,8 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
       await d.tap('#dashboard-add-salary'); await d.type('#recurring-name', 'Salary'); await d.type('#recurring-amount', '9000'); await d.tap('#recurring-save-bottom');
       await d.tab('Home');
     }
-    await d.tap('#edit-balance'); await d.see('#balance-sheet');
+    if (proBuild) { await d.see('#dashboard-balance-breakdown'); await d.tap('#dashboard-balance-breakdown'); } else await d.tap('#edit-balance');
+    await d.see('#balance-sheet');
     if (proBuild) {
       await d.see('#balance-by-account');
       if ((await d.page.locator('[aria-label="Savings: AED 500.00"]').count()) === 0) throw new Error('Savings: AED 500.00 not shown by account');
@@ -833,5 +843,10 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
     await d.type('#transfer-amount', '100'); await d.shot('transfer'); await d.tap('#transfer-save');
     await d.tab('Month');
     if ((await aria('#month-spent')) !== spent || (await aria('#month-income')) !== income) throw new Error('a transfer changed Month spending or income');
+    // The money moved (developer, 2026-11-24: balances stayed the same): Savings went from AED 500 to AED 600.
+    await d.tab('Settings'); await d.tap('#settings-accounts');
+    const sav = await d.page.locator('[aria-label^="Savings, Bank account, AED 600.00"]').count();
+    if (sav === 0) throw new Error('Move money did not change the Savings balance');
+    await d.back();
   });
 });

@@ -268,11 +268,13 @@ describe('forecast, summaries and cheques', () => {
     const events = f.days.flatMap((d) => d.events).filter((e) => e.source !== 'recurring');
     expect(events.map((e) => [e.date, e.source, e.refId, e.amount, e.label])).toEqual([
       ['2026-01-15', 'debt', 'L1', 30000, 'Car loan payment'],
-      ['2026-01-20', 'debt', 'C1', 50000, 'Visa payment'],
+      // No "Visa payment": what the card owes is already off the balance (below); paying it only moves money
+      // from the bank to the card (milestone 3b).
       ['2026-02-05', 'cheque', 'up', 200000, 'Cheque to Landlord'],
       ['2026-02-15', 'debt', 'L1', 30000, 'Car loan payment'],
       ['2026-03-15', 'debt', 'L1', 30000, 'Car loan payment'],
     ].filter((e) => e[0] <= '2026-03-02'));
+    expect(f.balanceAsOf).toBe(1000000 - 50000);
     expect(f.days[f.days.length - 1].balance).toBe(1000000 - 30000 - 50000 - 200000 - 30000);
   });
 

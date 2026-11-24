@@ -26,6 +26,7 @@ export function ForecastHero({
   range: rangeProp,
   onRangeChange,
   onBalancePress,
+  breakdownLabel,
 }: {
   fc: Forecast;
   todayStr: ISODate;
@@ -39,6 +40,8 @@ export function ForecastHero({
   onRangeChange?: (r: Range) => void;
   /** Tapping the big number (Home opens the balance sheet). */
   onBalancePress?: () => void;
+  /** A visible "By account ›" link under the balance (it opens the same sheet as tapping the balance). */
+  breakdownLabel?: string | null;
 }) {
   const { ink, sub } = useCardTone(chartStyle);
   const [ownRange, setOwnRange] = useState<Range>('2M');
@@ -63,6 +66,13 @@ export function ForecastHero({
           {formatMoneyTrim(balance, currency)}
         </T>
       </Pressable>
+      {breakdownLabel && onBalancePress && !scrub ? (
+        <Pressable onPress={onBalancePress} accessibilityRole="button" accessibilityHint="Shows the balance of each account and what you owe on each card" hitSlop={8} testID="dashboard-balance-breakdown" style={{ alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' }}>
+          <T variant="label" style={{ color: sub, fontWeight: '700' }}>
+            {breakdownLabel}
+          </T>
+        </Pressable>
+      ) : null}
       <ForecastChart
         days={fc.days}
         months={fc.months}

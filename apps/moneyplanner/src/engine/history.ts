@@ -1,9 +1,11 @@
 // Balance history: what the balance WAS on each past day, built from what was recorded as having happened.
 // Pure TypeScript on 'YYYY-MM-DD' strings and integer fils (same rules as forecast.ts).
-import type { Fils, ForecastEvent, ISODate, PlanInput } from '@/types';
+import type { CreditCard, Fils, ForecastEvent, ISODate, PlanInput } from '@/types';
 import { addDays, compareDates, diffDays } from '@/lib/dates';
 
 import { accountOf, cardOf } from './accounts';
+import { transfersOn } from './balances';
+import { cardOwedAt } from './debts/schedule';
 import { occurrencesInRange } from './recurring';
 import { MAIN_ACCOUNT_ID } from '@/types';
 
@@ -95,8 +97,14 @@ export function balanceHistory(input: PlanInput, today: ISODate, days: number): 
     return cum.get(id)?.get(at) ?? 0;
   };
   const cumAt = (d: ISODate): Fils => cumIn(MAIN_ACCOUNT_ID, d);
+  /** Moves between accounts on a known balance's day: made after it, so not in it (see countsAfterStart). */
+  const sameDay = (id: string, d: ISODate): Fils => (compareDates(d, today) > 0 ? 0 : transfersOn(input, id, d));
+  // What the cards owed at the end of each day comes off the balance (as in the forecast).
+  const cards = (input.debts ?? []).filter((x): x is CreditCard => x.type === 'card' && !x.archived);
+  const owedOn = (d: ISODate): Fils => cards.reduce((s, c) => s + cardOwedAt(c, input, d), 0);
   /** The other accounts' balances at the end of `d`: each starting balance moved by its flows since its date. */
-  const othersAt = (d: ISODate): Fils => others.reduce((s, a) => s + a.startingBalance + cumIn(a.id, d) - cumIn(a.id, a.startingBalanceDate), 0);
+  const othersAt = (d: ISODate): Fils =>
+    others.reduce((s, a) => s + a.startingBalance + sameDay(a.id, a.startingBalanceDate) + cumIn(a.id, d) - cumIn(a.id, a.startingBalanceDate), 0);
 
   // The first day we can speak for: the earliest known balance or recorded item.
   let first = anchors[0].date;
@@ -107,7 +115,7 @@ export function balanceHistory(input: PlanInput, today: ISODate, days: number): 
   for (let d = start; compareDates(d, today) <= 0; d = addDays(d, 1)) {
     let anchor = anchors[0];
     for (const a of anchors) if (compareDates(a.date, d) <= 0) anchor = a;
-    out.push({ date: d, balance: anchor.balance + cumAt(d) - cumAt(anchor.date) + othersAt(d), events: byDay.get(d) ?? [] });
+    out.push({ date: d, balance: anchor.balance + sameDay(MAIN_ACCOUNT_ID, anchor.date) + cumAt(d) - cumAt(anchor.date) + othersAt(d) - owedOn(d), events: byDay.get(d) ?? [] });
   }
   return out;
 }

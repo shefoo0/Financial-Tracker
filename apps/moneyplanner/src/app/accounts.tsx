@@ -3,23 +3,26 @@ import { router, Stack } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, DateField, EmptyState, MoneyField, Screen, SectionHeader, Segmented, SelectField, T, TextField } from '@/components/ui';
+import { Button, Card, DateField, EmptyState, MoneyField, Screen, SectionHeader, Segmented, SelectField, T, TextField, ToggleRow } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
 import { usePlanInput, useRepoMutation } from '@/data/DataProvider';
 import { useSettingSetter } from '@/data/useSettingSetter';
-import { accountBalances, remainingOf } from '@/engine';
+import { accountBalances, cardsOwed } from '@/engine';
 import { buildAccount, canAddAccount, pickableAccounts, validateAccountName } from '@/features/accounts/helpers';
 import { ScreenTitle } from '@/features/settings/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
 import { today } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { usePro } from '@/lib/pro';
-import { MAIN_ACCOUNT_ID, type Account, type AccountType, type CreditCard, type Fils, type ISODate } from '@/types';
+import { MAIN_ACCOUNT_ID, type Account, type AccountType, type Fils, type ISODate } from '@/types';
 
 export const ACCOUNTS_PRO_TITLE = 'Pro comes with the next update';
-const accountsPro = () => Alert.alert(ACCOUNTS_PRO_TITLE, 'More bank and cash accounts, choosing the account of each item and a default account come with Pro. Your main account and your cards stay free.');
+const accountsPro = () => Alert.alert(ACCOUNTS_PRO_TITLE, 'More bank and cash accounts, choosing the account of each item and a default account come with Pro. Your main account, your cards and your debts stay free.');
 
 type Editing = { mode: 'add' } | { mode: 'edit'; id: string } | null;
+/** What a new item is: a bank or cash account here, or a card or debt (saved in Debts, so it is what you owe). */
+type AddKind = AccountType | 'card' | 'loan';
+const isDebtKind = (k: AddKind): k is 'card' | 'loan' => k === 'card' || k === 'loan';
 
 export default function Accounts() {
   const c = useTheme();
@@ -33,7 +36,9 @@ export default function Accounts() {
   const [editing, setEditing] = useState<Editing>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('bank');
+  const [kind, setKind] = useState<AddKind>('bank');
   const [balance, setBalance] = useState<Fils | null>(null);
+  const [overdrawn, setOverdrawn] = useState(false);
   const [date, setDate] = useState<ISODate>(today());
   const [formKey, setFormKey] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
@@ -52,7 +57,7 @@ export default function Accounts() {
   const mainName = settings.mainAccountName ?? 'Main account';
   const accounts = input.accounts ?? [];
   const balances = accountBalances(input, today());
-  const cards = input.debts.filter((d): d is CreditCard => d.type === 'card' && !d.archived);
+  const cards = cardsOwed(input, today());
   const editingAccount = editing?.mode === 'edit' ? accounts.find((a) => a.id === editing.id) : undefined;
   const editingMain = editing?.mode === 'edit' && editing.id === MAIN_ACCOUNT_ID;
 
@@ -63,24 +68,37 @@ export default function Accounts() {
     const a = e?.mode === 'edit' ? accounts.find((x) => x.id === e.id) : undefined;
     setName(e?.mode === 'edit' ? (e.id === MAIN_ACCOUNT_ID ? mainName : (a?.name ?? '')) : '');
     setType(a?.type ?? 'bank');
-    setBalance(a ? a.startingBalance : null);
+    setKind(isPro ? 'bank' : 'card');
+    setBalance(a ? Math.abs(a.startingBalance) : null);
+    setOverdrawn(!!a && a.startingBalance < 0);
     setDate(a?.startingBalanceDate ?? today());
   };
 
-  const add = () => (canAddAccount(isPro) ? open({ mode: 'add' }) : accountsPro());
+  const add = () => open({ mode: 'add' });
+  const adding = editing?.mode === 'add';
+  const addingDebt = adding && isDebtKind(kind);
 
   const submit = async () => {
     if (!editing || submitting.current) return;
     submitting.current = true;
     try {
       const problem = validateAccountName(name, mainName, accounts, editing.mode === 'edit' ? editing.id : undefined);
+      if (adding && isDebtKind(kind)) {
+        // Cards and debts are free; they are saved in Debts with their limit, rate and due day.
+        setEditing(null);
+        router.push(`/debts/new?type=${kind}`);
+        return;
+      }
+      if (adding && !canAddAccount(isPro)) return accountsPro();
       if (problem) return setFormError(problem);
       if (editingMain) {
         if (await setSetting({ mainAccountName: name.trim() })) setEditing(null);
         return;
       }
-      if (editing.mode === 'add') await saveAccount(buildAccount({ name, type, balance: balance ?? 0, date, existing: accounts, today: today() }));
-      else if (editingAccount) await saveAccount({ ...editingAccount, name: name.trim(), type, startingBalance: Math.max(0, balance ?? 0), startingBalanceDate: date });
+      // An overdrawn account has a negative balance.
+      const signed = (overdrawn ? -1 : 1) * Math.abs(balance ?? 0);
+      if (editing.mode === 'add') await saveAccount(buildAccount({ name, type: kind as AccountType, balance: signed, date, existing: accounts, today: today() }));
+      else if (editingAccount) await saveAccount({ ...editingAccount, name: name.trim(), type, startingBalance: signed, startingBalanceDate: date });
       setEditing(null);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
@@ -136,7 +154,7 @@ export default function Accounts() {
   return (
     <Screen testID="accounts-screen">
       <Stack.Screen options={{ title: 'Accounts' }} />
-      <T tone="secondary">Your balance on Home is the total of your bank and cash accounts. Cards are what you owe: their purchases are spending, and the bank pays them on their due date.</T>
+      <T tone="secondary">Your balance on Home is your bank and cash accounts minus what you owe on your cards. Add a credit card or a loan as what you owe, not as a bank account.</T>
 
       <SectionHeader title="Bank and cash" />
       <Card style={{ paddingVertical: Spacing.one }}>
@@ -152,16 +170,17 @@ export default function Accounts() {
           ),
         )}
       </Card>
-      <Button label={isPro ? 'Add an account' : 'Add an account (Pro)'} variant={isPro ? 'primary' : 'secondary'} onPress={add} testID="accounts-add" />
+      <Button label="Add an account, card or debt" onPress={add} testID="accounts-add" />
 
       <SectionHeader title="Cards" />
       <Card style={{ paddingVertical: Spacing.one }}>
         {cards.length === 0 ? (
-          <T tone="secondary">No cards yet. Add a credit card in Debts on the Plan tab.</T>
+          <T tone="secondary">No cards yet. A credit card is what you owe: add it with &quot;Add a credit card&quot;.</T>
         ) : (
-          cards.map((d, n) => row(d.id, d.name, 'Card · owed today', formatMoney(remainingOf(d, input), currency), () => router.push(`/debts/${d.id}`), n === cards.length - 1, `account-card-${d.id}`))
+          cards.map((d, n) => row(d.id, d.name, 'Card · owed today, off your balance', formatMoney(-d.owed, currency), () => router.push(`/debts/${d.id}`), n === cards.length - 1, `account-card-${d.id}`))
         )}
       </Card>
+      <Button label="Add a credit card" variant="secondary" onPress={() => router.push('/debts/new?type=card')} testID="accounts-add-card" />
 
       <SectionHeader title="New items" />
       <Card>
@@ -196,29 +215,54 @@ export default function Accounts() {
         <View style={{ flex: 1, backgroundColor: c.scrimLight, justifyContent: 'center', padding: Spacing.three }}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditing(null)} accessibilityLabel="Close" />
           <View style={[styles.sheet, { backgroundColor: c.backgroundElement, borderColor: c.glassBorder }]}>
-            <ScreenTitle variant="heading">{editing?.mode === 'add' ? 'New account' : editingMain ? 'Main account' : 'Edit account'}</ScreenTitle>
-            <TextField label="Name" value={name} onChangeText={setName} error={formError} testID="account-name" />
-            {editingMain ? (
+            <ScreenTitle variant="heading">{editing?.mode === 'add' ? 'Add an account, card or debt' : editingMain ? 'Main account' : 'Edit account'}</ScreenTitle>
+            {adding ? (
+              <SelectField
+                label="What is it?"
+                value={kind}
+                options={[
+                  { value: 'bank', label: isPro ? 'Bank or debit account' : 'Bank or debit account (Pro)' },
+                  { value: 'cash', label: isPro ? 'Cash' : 'Cash (Pro)' },
+                  { value: 'card', label: 'Credit card' },
+                  { value: 'loan', label: 'Loan or other debt' },
+                ]}
+                onChange={(k) => setKind(k as AddKind)}
+                testID="account-kind"
+              />
+            ) : null}
+            {addingDebt ? (
+              <T variant="caption" tone="secondary" testID="account-debt-note">
+                {kind === 'card'
+                  ? 'A credit card is money you owe: what it owes comes off your balance. Next you enter its limit, what it owes now and its due day.'
+                  : 'A loan is money you owe. Next you enter what is left, the rate and the monthly payment.'}
+              </T>
+            ) : (
+              <TextField label="Name" value={name} onChangeText={setName} error={formError} testID="account-name" />
+            )}
+            {addingDebt ? null : editingMain ? (
               <T variant="caption" tone="secondary">
                 The main account&apos;s balance is the one you set on Home (tap the balance).
               </T>
             ) : (
               <>
-                <Segmented
-                  label="Type"
-                  value={type}
-                  onChange={setType}
-                  options={[
-                    { value: 'bank', label: 'Bank account' },
-                    { value: 'cash', label: 'Cash' },
-                  ]}
-                  testID="account-type"
-                />
+                {adding ? null : (
+                  <Segmented
+                    label="Type"
+                    value={type}
+                    onChange={setType}
+                    options={[
+                      { value: 'bank', label: 'Bank account' },
+                      { value: 'cash', label: 'Cash' },
+                    ]}
+                    testID="account-type"
+                  />
+                )}
                 <MoneyField key={`b${formKey}`} label="Balance" value={balance} onChange={setBalance} currency={currency} hint="What the account had at the end of the date below." testID="account-balance" />
+                <ToggleRow label="This account is overdrawn" value={overdrawn} onChange={setOverdrawn} testID="account-overdrawn" />
                 <DateField key={`d${formKey}`} label="On" value={date} onChange={setDate} testID="account-date" />
               </>
             )}
-            <Button label="Save" onPress={submit} testID="account-save" />
+            <Button label={addingDebt ? 'Continue' : 'Save'} onPress={submit} testID="account-save" />
             {editingAccount ? <Button label={editingAccount.archived ? 'Delete if unused' : 'Remove account'} variant="destructive" onPress={() => confirmRemove(editingAccount)} testID="account-remove" /> : null}
             {editingAccount?.archived ? <Button label="Open again" variant="secondary" onPress={() => saveAccount({ ...editingAccount, archived: false }).then(() => setEditing(null))} testID="account-reopen" /> : null}
             <Button label="Cancel" variant="plain" onPress={() => setEditing(null)} testID="account-cancel" />

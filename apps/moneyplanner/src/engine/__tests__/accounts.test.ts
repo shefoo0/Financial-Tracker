@@ -6,7 +6,7 @@ import { debtSchedule, remainingOf } from '../debts/schedule';
 import { forecast, monthSummary } from '../forecast';
 import { balanceHistory } from '../history';
 import { buildReport, periodForKey } from '../reports';
-import { accountBalances } from '../balances';
+import { accountBalances, cardsOwed } from '../balances';
 
 const tx = (over: Partial<Transaction>): Transaction => ({
   id: over.id ?? 't', kind: 'cost', date: '2026-09-10', description: 'x', categoryId: null, amount: 10000, note: '', source: 'manual', importId: null, planned: false, ...over,
@@ -60,15 +60,52 @@ describe('accounts in the balance and the forecast', () => {
   });
 });
 
+describe('moving money on the day the balances were set (developer, 2026-11-24)', () => {
+  it('counts in both accounts, in the forecast, the per-account balances and the history', () => {
+    const inp = input({
+      settings: settings({ startingBalance: 1000000, startingBalanceDate: today }),
+      accounts: [savings({ startingBalanceDate: today })],
+      transactions: [
+        tx({ id: 'out', date: today, amount: 300000, transferId: 'T1' }),
+        tx({ id: 'in', date: today, kind: 'income', amount: 300000, accountId: 'sav', transferId: 'T1' }),
+        tx({ id: 'x', date: today, amount: 7000 }), // an ordinary item that day is already in the balance
+      ],
+    });
+    expect(accountBalances(inp, today).map((a) => [a.id, a.balance])).toEqual([['main', 700000], ['sav', 800000]]);
+    expect(forecast(inp, { today }).balanceAsOf).toBe(1500000);
+    const hist = balanceHistory(inp, today, 3);
+    expect(hist[hist.length - 1].balance).toBe(1500000);
+  });
+
+  it('a move before an account started is already in its balance', () => {
+    const inp = input({
+      settings: settings({ startingBalance: 1000000, startingBalanceDate: today }),
+      accounts: [savings({ startingBalanceDate: today })],
+      transactions: [tx({ id: 'out', date: '2026-09-29', amount: 300000, transferId: 'T1' }), tx({ id: 'in', date: '2026-09-29', kind: 'income', amount: 300000, accountId: 'sav', transferId: 'T1' })],
+    });
+    expect(accountBalances(inp, today).map((a) => a.balance)).toEqual([1000000, 500000]);
+  });
+});
+
 describe('purchases on a card (the card model follows the actual purchases)', () => {
   // Statement on the 28th, due on the 14th of the next month (like the developer's card); nothing owed on 1 Sep.
   const visa = card({ id: 'visa', name: 'Visa', balance: 0, balanceDate: '2026-09-01', statementDay: 28, dueDay: 14, plan: 'full' });
 
-  it('a purchase on the card does not move the bank balance; it is paid on the due date after its statement', () => {
+  it('a purchase on the card lowers the balance the day it is made; paying the card on its due date moves nothing (developer, 2026-11-24)', () => {
     const inp = input({ settings: base, debts: [visa], transactions: [tx({ id: 'p1', date: '2026-09-20', amount: 25000, cardId: 'visa' })] });
-    expect(forecast(inp, { today }).balanceAsOf).toBe(1000000);
+    expect(forecast(inp, { today }).balanceAsOf).toBe(1000000 - 25000);
+    // The card is still paid on the due date after its statement (the bank pays it), but the balance stays.
     expect(debtSchedule(visa, inp, '2026-09-01', '2026-12-31').map((p) => [p.date, p.amount])).toEqual([['2026-10-14', 25000]]);
+    expect(balanceOn(inp, '2026-10-13')).toBe(1000000 - 25000);
     expect(balanceOn(inp, '2026-10-14')).toBe(1000000 - 25000);
+  });
+
+  it('a future purchase on the card lowers the forecast on its date, labelled with the item', () => {
+    const inp = input({ settings: base, debts: [visa], transactions: [tx({ id: 'p2', date: '2026-10-05', amount: 8000, cardId: 'visa', description: 'Dinner', planned: true })] });
+    expect(forecast(inp, { today }).balanceAsOf).toBe(1000000);
+    expect(balanceOn(inp, '2026-10-05')).toBe(1000000 - 8000);
+    const day = forecast(inp, { today, days: 30 }).days.find((d) => d.date === '2026-10-05');
+    expect(day?.events.map((e) => [e.label, e.amount])).toEqual([['Dinner', 8000]]);
   });
 
   it('a purchase after the statement date rolls to the next statement', () => {
@@ -125,7 +162,8 @@ describe('balance history with accounts and cards', () => {
     });
     const hist = balanceHistory(inp, today, 30);
     expect(hist[hist.length - 1].balance).toBe(forecast(inp, { today }).balanceAsOf);
-    expect(hist[hist.length - 1].balance).toBe(1000000 - 12000 + 500000 + 40000);
+    // What the card owes (the AED 990 purchase) is off the balance (developer, 2026-11-24).
+    expect(hist[hist.length - 1].balance).toBe(1000000 - 12000 + 500000 + 40000 - 99000);
     // Savings is counted from its own start (5 Sep) at its starting balance.
     expect(hist.find((h) => h.date === '2026-09-06')?.balance).toBe(1000000 + 500000);
   });
@@ -163,6 +201,8 @@ describe('per-account balances', () => {
     });
     const list = accountBalances(inp, today);
     expect(list.map((a) => [a.id, a.balance])).toEqual([['main', 1000000 - 12000], ['sav', 500000 + 40000]]);
-    expect(list.reduce((s, a) => s + a.balance, 0)).toBe(forecast(inp, { today }).balanceAsOf);
+    // The accounts minus what each card owes add up to the forecast's balance today.
+    expect(cardsOwed(inp, today)).toEqual([{ id: 'visa', name: 'Visa', owed: 99000 }]);
+    expect(list.reduce((s, a) => s + a.balance, 0) - 99000).toBe(forecast(inp, { today }).balanceAsOf);
   });
 });
