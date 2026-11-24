@@ -213,7 +213,7 @@ export default function Accounts() {
 
       <Modal visible={editing != null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={{ flex: 1, backgroundColor: c.scrimLight, justifyContent: 'center', padding: Spacing.three }}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditing(null)} accessibilityLabel="Close" />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditing(null)} accessibilityRole="button" accessibilityLabel="Close" />
           <View style={[styles.sheet, { backgroundColor: c.backgroundElement, borderColor: c.glassBorder }]}>
             <ScreenTitle variant="heading">{editing?.mode === 'add' ? 'Add an account, card or debt' : editingMain ? 'Main account' : 'Edit account'}</ScreenTitle>
             {adding ? (

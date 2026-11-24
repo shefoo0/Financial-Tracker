@@ -176,6 +176,7 @@ export default function Categories() {
               right: 0,
             }}
             onPress={() => setEditing(null)}
+            accessibilityRole="button"
             accessibilityLabel="Close"
           />
           <View

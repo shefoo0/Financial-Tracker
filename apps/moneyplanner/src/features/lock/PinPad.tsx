@@ -1,6 +1,6 @@
 // PIN entry: dots plus a big number pad (keys are 72pt for one-handed use).
-import { useState, type ReactNode } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AccessibilityInfo, Animated, Pressable, Text, View } from 'react-native';
 
 import { Button, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -30,6 +30,11 @@ export function PinPad({
   const c = useTheme();
   const [pin, setPin] = useState('');
   const [shake] = useState(() => new Animated.Value(0));
+  // No shake when the phone asks for less motion (accessibility, milestone 4).
+  const [lessMotion, setLessMotion] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setLessMotion, () => {});
+  }, []);
   // With a fixed length the PIN is submitted by the last digit; otherwise a button does it.
   const auto = minLength === maxLength;
 
@@ -37,6 +42,8 @@ export function PinPad({
     const ok = await onSubmit(value);
     if (ok === false) {
       setPin('');
+      AccessibilityInfo.announceForAccessibility('Wrong PIN. Try again.');
+      if (lessMotion) return;
       Animated.sequence(
         [10, -10, 8, -8, 0].map((toValue) => Animated.timing(shake, { toValue, duration: 50, useNativeDriver: true })),
       ).start();
