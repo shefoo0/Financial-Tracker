@@ -45,7 +45,22 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] Device runs: android.yml run 45254204820 (Pro preview, b249cb9): APK built, all 9 flows passed (emulator dropped out on 07 and 09; the retry saved both); ios-simulator.yml run 45261839049 (0ff26f8, reusing Expo build c8c1b1d6): all 9 flows + screenshots passed (the first run 45254210180 failed only 09-accounts: iOS reads the account row as one label — fixed in the flow)
   - [ ] Developer tests 3b on the phone (APK from run 45254204820)
 - [x] Design fixes (developer, 2026-11-23): sample charts' Unlock Pro is now compact and on the left, so Home's floating "+" (bottom-right) no longer covers it; the demo household pays rent in six AED 11,000 cheques instead of four of 22,000, so the Savings rate sample stays between about -11% and 78% (a test keeps it within -50%..100%). Pre-flight --pro-preview passed; not yet on a device build
-- [ ] Milestone 4 — Pro unlock and store: T14 · store material · QC · Android test build · REPORT.md
+- [x] 3b feedback round 2 (developer, 2026-11-24), commits dfe6e1e + 8cf45d6, android.yml run 45379895335 (Pro preview; all 9 flows passed on the e2e re-run — attempt 1 lost the emulator's Maestro driver in 09):
+  - chart scrubbing locks the screen's scroll (6775dc6)
+  - balance = bank and cash accounts minus what the cards owe, everywhere (Home, forecast line, history, alerts, By account); a card purchase lowers it on its day, paying the card moves nothing (`cardCharges`, `cardOwedAt`, `cardsOwed`)
+  - Accounts: "Add an account, card or debt" asks what it is (bank/debit, cash — Pro; credit card, loan — free, continue to the Debts form); overdrawn switch (negative balance)
+  - Home: visible "By account ›" link under the balance
+  - bug: Move money did nothing when made on the day the balances were set; a transfer now counts from an account's start day (`countsAfterStart(…, transfer)`, `transfersOn`)
+  - [ ] Developer: remove cards that were added as bank accounts and add them again as credit cards; re-test on the phone
+- [~] Milestone 4 — Pro unlock and store (started 2026-11-24; each step is committed and pushed when done, so a new session can resume here)
+  - [ ] M4.1 Accessibility pass: labels/roles/hints on every control, large text (font scaling) on key screens, contrast of tokens light + dark, 44pt targets; tests
+  - [ ] M4.2 T14 Pro one-time purchase + Restore (free open-source store library, no RevenueCat, no server): Pro screen, price from the store, restore, cached entitlement, pro_preview builds unchanged; tests. Real purchase test waits for the Play account (on hold)
+  - [ ] M4.3 QC (qc-inspector): store rules, listing limits, privacy answers vs code, placeholders; fix findings
+  - [ ] M4.4 Store screenshots (scripts/screenshots.mjs) into store/screenshots
+  - [ ] M4.5 Privacy + support pages into docs/ (scripts/publish-pages.mjs) for GitHub Pages
+  - [ ] M4.6 REPORT.md
+  - [ ] M4.7 Pre-flight + Android test build (and iPhone simulator at the end)
+  - Later, at release (needs the developer): upload key, signed AAB, Play closed test, Apple program
 
 ## Release bar: beat the competition (developer, 2026-11-22)
 Ship only when every row is done. Source: ideas/2026-11-21-similar-modular-finance-forecast.md (competitor complaints).
