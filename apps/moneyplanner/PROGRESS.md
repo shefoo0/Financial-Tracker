@@ -59,7 +59,7 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
   - [x] M4.5 Privacy + support pages in docs/ (4555165); About links to https://shefoo0.github.io/Financial-Tracker/privacy/moneyplanner/ [ ] Developer: turn on GitHub Pages (Settings → Pages → main, /docs) after main is updated
   - [~] M4.6 REPORT.md drafted (a41275b); final runs and verdicts filled in at the end
   - [ ] M4.4 Store screenshots: the iPhone simulator run's screenshot flow (.maestro-screens/screens.yaml, realistic plan, 6.9-inch) at the end; Google Play phone shots (aspect ≤ 2:1) from the phone or /release-app
-  - [ ] M4.7 Pre-flight + Android test build (and iPhone simulator at the end)
+  - [~] M4.7 Pre-flight passed (8b71f51, all 12 steps, free + Pro preview walkthroughs); Android free test build started: android.yml run 45406352340 (checks that expo-iap compiles and the Pro screen opens without a store). [ ] iPhone simulator run (ios-simulator.yml, new Expo build because a native library was added) with store screenshots
   - Later, at release (needs the developer): upload key, signed AAB, Play closed test, Apple program
 
 ## Release bar: beat the competition (developer, 2026-11-22)
