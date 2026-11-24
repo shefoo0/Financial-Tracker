@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, type GestureResponderEvent } from 'react-native';
 
+import { useScrollLock } from '@/components/ui/scrollLock';
+
 import { nearestIndex, speakPoint, type SeriesPoint } from './chartMath';
 
 const THROTTLE_MS = 50;
@@ -32,6 +34,15 @@ export function useScrub({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEmit = useRef(0);
   const activeRef = useRef<number | null>(null);
+  // While a finger is on the chart the screen doesn't scroll, so moving up or down keeps the cursor.
+  const scrollLock = useScrollLock();
+  const holding = useRef(false);
+  const hold = (on: boolean) => {
+    if (holding.current === on) return;
+    holding.current = on;
+    if (on) scrollLock?.lock();
+    else scrollLock?.unlock();
+  };
 
   const emit = (p: SeriesPoint | null) => {
     if (!onScrub) return;
@@ -56,8 +67,9 @@ export function useScrub({
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (holding.current) scrollLock?.unlock();
     },
-    [],
+    [scrollLock],
   );
 
   const select = (i: number | null) => {
@@ -67,6 +79,7 @@ export function useScrub({
   };
   const indexAt = (e: GestureResponderEvent) => nearestIndex(e.nativeEvent.pageX - grab.current.left, points.length, plotW);
   const onGrant = (e: GestureResponderEvent) => {
+    hold(true);
     const { pageX, locationX } = e.nativeEvent;
     grab.current.left = pageX - locationX;
     grab.current.startX = pageX;
@@ -80,6 +93,7 @@ export function useScrub({
     select(indexAt(e));
   };
   const onEnd = () => {
+    hold(false);
     const g = grab.current;
     if (g.moved) {
       setPinned(false);
@@ -93,6 +107,7 @@ export function useScrub({
     }
   };
   const onCancel = () => {
+    hold(false);
     setPinned(false);
     select(null);
   };

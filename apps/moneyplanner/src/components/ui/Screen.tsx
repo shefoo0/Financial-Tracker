@@ -1,20 +1,34 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { ScrollLockContext } from './scrollLock';
 import { AuroraBackground } from './surfaces';
 import { T } from './text';
 
 /** A full screen with the aurora behind it, safe-area padding, optional scrolling and a centred max width. */
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
-  const inner = <View style={styles.screenInner}>{children}</View>;
+  // How many children (charts being scrubbed) hold the scroll still; it scrolls again when none do.
+  const [holds, setHolds] = useState(0);
+  const lock = useMemo(() => ({ lock: () => setHolds((n) => n + 1), unlock: () => setHolds((n) => Math.max(0, n - 1)) }), []);
+  const inner = (
+    <ScrollLockContext.Provider value={lock}>
+      <View style={styles.screenInner}>{children}</View>
+    </ScrollLockContext.Provider>
+  );
   return (
     <View style={styles.screen}>
       <AuroraBackground />
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']} testID={testID}>
         {scroll ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
+            scrollEnabled={holds === 0}
+            testID={testID ? `${testID}-scroll` : undefined}>
             {inner}
           </ScrollView>
         ) : (

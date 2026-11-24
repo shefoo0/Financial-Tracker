@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 
+import { Screen } from '@/components/ui';
 import { sampleInput } from '@/engine';
 import { cheque, income, input, loan, settings } from '@/engine/test-fixtures';
 import { today } from '@/lib/dates';
@@ -116,5 +117,40 @@ describe('ChartCard: states and controls', () => {
       await fireEvent(screen.getByTestId('chart-card-savings-rate-chart'), 'responderGrant', { nativeEvent: { pageX: 150, locationX: 150 } });
     });
     expect(screen.getByTestId('chart-card-savings-rate-tooltip')).toHaveTextContent(/%/);
+  });
+});
+
+describe('scrubbing inside a scrolling screen (developer, 2026-11-24: moving up or down lost the cursor)', () => {
+  it('the screen does not scroll while a finger is on the chart, and scrolls again after release or a cancel', async () => {
+    pro(true);
+    await renderWithRepo(
+      <Screen testID="s">
+        <ChartCard def={incomeVsSpendingChart} input={own} today={TODAY} />
+      </Screen>,
+    );
+    const scroll = () => screen.getByTestId('s-scroll').props.scrollEnabled;
+    const chart = await screen.findByTestId('chart-card-income-vs-spending-chart');
+    expect(scroll()).toBe(true);
+    await act(async () => {
+      await fireEvent(chart, 'responderGrant', { nativeEvent: { pageX: 150, locationX: 150 } });
+    });
+    expect(scroll()).toBe(false);
+    await act(async () => {
+      await fireEvent(chart, 'responderMove', { nativeEvent: { pageX: 160, locationX: 160 } });
+    });
+    expect(scroll()).toBe(false);
+    expect(screen.getByTestId('chart-card-income-vs-spending-tooltip')).toBeTruthy();
+    await act(async () => {
+      await fireEvent(chart, 'responderRelease', { nativeEvent: { pageX: 160, locationX: 160 } });
+    });
+    expect(scroll()).toBe(true);
+    await act(async () => {
+      await fireEvent(chart, 'responderGrant', { nativeEvent: { pageX: 150, locationX: 150 } });
+    });
+    expect(scroll()).toBe(false);
+    await act(async () => {
+      await fireEvent(chart, 'responderTerminate');
+    });
+    expect(scroll()).toBe(true);
   });
 });
