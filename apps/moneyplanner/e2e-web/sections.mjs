@@ -819,9 +819,10 @@ add('14 Accounts (milestone 3b)', async (d, step) => {
     await d.tap('#account-kind'); await d.tap('#account-kind-option-bank');
     await d.type('#account-name', 'Savings'); await d.type('#account-balance', '500');
     if (!proBuild) {
-      await d.tap('#account-save'); await d.see('#pro-screen'); await d.back();
-      await d.see('#accounts-screen');
-      if (await d.has('#account-cancel')) await d.tap('#account-cancel');
+      await d.tap('#account-save'); await d.see('#pro-screen');
+      // The account form closed, so nothing covers the Pro screen (it did before).
+      if (await d.has('#account-save')) throw new Error('the account form still covers the Pro screen');
+      await d.back(); await d.see('#accounts-screen');
       return;
     }
     await d.tap('#account-save');

@@ -4,7 +4,7 @@ Notes for the lead (not part of the store text):
 
 - Status 2026-11-24: the Pro one-time purchase is built (milestone 4, T14: Google Play Billing and StoreKit through the free expo-iap library; product `com.shefoo.moneyplanner.pro`). Create that product in Play Console (managed product, one-time) and App Store Connect (non-consumable) before testers can buy it; until then the Pro screen says Pro isn't on sale yet.
 - The descriptions, Data safety, privacy label and privacy policy already cover the purchase (it goes straight to the store; no other server).
-- Fill in `jokester-fidgety97@bravealias.com` in privacy-policy.md and support.md and the privacy policy URL in the consoles.
+- Contact: the support alias is in privacy-policy.md and support.md (public on purpose). Privacy policy URL for the consoles: https://shefoo0.github.io/Financial-Tracker/privacy/moneyplanner/ (live once GitHub Pages is on: Settings → Pages → main, /docs).
 - Features in the text that are still open on the PROGRESS.md release bar (bill reminders with lead time, faster entry with recent chips, optional category limits, import): remove any that are not built when you submit.
 - Not claimed anywhere: bank connection, advice, loans, a Pro price (set in the store consoles).
 
@@ -73,7 +73,7 @@ PRIVATE BY DESIGN
 
 PRO: ONE-TIME PURCHASE
 Planning, forecast, debts, cheques, alerts, profiles, lock and backups are free. Pro is a single purchase, not a subscription:
-- Quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a PDF you can share
+- Charts on Home, and quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a PDF you can share
 - Statement import from CSV, Excel, OFX, PDF, photos and shared text. Reading happens on your phone and the files never leave it
 - Several bank and cash accounts, the account of each item and a default account, and statements imported straight into an account or onto a card
 
@@ -137,7 +137,7 @@ PRIVATE BY DESIGN
 
 PRO: ONE-TIME PURCHASE
 The planner is free to use: forecast, debts, cheques, alerts, profiles, lock and backups. Pro is paid once. It is not a subscription.
-• Quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a shareable PDF
+• Charts on Home, and quarterly and yearly reports: income, spending, saved, savings rate, cash flow, debts and key figures compared with earlier periods, with a shareable PDF
 • Statement import from CSV, Excel, OFX, PDF, photos and shared text, read on your phone. The files never leave it
 • Several bank and cash accounts, the account of each item and a default account, and statements imported straight into an account or onto a card
 
@@ -195,10 +195,14 @@ Claim only what works across common tasks (verify on a device during the closed 
 - Larger text: yes (dynamic text sizes in all screens).
 - Dark interface: yes (light, dark or follow the phone, in Settings).
 - VoiceOver / TalkBack: yes, buttons and controls have labels. Re-check on a device before ticking the VoiceOver label.
-- Sufficient contrast: yes for text and key numbers in light and dark; verify on device.
+- Sufficient contrast: yes for text and key numbers in light and dark (a test checks every text and status colour is at least 4.5:1); verify on device.
 - Differentiate without colour: yes, income and spending also carry plus and minus signs and words; alerts have icons and text.
 - Voice Control: not claimed until tested on a device.
-- Reduced motion: not claimed.
+- Reduced motion: the app has almost no motion; the one shake (wrong PIN) is skipped when Reduce Motion is on. Claim after a device check.
+
+## App review notes (both stores)
+
+No login or account: everything works offline on the device. Pro is a one-time, non-consumable in-app purchase (product com.shefoo.moneyplanner.pro), not a subscription. Open it from any "Unlock Pro" button (for example Home → a chart's Unlock Pro, or Plan → Import statements); the Pro screen has the buy button and "Restore purchase". Pro unlocks charts and reports, statement import and more bank accounts; everything else is free. The app is a personal tracking tool: it does not lend money, move money, connect to banks or give financial advice.
 - Captions, audio descriptions: not applicable (no video or audio).
 
 ## Release notes

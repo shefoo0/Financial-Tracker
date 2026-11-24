@@ -130,7 +130,8 @@ describe('Accounts screen', () => {
     await fireEvent.changeText(screen.getByTestId('account-name'), 'ADCB');
     await fireEvent.press(screen.getByTestId('account-save'));
     expect(router.push).toHaveBeenCalledWith('/pro');
-    await fireEvent.press(screen.getByTestId('account-cancel'));
+    // The form closes so it does not cover the Pro screen.
+    expect(screen.queryByTestId('account-save')).toBeNull();
     expect(screen.queryByTestId('accounts-default')).toBeNull();
     await fireEvent.press(screen.getByTestId('accounts-default-locked'));
     expect(router.push).toHaveBeenCalledTimes(2);

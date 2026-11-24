@@ -89,7 +89,11 @@ export default function Accounts() {
         router.push(`/debts/new?type=${kind}`);
         return;
       }
-      if (adding && !canAddAccount(isPro)) return accountsPro();
+      if (adding && !canAddAccount(isPro)) {
+        // Close the form first: it is a pop-up and would cover the Pro screen.
+        setEditing(null);
+        return accountsPro();
+      }
       if (problem) return setFormError(problem);
       if (editingMain) {
         if (await setSetting({ mainAccountName: name.trim() })) setEditing(null);
